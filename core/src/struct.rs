@@ -1,4 +1,21 @@
-use serde_json::Value;
+use std::collections::HashMap;
+
+// use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub struct Number {
+    n: String,
+}
+
+#[derive(Clone, Eq, PartialEq, Debug)]
+pub enum Value {
+    Null,
+    Bool(bool),
+    Number(Number),
+    String(String),
+    Array(Vec<Value>),
+    Object(HashMap<String, Value>),
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Step {

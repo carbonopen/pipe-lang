@@ -1,0 +1,53 @@
+// The top-level scope of an HCL file
+hcl = { SOI ~ (nested_object | assignment )* ~ EOI }
+
+// Key-value pairs, possibly nested, AKA "object items"
+nested_object = { keys ~ object }
+assignment = { key ~ "=" ~ value ~ ","? }
+
+// Object keys
+keys = { key{2,} }
+key = { ident | string }
+
+// Identifiers
+ident = @{ ident_first_char ~ ident_char* }
+ident_char = _{ letter | digit | "-" | "." }
+ident_first_char = _{ letter | "_" }
+letter = _{ 'a'..'z' | 'A'..'Z' }
+
+// Values
+value = { list | object | string | number | boolean }
+
+// Lists
+list = { "[" ~ list_item* ~ last_list_item? ~ "]" }
+list_item = _{ value ~ "," }
+last_list_item = _{ value ~ ","? }
+
+// Object literals
+object = { "{" ~ (nested_object | assignment)* ~ "}" }
+
+// Strings
+string = @{ "\"" ~ string_content ~ "\"" }
+string_content = @{ (!"\"" ~ ANY)* }
+
+// Numbers
+number = { float | int }
+float = ${ "-"? ~ digit+ ~ "." ~ digit? ~ exp? | digit+ ~ exp }
+int = { "-"? ~ digit+ }
+exp = ${ ^"e" ~ ("+" | "-")? ~ digit }
+digit = _{ '0'..'9' }
+
+// Booleans
+boolean = { true_lit | false_lit }
+true_lit = { "true" }
+false_lit = { "false" }
+
+// Comments
+comment = _{ inline_comment | block_comment }
+inline_comment = _{ ("#" | "//") ~ (!eo_inline_comment ~ ANY)* }
+block_comment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+eo_inline_comment = _{ newline | EOI }
+
+// Whitespace
+whitespace = _{ " " | "\t" | newline }
+newline = _{ "\r\n" | "\n" }

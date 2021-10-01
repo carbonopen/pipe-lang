@@ -1,1 +1,0 @@
-co2 = { ASCII_ALPHANUMERIC | "." | "_" | "/" }

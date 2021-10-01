@@ -1,2 +1,2 @@
 [workspace]
-members = ["co2-core"]
+members = ["core"]

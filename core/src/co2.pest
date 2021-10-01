@@ -1,0 +1,49 @@
+co2 = _{ SOI ~ block* ~ EOI }
+WHITESPACE = _{ " " | "\t" | "\r" | "\r\n" | "\n"  }
+COMMENT = _{ (comment_block | comment_line | comment_line2) }
+
+comment_block = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+comment_line = _{ "//" ~ (!"//" ~ ANY)*  }
+comment_line2 = _{ "#" ~ (!"#" ~ ANY)*  }
+// Structure
+block = { module ~ attributes }
+module = { identity ~ name? }
+attributes = { "{" ~ (block | param)* ~ "}" }
+param = { identity ~ "=" ~ param_value }
+param_value = _{ object | array | string | number | boolean | null | expression  }
+
+//Expression
+expression = { "${" ~ expression_content  ~ "}" }
+expression_content = @{ (!"}" ~ ANY)* }
+
+// Ident
+identity = @{ identity_first_char ~ identity_char* }
+identity_char = _{ letter | digit | "-" | "." | "_" }
+identity_first_char = _{ letter | "_" }
+letter = _{ 'a'..'z' | 'A'..'Z' }
+digit = _{ '0'..'9' }
+name = _{ string }
+
+//JSON
+pair = { string ~ ":" ~ json_value }
+json_value = _{ object | array | string | number | boolean | null   }
+
+// Var types
+string = @{ "\"" ~ string_content ~ "\"" }
+string_content = @{ (!"\"" ~ ANY)* }
+boolean = { "true" | "false" }
+null = { "null" }
+number = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+array = {
+    "[" ~ "]" |
+    "[" ~ json_value ~ ("," ~ json_value)* ~ "]"
+}
+object = {
+    "{" ~ "}" |
+    "{" ~ pair ~ ("," ~ pair)* ~ "}"
+}
