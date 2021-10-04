@@ -40,7 +40,7 @@ pub struct Module {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Co2 {
+pub struct Pipe {
     pub version: Option<String>,
     pub modules: Option<Vec<Module>>,
     pub pipeline: Vec<Step>,

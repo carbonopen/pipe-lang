@@ -1,53 +1,49 @@
-// The top-level scope of an HCL file
-hcl = { SOI ~ (nested_object | assignment )* ~ EOI }
+co2 = _{ SOI ~ block* ~ EOI }
+WHITESPACE = _{ " " | "\t" | "\r" | "\r\n" | "\n"  }
+COMMENT = _{ (comment_block | comment_line | comment_line2) }
 
-// Key-value pairs, possibly nested, AKA "object items"
-nested_object = { keys ~ object }
-assignment = { key ~ "=" ~ value ~ ","? }
+comment_block = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+comment_line = _{ "//" ~ (!"//" ~ ANY)*  }
+comment_line2 = _{ "#" ~ (!"#" ~ ANY)*  }
+// Module
+block = { module ~ attributes }
+module = { identity ~ name? }
+attributes = { "{" ~ (block | param)* ~ "}" }
+param = { identity ~ "=" ~ param_value }
+param_value = _{ object | array | string | number | boolean | null | interpolation  }
 
-// Object keys
-keys = { key{2,} }
-key = { ident | string }
+//interpolation
+interpolation = { "${" ~ interpolation_content  ~ "}" }
+interpolation_content = @{ (!"}" ~ ANY)* }
 
-// Identifiers
-ident = @{ ident_first_char ~ ident_char* }
-ident_char = _{ letter | digit | "-" | "." }
-ident_first_char = _{ letter | "_" }
+// Ident
+identity = @{ identity_first_char ~ identity_char* }
+identity_char = _{ letter | digit | "-" | "." | "_" }
+identity_first_char = _{ letter | "_" }
 letter = _{ 'a'..'z' | 'A'..'Z' }
+digit = _{ '0'..'9' }
+name = _{ string }
 
-// Values
-value = { list | object | string | number | boolean }
+//JSON
+pair = { string ~ ":" ~ json_value }
+json_value = _{ object | array | string | number | boolean | null   }
 
-// Lists
-list = { "[" ~ list_item* ~ last_list_item? ~ "]" }
-list_item = _{ value ~ "," }
-last_list_item = _{ value ~ ","? }
-
-// Object literals
-object = { "{" ~ (nested_object | assignment)* ~ "}" }
-
-// Strings
+// Var types
 string = @{ "\"" ~ string_content ~ "\"" }
 string_content = @{ (!"\"" ~ ANY)* }
-
-// Numbers
-number = { float | int }
-float = ${ "-"? ~ digit+ ~ "." ~ digit? ~ exp? | digit+ ~ exp }
-int = { "-"? ~ digit+ }
-exp = ${ ^"e" ~ ("+" | "-")? ~ digit }
-digit = _{ '0'..'9' }
-
-// Booleans
-boolean = { true_lit | false_lit }
-true_lit = { "true" }
-false_lit = { "false" }
-
-// Comments
-comment = _{ inline_comment | block_comment }
-inline_comment = _{ ("#" | "//") ~ (!eo_inline_comment ~ ANY)* }
-block_comment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
-eo_inline_comment = _{ newline | EOI }
-
-// Whitespace
-whitespace = _{ " " | "\t" | newline }
-newline = _{ "\r\n" | "\n" }
+boolean = { "true" | "false" }
+null = { "null" }
+number = @{
+    "-"?
+    ~ ("0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT*)
+    ~ ("." ~ ASCII_DIGIT*)?
+    ~ (^"e" ~ ("+" | "-")? ~ ASCII_DIGIT+)?
+}
+array = {
+    "[" ~ "]" |
+    "[" ~ json_value ~ ("," ~ json_value)* ~ "]"
+}
+object = {
+    "{" ~ "}" |
+    "{" ~ pair ~ ("," ~ pair)* ~ "}"
+}

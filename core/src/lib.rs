@@ -8,15 +8,14 @@ use pest::Parser;
 use pest::{error::Error, iterators::Pair};
 use std::fs;
 
-use crate::value::Value;
 #[derive(Parser)]
-#[grammar = "co2.pest"]
-pub struct Co2Parser;
+#[grammar = "pipe.pest"]
+pub struct PipeParser;
 
-fn co2() {
-    let unparsed_file = fs::read_to_string("../demo/example.co2").expect("cannot read file");
+fn pipe() {
+    let unparsed_file = fs::read_to_string("../demo/example.pipe").expect("cannot read file");
 
-    let json = Co2Parser::parse(Rule::co2, &unparsed_file)
+    let json = PipeParser::parse(Rule::pipe, &unparsed_file)
         .unwrap()
         .next()
         .unwrap();
@@ -63,6 +62,6 @@ mod tests {
     use super::*;
     #[test]
     fn test() {
-        co2();
+        pipe();
     }
 }

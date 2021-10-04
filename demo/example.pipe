@@ -1,0 +1,31 @@
+import {
+    test=123.3
+    macro "item" (
+        info=true
+    )
+}
+
+vars {
+    test=true
+}
+
+config {
+    item="ok"
+}
+
+pipeline {
+    http {
+        param=true
+        attach handler {
+            runtime=${ body.runtime }
+            script=""
+        }
+    }
+
+    switch option {
+        number=123
+        book "rust" (
+            age=2012
+        )
+    }
+}
