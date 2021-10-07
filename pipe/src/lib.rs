@@ -44,7 +44,7 @@ fn pipe() {
 //         ),
 //         Rule::array => Value::Array(pair.into_inner().map(parse_value).collect()),
 //         Rule::string => Value::String(pair.into_inner().next().unwrap().as_str()),
-//         Rule::number => Value::Number(pair.as_str().parse().unwrap()),
+//         Rule::number => Value::Number(pair.as_str().parse().ss  ()),
 //         Rule::boolean => Value::Boolean(pair.as_str().parse().unwrap()),
 //         Rule::null => Value::Null,
 //         Rule::co2
@@ -60,8 +60,10 @@ fn pipe() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn test() {
         pipe();
+        assert!(true);
     }
 }

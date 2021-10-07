@@ -28,4 +28,16 @@ pipeline {
             age=2012
         )
     }
+
+    http {
+        param=true
+        attach handler
+        param=1
+        param=3.13
+        param="text"
+        param=true
+        param=false
+        param=${ func.exec }
+    }
+
 }
