@@ -16,24 +16,39 @@ pub struct PipeParser;
 fn make() {
     let unparsed_file = fs::read_to_string("../demo/example.pipe").expect("cannot read file");
 
-    let pairs = PipeParser::parse(Rule::pipe, &unparsed_file).unwrap();
+    let mut pair = PipeParser::parse(Rule::pipe, &unparsed_file)
+        .unwrap()
+        .next()
+        .unwrap();
 
-    let json = parse_pipe(pairs);
+    let json = parse_pipe::<Pipe>(pair);
 
-    println!("{:#?}", &json);
+    // println!("{:#?}", json);
 }
 
-fn parse_pipe(pairs: Pairs<Rule>) -> Pipe {
-    let mut result = Pipe::default();
+fn parse_pipe<T>(pair: Pair<Rule>) -> T
+where
+    T: Default,
+{
+    match pair.as_rule() {
+        Rule::sessions => {
+            // let mut items = Vec::new();
+            // println!("Digit:   {}", pair.clone().into_inner());
 
-    for pair in pairs {
-        match pair.as_rule() {
-            Rule::sessions => println!("Digit:   {}", pair.as_str()),
-            _ => unreachable!(),
-        };
+            let item = pair
+                .into_inner()
+                .map(|pair| {
+                    println!("Digit:   {}", pair.clone().into_inner());
+                    
+                })
+                .collect::<Vec<_>>();
+
+            println!("Digit: {:?}", item);
+
+            T::default()
+        }
+        _ => unreachable!(),
     }
-
-    result
 }
 
 #[cfg(test)]

@@ -24,12 +24,12 @@ pub enum Value {
 
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct Pipe {
-    pub pipeline: Vec<Pipeline>,
+    pub pipeline: Vec<Module>,
+    pub config: Config,
+    pub vars: Vars,
+    pub import: Import,
 }
-#[derive(Debug, PartialEq, Clone, Default)]
-pub struct Pipeline {
-    pub modules: Vec<Module>,
-}
+
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct Module {
     pub module: String,
@@ -37,3 +37,8 @@ pub struct Module {
     pub params: HashMap<String, Value>,
     pub attach: String,
 }
+
+type Config = HashMap<String, Value>;
+type Vars = HashMap<String, Value>;
+type Import = HashMap<String, Value>;
+type Pipeline = Vec<Module>;
