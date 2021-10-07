@@ -6,7 +6,7 @@ comment_block = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 comment_line = _{ "//" ~ (!"//" ~ ANY)*  }
 
 // Session
-sessions = { (session_config | session_import | session_vars | session_pipeline) }
+sessions = { (session_config |  session_import | session_vars | session_pipeline)+ }
 
 session_import = { identity ~ session_import_content }
 session_config = { identity ~ session_config_content }
