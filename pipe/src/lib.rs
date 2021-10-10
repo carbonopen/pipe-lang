@@ -114,6 +114,18 @@ fn parse(pair: Pair<Rule>) -> Value {
 
             Value::Object(map)
         }
+        Rule::object => {
+            let mut map = HashMap::new();
+            for pair in pair.into_inner() {
+                let mut inner = pair.into_inner();
+                let key = inner.next().unwrap().as_str().to_string();
+                let value = parse(inner.next().unwrap());
+
+                map.insert(key, value);
+            }
+
+            Value::Object(map)
+        }
         Rule::number => Value::Number(pair.as_str().to_string()),
         Rule::boolean => {
             let value = if pair.as_str().eq("true") {
@@ -129,7 +141,7 @@ fn parse(pair: Pair<Rule>) -> Value {
         _ => {
             println!("Exception {:?}", pair.as_rule());
             println!("Exception Content {:?}", pair.as_span());
-            Value::Null
+            Value::Undefined
         }
     }
 }
