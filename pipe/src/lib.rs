@@ -12,7 +12,7 @@ use value::Value;
 #[grammar = "pipe.pest"]
 pub struct PipeParser;
 
-fn make() {
+fn pipe() {
     let unparsed_file = fs::read_to_string("../demo/example.pipe").expect("cannot read file");
 
     let mut pair = PipeParser::parse(Rule::pipe, &unparsed_file)
@@ -85,19 +85,34 @@ fn parse(pair: Pair<Rule>) -> Value {
             parse(pair.into_inner().next().unwrap())
         }
         Rule::common_content => {
-            let mut item = HashMap::new();
+            let mut map = HashMap::new();
 
             for pair in pair.into_inner() {
-                let value = match pair.as_rule() {
-                    Rule::param => make_param(pair),
-                    Rule::param_macro => make_param_macro(pair),
-                    _ => ("".to_string(), Value::Null),
-                };
+                match pair.as_rule() {
+                    Rule::param => {
+                        let value = make_param(pair);
+                        map.insert(value.0, value.1);
+                    }
+                    Rule::param_macro => {
+                        let (name, value) = make_param_macro(pair);
 
-                item.insert(value.0, value.1);
+                        match map.get(&name) {
+                            Some(cur_value) => {
+                                let value = cur_value.array_push(value).unwrap();
+                                map.insert(name, value);
+                            }
+                            None => {
+                                map.insert(name, Value::Array(vec![value]));
+                            }
+                        }
+                    }
+                    _ => {
+                        map.insert("".to_string(), Value::Undefined);
+                    }
+                };
             }
 
-            Value::Object(item)
+            Value::Object(map)
         }
         Rule::number => Value::Number(pair.as_str().to_string()),
         Rule::boolean => {
@@ -125,7 +140,7 @@ mod tests {
 
     #[test]
     fn test() {
-        make();
+        pipe();
         assert!(true);
     }
 }

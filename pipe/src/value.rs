@@ -25,6 +25,7 @@ pub enum Value {
     Interpolation(String),
     Boolean(bool),
     Null,
+    Undefined,
 }
 
 impl Value {
@@ -40,6 +41,25 @@ impl Value {
             Self::Object(value) => Ok(value.clone()),
             _ => Err(()),
         }
+    }
+
+    pub fn to_array(&self) -> Result<Vec<Value>, ()> {
+        match self {
+            Self::Array(value) => Ok(value.clone()),
+            _ => Err(()),
+        }
+    }
+
+    pub fn array_push(&self, target: Value) -> Result<Self, ()> {
+        let mut arr = match self.to_array() {
+            Ok(mut map) => {
+                map.push(target);
+                map
+            }
+            Err(_) => return Err(()),
+        };
+
+        Ok(Self::Array(arr))
     }
 
     pub fn merge_object(&self, target: HashMap<String, Value>) -> Result<Self, ()> {
@@ -72,6 +92,7 @@ pub fn serialize_json(val: &Value) -> String {
         Value::Number(n) => format!("{}", n),
         Value::Boolean(b) => format!("{}", b),
         Value::Null => format!("null"),
+        Value::Undefined => format!("undefined"),
         Value::Interpolation(i) => format!("{}", i),
     }
 }

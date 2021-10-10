@@ -6,12 +6,19 @@ import {
         body={
             "live": true
         }
+        headers true (
+            user_agent = "mobile"
+        )
+    )
+
+    path "/user" (
+        status_code=200
     )
 }
 
 import {
     test=123.3
-    endpoint "/users" (
+    endpoint "/profile" (
         info=true
         test="hello"
     )
