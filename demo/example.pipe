@@ -1,13 +1,17 @@
 import {
     test=123.3
-    macro_name "item" (
-        info=123
+    other=456
+    path "/health" (
+        status_code=200
+        body={
+            "live": true
+        }
     )
 }
 
 import {
     test=123.3
-    macro "return" (
+    endpoint "/users" (
         info=true
         test="hello"
     )

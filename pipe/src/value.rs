@@ -35,11 +35,23 @@ impl Value {
         Self::String(chars.as_str().to_string())
     }
 
-    pub fn to_object(self) -> Result<HashMap<String, Value>, ()> {
+    pub fn to_object(&self) -> Result<HashMap<String, Value>, ()> {
         match self {
-            Self::Object(value) => Ok(value),
+            Self::Object(value) => Ok(value.clone()),
             _ => Err(()),
         }
+    }
+
+    pub fn merge_object(&self, target: HashMap<String, Value>) -> Result<Self, ()> {
+        let mut obj = match self.to_object() {
+            Ok(mut map) => {
+                map.extend(target.clone());
+                map
+            }
+            Err(_) => return Err(()),
+        };
+
+        Ok(Self::Object(obj.clone()))
     }
 }
 

@@ -42,10 +42,8 @@ fn make_param_macro(pair: Pair<Rule>) -> (String, Value) {
     map.insert(key.clone(), value);
 
     let params = parse(inner.next().unwrap());
-    let mut obj = params.to_object().unwrap();
-    obj.extend(map);
 
-    (key, Value::Object(obj))
+    (key, params.merge_object(map).unwrap())
 }
 
 fn parse(pair: Pair<Rule>) -> Value {
@@ -60,12 +58,11 @@ fn parse(pair: Pair<Rule>) -> Value {
                         let name = inner.next().unwrap().as_str().to_string();
                         let value = parse(inner.next().unwrap());
 
-                        match item.get_mut(&name) {
+                        match item.get(&name) {
                             Some(cur_value) => {
-                                // let mut map = HashMap::new();
-                                // map.insert(name, value);
-                                // let cur = cur_value;
-                                // cur.merge_object(map);
+                                let value =
+                                    cur_value.merge_object(value.to_object().unwrap()).unwrap();
+                                item.insert(name, value);
                             }
                             None => {
                                 item.insert(name, value);
