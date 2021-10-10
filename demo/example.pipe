@@ -1,6 +1,6 @@
 import {
     test=123.3
-    macro_name "item" "ok" (
+    macro_name "item" (
         info=123
     )
 }
@@ -9,6 +9,7 @@ import {
     test=123.3
     macro "return" (
         info=true
+        test="hello"
     )
 }
 

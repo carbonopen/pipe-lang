@@ -36,25 +36,22 @@ fn make_param(pair: Pair<Rule>) -> (String, Value) {
 
 fn make_param_macro(pair: Pair<Rule>) -> (String, Value) {
     let mut inner = pair.into_inner();
+    let mut map = HashMap::new();
     let key = inner.next().unwrap().as_str().to_string();
-    // println!("make_param_macro {:?}", inner.next().unwrap().as_span());
-    let next = inner.next().unwrap();
-    match next.as_rule() {
-        Rule::string => {
-            println!("make_param_macro {:?}", next.as_span());
-        }
-        _ => {}
-    }
-
     let value = parse(inner.next().unwrap());
+    map.insert(key.clone(), value);
 
-    (key, value)
+    let params = parse(inner.next().unwrap());
+    let mut obj = params.to_object().unwrap();
+    obj.extend(map);
+
+    (key, Value::Object(obj))
 }
 
 fn parse(pair: Pair<Rule>) -> Value {
     match pair.as_rule() {
         Rule::sessions => {
-            let mut item = HashMap::new();
+            let mut item: HashMap<String, Value> = HashMap::new();
 
             for pair in pair.into_inner() {
                 match pair.as_rule() {
@@ -63,7 +60,17 @@ fn parse(pair: Pair<Rule>) -> Value {
                         let name = inner.next().unwrap().as_str().to_string();
                         let value = parse(inner.next().unwrap());
 
-                        item.insert(name, value);
+                        match item.get_mut(&name) {
+                            Some(cur_value) => {
+                                // let mut map = HashMap::new();
+                                // map.insert(name, value);
+                                // let cur = cur_value;
+                                // cur.merge_object(map);
+                            }
+                            None => {
+                                item.insert(name, value);
+                            }
+                        };
                     }
                     Rule::session_pipeline => {}
                     _ => {}
@@ -73,6 +80,10 @@ fn parse(pair: Pair<Rule>) -> Value {
             Value::Object(item)
         }
         Rule::session_generic_config_content => {
+            // common_content
+            parse(pair.into_inner().next().unwrap())
+        }
+        Rule::param_macro_content => {
             // common_content
             parse(pair.into_inner().next().unwrap())
         }
@@ -101,7 +112,7 @@ fn parse(pair: Pair<Rule>) -> Value {
 
             Value::Boolean(value)
         }
-        Rule::string => Value::String(pair.as_str().to_string()),
+        Rule::string => Value::set_string_from_string(pair.as_str()),
         Rule::ident => Value::String(pair.as_str().to_string()),
         _ => {
             println!("Exception {:?}", pair.as_rule());
