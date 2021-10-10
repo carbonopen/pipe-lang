@@ -1,16 +1,32 @@
+use std::collections::HashMap;
+
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
-    n: String,
+    value: String,
+}
+
+pub struct Interpolation {
+    value: String,
 }
 
 #[derive(Clone, PartialEq, Debug)]
-pub enum Value<'a> {
-    Object(Vec<(&'a str, Value<'a>)>),
-    Array(Vec<Value<'a>>),
-    String(&'a str),
-    Number(f64),
+pub enum Value {
+    Object(HashMap<String, Value>),
+    Array(Vec<Value>),
+    String(String),
+    Number(String),
+    Interpolation(String),
     Boolean(bool),
     Null,
+}
+
+impl Value {
+    pub fn to_object(self) -> Result<HashMap<String, Value>, ()> {
+        match self {
+            Value::Object(v) => Ok(v),
+            _ => Err(()),
+        }
+    }
 }
 
 pub fn serialize_json(val: &Value) -> String {
@@ -30,5 +46,6 @@ pub fn serialize_json(val: &Value) -> String {
         Value::Number(n) => format!("{}", n),
         Value::Boolean(b) => format!("{}", b),
         Value::Null => format!("null"),
+        Value::Interpolation(i) => format!("{}", i),
     }
 }

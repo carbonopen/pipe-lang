@@ -6,29 +6,26 @@ comment_block = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 comment_line = _{ "//" ~ (!"//" ~ ANY)*  }
 
 // Session
-sessions = { (session_config |  session_import | session_vars | session_pipeline)+ }
+sessions = { (session_generic_config | session_pipeline)+ }
 
-session_import = { ident ~ session_import_content }
-session_config = { ident ~ session_config_content }
-session_vars = { ident ~ session_vars_content }
+session_generic_config = { ident ~ session_generic_config_content }
 session_pipeline = { ident ~ session_pipeline_content }
 
-
-session_import_content = { "{" ~ (param | param_macro)* ~ "}" }
-session_config_content = { "{" ~ (param | param_macro)* ~ "}" }
-session_vars_content = { "{" ~ (param | param_macro)* ~ "}" }
+session_generic_config_content = { "{" ~ (common_content)* ~ "}" }
 session_pipeline_content = { "{" ~ (module)* ~ "}" }
 
 //Modules
 module = { ident ~ ident? ~ module_content }
-module_content = { "{" ~ (param | param_macro | attach)* ~ "}" }
+module_content = { "{" ~ (common_content | attach)* ~ "}" }
 
 //Attatch
 attach= { "attach" ~ (module | ident) }
 
 //Macro
 param_macro = { ident ~ (value)*? ~ param_macro_content }
-param_macro_content = { "(" ~ (param)* ~ ")" }
+param_macro_content = { "(" ~ common_content* ~ ")" }
+
+common_content = { (param | param_macro)+  }
 
 // Param
 param = { ident ~ "=" ~ value }
