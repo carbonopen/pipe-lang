@@ -13,6 +13,17 @@ use value::Value;
 #[grammar = "pipe.pest"]
 pub struct PipeParser;
 
+macro_rules! map {
+    () => {
+        HashMap::new();
+    };
+    ($key:expr, $value:expr) => {{
+        let mut map = map!();
+        map.insert($key, $value);
+        map
+    }};
+}
+
 fn pipe() {
     let unparsed_file = fs::read_to_string("../demo/example.pipe").expect("cannot read file");
 
@@ -106,7 +117,7 @@ fn parse(pair: Pair<Rule>) -> Value {
             let params = parse(inner.next().unwrap());
 
             map.insert("module".to_string(), module_name);
-            map.insert("params".to_string(), params);
+            map.extend(params.to_object().unwrap());
 
             Value::Object(map)
         }
@@ -114,18 +125,38 @@ fn parse(pair: Pair<Rule>) -> Value {
             let mut map = HashMap::new();
 
             for pair in pair.into_inner() {
-                println!("content {:?}", pair.as_rule());
-                let content = parse(pair);
+                let rule = pair.as_rule();
+                let value = parse(pair);
 
-                map.extend(content.to_object().unwrap());
+                match rule {
+                    Rule::attach => {
+                        let value = map!("attach".to_string(), value);
+                        map.extend(value);
+                    }
+                    _ => {
+                        let value = match map.get("params") {
+                            Some(cur_value) => {
+                                cur_value.merge_object(value.to_object().unwrap()).unwrap();
+
+                                map!("params".to_string(), cur_value.clone())
+                            }
+                            None => {
+                                map!("params".to_string(), value)
+                            }
+                        };
+
+                        map.extend(value);
+                    }
+                };
             }
 
             Value::Object(map)
         }
         Rule::attach => {
-            println!("attach {:?}", pair);
+            let mut inner = pair.into_inner();
+            let value = parse(inner.next().unwrap());
 
-            Value::Object(HashMap::default())
+            value
         }
         Rule::param_macro_content => {
             // common_content
