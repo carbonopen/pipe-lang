@@ -6,9 +6,11 @@ mod value;
 use pest::iterators::Pair;
 use pest::Parser;
 use std::collections::HashMap;
-use std::fs;
 use std::hash::Hash;
+use std::{fs, vec};
 use value::Value;
+
+use crate::value::Placeholders;
 #[derive(Parser)]
 #[grammar = "pipe.pest"]
 pub struct PipeParser;
@@ -86,7 +88,6 @@ fn parse(pair: Pair<Rule>) -> Value {
                         let name = inner.next().unwrap().as_str().to_string();
 
                         let value = parse(inner.next().unwrap());
-                        println!("value {:?}", value);
 
                         match item.get(&name) {
                             Some(cur_value) => {
@@ -95,7 +96,7 @@ fn parse(pair: Pair<Rule>) -> Value {
                                 item.insert(name, Value::Array(new_value));
                             }
                             None => {
-                                item.insert(name, Value::Array(vec![value]));
+                                item.insert(name, value);
                             }
                         };
                     }
@@ -109,7 +110,15 @@ fn parse(pair: Pair<Rule>) -> Value {
             // common_content
             parse(pair.into_inner().next().unwrap())
         }
-        Rule::session_pipeline_content => parse(pair.into_inner().next().unwrap()),
+        Rule::session_pipeline_content => {
+            let mut list = Vec::new();
+
+            for pair in pair.into_inner() {
+                list.push(parse(pair));
+            }
+
+            Value::Array(list)
+        }
         Rule::module => {
             let mut inner = pair.into_inner();
             let module_name = Value::String(inner.next().unwrap().as_str().to_string());
@@ -216,6 +225,17 @@ fn parse(pair: Pair<Rule>) -> Value {
         }
         Rule::string => Value::set_string_from_string(pair.as_str()),
         Rule::ident => Value::String(pair.as_str().to_string()),
+        Rule::string_interpolation => {
+            let mut inner = pair.as_str();
+            println!("inner {:?}", inner);
+            Value::Undefined
+        }
+        Rule::interpolation => {
+            let mut inner = pair.into_inner();
+            let value = inner.next().unwrap().as_str().trim().to_string();
+
+            Value::Interpolation(Placeholders::new("".to_string(), vec![value]))
+        }
         _ => {
             println!("Exception {:?}", pair.as_rule());
             println!("Exception Content {:?}", pair.as_span());

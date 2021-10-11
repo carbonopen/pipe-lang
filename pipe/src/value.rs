@@ -15,6 +15,30 @@ pub struct Interpolation {
 pub struct Object {
     pub value: HashMap<String, Value>,
 }
+#[derive(Clone, PartialEq, Debug)]
+pub struct Placeholders {
+    pub raw: String,
+    pub model: String,
+    pub handlers: HashMap<String, String>,
+}
+
+impl Placeholders {
+    pub fn new(raw: String, targets: Vec<String>) -> Self {
+        let mut model = raw.clone();
+        let handlers = HashMap::new();
+        let mut index = 0;
+
+        // for handler in targets {
+        //     model.replace(handler, "#!")
+        // }
+
+        Self {
+            raw,
+            model,
+            handlers,
+        }
+    }
+}
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Value {
@@ -22,7 +46,7 @@ pub enum Value {
     Array(Vec<Value>),
     String(String),
     Number(String),
-    Interpolation(String),
+    Interpolation(Placeholders),
     Boolean(bool),
     Null,
     Undefined,
@@ -75,24 +99,24 @@ impl Value {
     }
 }
 
-pub fn serialize_json(val: &Value) -> String {
-    match val {
-        Value::Object(o) => {
-            let contents: Vec<_> = o
-                .iter()
-                .map(|(name, value)| format!("\"{}\":{}", name, serialize_json(value)))
-                .collect();
-            format!("{{{}}}", contents.join(","))
-        }
-        Value::Array(a) => {
-            let contents: Vec<_> = a.iter().map(serialize_json).collect();
-            format!("[{}]", contents.join(","))
-        }
-        Value::String(s) => format!("\"{}\"", s),
-        Value::Number(n) => format!("{}", n),
-        Value::Boolean(b) => format!("{}", b),
-        Value::Null => format!("null"),
-        Value::Undefined => format!("undefined"),
-        Value::Interpolation(i) => format!("{}", i),
-    }
-}
+// pub fn serialize_json(val: &Value) -> String {
+//     match val {
+//         Value::Object(o) => {
+//             let contents: Vec<_> = o
+//                 .iter()
+//                 .map(|(name, value)| format!("\"{}\":{}", name, serialize_json(value)))
+//                 .collect();
+//             format!("{{{}}}", contents.join(","))
+//         }
+//         Value::Array(a) => {
+//             let contents: Vec<_> = a.iter().map(serialize_json).collect();
+//             format!("[{}]", contents.join(","))
+//         }
+//         Value::String(s) => format!("\"{}\"", s),
+//         Value::Number(n) => format!("{}", n),
+//         Value::Boolean(b) => format!("{}", b),
+//         Value::Null => format!("null"),
+//         Value::Undefined => format!("undefined"),
+//         Value::Interpolation(i) => format!("{}", i),
+//     }
+// }

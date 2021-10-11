@@ -8,7 +8,7 @@ pipeline {
         param=true
         int=1
         attach handler {
-            runtime=${ body.runtime }
+            runtime=`its my: ${ body.runtime }`
             script=""
         }
     }
