@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -15,28 +16,63 @@ pub struct Interpolation {
 pub struct Object {
     pub value: HashMap<String, Value>,
 }
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Placeholder {
+    pub start: i32,
+    pub end: i32,
+    pub handler: String,
+}
 #[derive(Clone, PartialEq, Debug)]
 pub struct Placeholders {
     pub raw: String,
-    pub model: String,
-    pub handlers: HashMap<String, String>,
+    pub handlers: Vec<Placeholder>,
 }
 
 impl Placeholders {
-    pub fn new(raw: String, targets: Vec<String>) -> Self {
-        let mut model = raw.clone();
-        let handlers = HashMap::new();
-        let mut index = 0;
-
-        // for handler in targets {
-        //     model.replace(handler, "#!")
-        // }
-
+    pub fn from_interpolation(raw: String, handler: String) -> Self {
         Self {
             raw,
-            model,
-            handlers,
+            handlers: vec![Placeholder {
+                start: 0,
+                end: handler.len() as i32,
+                handler,
+            }],
         }
+    }
+
+    pub fn from_string(raw: String) -> Self {
+        Self {
+            raw: raw.clone(),
+            handlers: Placeholders::extract(raw),
+        }
+    }
+
+    fn extract(raw: String) -> Vec<Placeholder> {
+        let re = Regex::new(r"\$\{(?P<handler>.*?)\}").unwrap();
+
+        let mut cap_handler = "".to_string();
+
+        for handler in re.captures_iter(&raw) {
+            println!("handler: {:?}", handler);
+            cap_handler = handler["handler"].to_string();
+        }
+
+        if let Some(caps) = re.captures(&raw) {
+            for handler in caps.iter() {
+                if let Some(mat) = handler {
+                    println!("raw: {:?} | cap: {:?}", raw, mat);
+                }
+            }
+        }
+
+        println!("");
+
+        vec![Placeholder {
+            start: 0,
+            end: 0,
+            handler: "".to_string(),
+        }]
     }
 }
 
@@ -53,13 +89,6 @@ pub enum Value {
 }
 
 impl Value {
-    pub(crate) fn set_string_from_string(value: &str) -> Self {
-        let mut chars = value.chars();
-        chars.next();
-        chars.next_back();
-        Self::String(chars.as_str().to_string())
-    }
-
     pub fn to_object(&self) -> Result<HashMap<String, Value>, ()> {
         match self {
             Self::Object(value) => Ok(value.clone()),

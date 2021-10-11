@@ -223,18 +223,26 @@ fn parse(pair: Pair<Rule>) -> Value {
 
             Value::Boolean(value)
         }
-        Rule::string => Value::set_string_from_string(pair.as_str()),
+        Rule::string => {
+            let mut inner = pair.clone().into_inner();
+            parse(inner.next().unwrap())
+        }
+        Rule::string_content => Value::String(pair.as_str().to_string()),
         Rule::ident => Value::String(pair.as_str().to_string()),
         Rule::string_interpolation => {
-            let mut inner = pair.as_str();
-            println!("inner {:?}", inner);
-            Value::Undefined
+            let mut inner = pair.clone().into_inner();
+            parse(inner.next().unwrap())
+        }
+        Rule::string_interpolation_content => {
+            let raw = pair.as_str().to_string();
+            Value::Interpolation(Placeholders::from_string(raw))
         }
         Rule::interpolation => {
+            let raw = pair.as_str().to_string();
             let mut inner = pair.into_inner();
             let value = inner.next().unwrap().as_str().trim().to_string();
 
-            Value::Interpolation(Placeholders::new("".to_string(), vec![value]))
+            Value::Interpolation(Placeholders::from_interpolation(raw, value))
         }
         _ => {
             println!("Exception {:?}", pair.as_rule());

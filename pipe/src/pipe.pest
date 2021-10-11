@@ -44,11 +44,11 @@ value = _{ object | array | string | number | boolean | null | interpolation | s
 //interpolation
 interpolation = { "${" ~ interpolation_content  ~ "}" }
 interpolation_content = @{ (!"}" ~ ANY)* }
-string_interpolation = @{ "`" ~ string_interpolation_content ~ "`" }
+string_interpolation = { "`" ~ string_interpolation_content ~ "`" }
 string_interpolation_content = @{ (!"`" ~ ANY)* }
 
 // Var types
-string = @{ "\"" ~ string_content ~ "\"" }
+string = { "\"" ~ string_content ~ "\"" }
 string_content = @{ (!"\"" ~ ANY)* }
 boolean = { "true" | "false" }
 null = { "null" }

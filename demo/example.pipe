@@ -4,22 +4,11 @@ vars {
 }
 
 pipeline {
-    http {
-        param=true
-        int=1
-        attach handler {
-            runtime=`its my: ${ body.runtime }`
-            script=""
-        }
-    }
 
-    mod {
-        boolean=true
-        int=1
-        float=3.13
-        string="text"
+    inter {
+        string_1=`its ${ item }`
+        string_2=`${ one } and ${ tow }`
         interpolation=${ func.exec }
         attach handler
     }
-
 }
