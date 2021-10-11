@@ -1,60 +1,25 @@
-import {
-    test=123.3
-    other=456
-    path "/health" (
-        status_code=200
-        body={
-            "live": true
-        }
-        headers true (
-            user_agent = "mobile"
-        )
-    )
-
-    path "/user" (
-        status_code=200
-    )
-}
-
-import {
-    test=123.3
-    endpoint "/profile" (
-        info=true
-        test="hello"
-    )
-}
 
 vars {
     test=true
 }
 
-config {
-    item="ok"
-}
-
 pipeline {
     http {
         param=true
+        int=1
         attach handler {
             runtime=${ body.runtime }
             script=""
         }
     }
 
-    switch option {
-        number=123
-        book "rust" (
-            age=2012
-        )
-    }
-
-    http {
+    mod {
         boolean=true
-        attach handler
         int=1
         float=3.13
         string="text"
         interpolation=${ func.exec }
+        attach handler
     }
 
 }

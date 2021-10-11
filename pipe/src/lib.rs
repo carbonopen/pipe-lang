@@ -7,6 +7,7 @@ use pest::iterators::Pair;
 use pest::Parser;
 use std::collections::HashMap;
 use std::fs;
+use std::hash::Hash;
 use value::Value;
 #[derive(Parser)]
 #[grammar = "pipe.pest"]
@@ -69,7 +70,25 @@ fn parse(pair: Pair<Rule>) -> Value {
                             }
                         };
                     }
-                    Rule::session_pipeline => {}
+                    Rule::session_pipeline => {
+                        let mut inner = pair.into_inner();
+                        let name = inner.next().unwrap().as_str().to_string();
+
+                        
+                        let value = parse(inner.next().unwrap());
+                        println!("value {:?}", value);
+
+                        match item.get(&name) {
+                            Some(cur_value) => {
+                                let mut new_value = cur_value.to_array().unwrap();
+                                new_value.extend(value.to_array().unwrap());
+                                item.insert(name, Value::Array(new_value));
+                            }
+                            None => {
+                                item.insert(name, Value::Array(vec![value]));
+                            }
+                        };
+                    }
                     _ => {}
                 }
             }
@@ -79,6 +98,35 @@ fn parse(pair: Pair<Rule>) -> Value {
         Rule::session_generic_config_content => {
             // common_content
             parse(pair.into_inner().next().unwrap())
+        }
+        Rule::session_pipeline_content => parse(pair.into_inner().next().unwrap()),
+        Rule::module => {
+            println!("module");
+            let mut inner = pair.into_inner();
+            let name = inner.next().unwrap().as_str().to_string();
+            let value = parse(inner.next().unwrap());
+
+            let mut map = HashMap::new();
+            map.insert(name, value);
+
+            Value::Object(map)
+        }
+        Rule::module_content => {
+            let mut map = HashMap::new();
+
+            for pair in pair.into_inner() {
+                println!("content {:?}", pair.as_rule());
+                let content = parse(pair);
+
+                map.extend(content.to_object().unwrap());
+            }
+
+            Value::Object(map)
+        }
+        Rule::attach => {
+            println!("attach {:?}", pair);
+
+            Value::Object(HashMap::default())
         }
         Rule::param_macro_content => {
             // common_content
