@@ -74,7 +74,6 @@ fn parse(pair: Pair<Rule>) -> Value {
                         let mut inner = pair.into_inner();
                         let name = inner.next().unwrap().as_str().to_string();
 
-                        
                         let value = parse(inner.next().unwrap());
                         println!("value {:?}", value);
 
@@ -101,13 +100,13 @@ fn parse(pair: Pair<Rule>) -> Value {
         }
         Rule::session_pipeline_content => parse(pair.into_inner().next().unwrap()),
         Rule::module => {
-            println!("module");
             let mut inner = pair.into_inner();
-            let name = inner.next().unwrap().as_str().to_string();
-            let value = parse(inner.next().unwrap());
-
+            let module_name = Value::String(inner.next().unwrap().as_str().to_string());
             let mut map = HashMap::new();
-            map.insert(name, value);
+            let params = parse(inner.next().unwrap());
+
+            map.insert("module".to_string(), module_name);
+            map.insert("params".to_string(), params);
 
             Value::Object(map)
         }
