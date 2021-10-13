@@ -71,6 +71,7 @@ impl Pipe {
         Self::from_str(&unparsed_file)
     }
 
+    // TODO: Criar carregamento de "runtime", exemplo: ```javascript
     fn parse(pair: Pair<Rule>) -> Value {
         match pair.as_rule() {
             Rule::sessions => {
