@@ -115,24 +115,48 @@ impl Value {
     }
 }
 
-// pub fn serialize_json(val: &Value) -> String {
-//     match val {
-//         Value::Object(o) => {
-//             let contents: Vec<_> = o
-//                 .iter()
-//                 .map(|(name, value)| format!("\"{}\":{}", name, serialize_json(value)))
-//                 .collect();
-//             format!("{{{}}}", contents.join(","))
-//         }
-//         Value::Array(a) => {
-//             let contents: Vec<_> = a.iter().map(serialize_json).collect();
-//             format!("[{}]", contents.join(","))
-//         }
-//         Value::String(s) => format!("\"{}\"", s),
-//         Value::Number(n) => format!("{}", n),
-//         Value::Boolean(b) => format!("{}", b),
-//         Value::Null => format!("null"),
-//         Value::Undefined => format!("undefined"),
-//         Value::Interpolation(i) => format!("{}", i),
-//     }
-// }
+pub fn serialize_json(val: &Value) -> String {
+    match val {
+        Value::Object(o) => {
+            let contents: Vec<_> = o
+                .iter()
+                .map(|(name, value)| format!("\"{}\":{}", name, serialize_json(value)))
+                .collect();
+            format!("{{{}}}", contents.join(","))
+        }
+        Value::Array(a) => {
+            let contents: Vec<_> = a.iter().map(serialize_json).collect();
+            format!("[{}]", contents.join(","))
+        }
+        Value::String(s) => format!("\"{}\"", s),
+        Value::Number(n) => format!("{}", n),
+        Value::Boolean(b) => format!("{}", b),
+        Value::Null => format!("null"),
+        Value::Undefined => format!("undefined"),
+        Value::Interpolation(place) => {
+            let mut map = HashMap::new();
+            map.insert("raw".to_string(), Value::String(place.raw.clone()));
+
+            let scripts = {
+                let mut list = Vec::new();
+
+                for scr in place.scripts.clone() {
+                    let mut map = HashMap::new();
+                    map.insert("script".to_string(), Value::String(scr.script.clone()));
+                    map.insert(
+                        "start".to_string(),
+                        Value::Number(scr.range.start.to_string()),
+                    );
+                    map.insert("end".to_string(), Value::Number(scr.range.end.to_string()));
+                    list.push(Value::Object(map));
+                }
+
+                Value::Array(list)
+            };
+
+            map.insert("scripts".to_string(), scripts);
+
+            format!("{}", serialize_json(&Value::Object(map)))
+        }
+    }
+}

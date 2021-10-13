@@ -10,7 +10,7 @@ use std::hash::Hash;
 use std::{fs, vec};
 use value::Value;
 
-use crate::value::Placeholders;
+use crate::value::{serialize_json, Placeholders};
 #[derive(Parser)]
 #[grammar = "pipe.pest"]
 pub struct PipeParser;
@@ -38,6 +38,7 @@ fn pipe() {
 
     println!("");
     println!("RESULT: {:#?}", json);
+    println!("RESULT: {:#?}", serialize_json(&json));
 }
 
 fn make_param(pair: Pair<Rule>) -> (String, Value) {
@@ -52,12 +53,21 @@ fn make_param_macro(pair: Pair<Rule>) -> (String, Value) {
     let mut inner = pair.into_inner();
     let mut map = HashMap::new();
     let key = inner.next().unwrap().as_str().to_string();
-    let value = parse(inner.next().unwrap());
-    map.insert(key.clone(), value);
+    let attr2 = inner.next().unwrap();
+    println!("attr2 {:?}", attr2);
 
-    let params = parse(inner.next().unwrap());
-
-    (key, params.merge_object(map).unwrap())
+    match attr2.as_rule() {
+        Rule::param_macro_content => {
+            let params = parse(attr2);
+            (key, params)
+        }
+        _ => {
+            let value = parse(attr2);
+            map.insert(key.clone(), value);
+            let params = parse(inner.next().unwrap());
+            (key, params.merge_object(map).unwrap())
+        }
+    }
 }
 
 fn parse(pair: Pair<Rule>) -> Value {
@@ -169,7 +179,10 @@ fn parse(pair: Pair<Rule>) -> Value {
         }
         Rule::param_macro_content => {
             // common_content
-            parse(pair.into_inner().next().unwrap())
+            match pair.into_inner().next() {
+                Some(pair) => parse(pair),
+                None => Value::Object(map!()),
+            }
         }
         Rule::common_content => {
             let mut map = HashMap::new();

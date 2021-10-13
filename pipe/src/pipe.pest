@@ -1,9 +1,13 @@
 pipe = _{ SOI ~ sessions* ~ EOI }
 WHITESPACE = _{ " " | "\t" | "\r" | "\r\n" | "\n"  }
-COMMENT = _{ (comment_block | comment_line ) }
+COMMENT =  _{ inline_comment | block_comment }
+
+inline_comment = _{ ("#" | "//") ~ (!eo_inline_comment ~ ANY)* }
+block_comment = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+eo_inline_comment = _{ NEWLINE | EOI }
 
 comment_block = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
-comment_line = _{ "//" ~ (!"//" ~ ANY)*  }
+comment_line = _{ "//" ~ ANY*  }
 
 // Session
 sessions = { (session_generic_config | session_pipeline)+ }
@@ -22,10 +26,10 @@ module_content = { "{" ~ (common_content | attach)* ~ "}" }
 attach= { "attach" ~ (module | ident) }
 
 //Macro
-param_macro = { ident ~ (value)*? ~ param_macro_content }
+param_macro = { ident ~ value*? ~ param_macro_content }
 param_macro_content = { "(" ~ common_content* ~ ")" }
 
-common_content = { (param | param_macro)+  }
+common_content = { (param | param_macro )+ }
 
 // Param
 param = { ident ~ "=" ~ value }

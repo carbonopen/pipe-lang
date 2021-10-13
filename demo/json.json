@@ -1,0 +1,48 @@
+{
+    "pipeline": [
+        {
+            "attach": "handler",
+            "module": "inter",
+            "params": {
+                "string_2": {
+                    "scripts": [
+                        {
+                            "start": 0,
+                            "end": 8,
+                            "script": " one "
+                        },
+                        {
+                            "start": 13,
+                            "end": 21,
+                            "script": " tow "
+                        }
+                    ],
+                    "raw": "${ one } and ${ tow }"
+                },
+                "interpolation": {
+                    "scripts": [
+                        {
+                            "start": 0,
+                            "script": "func.exec",
+                            "end": 8
+                        }
+                    ],
+                    "raw": "${ func.exec }"
+                },
+                "string_1": {
+                    "raw": "its ${ item }",
+                    "scripts": [
+                        {
+                            "start": 4,
+                            "end": 13,
+                            "script": " item "
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "vars": {
+        "test": true
+    }
+}

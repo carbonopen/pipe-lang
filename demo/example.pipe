@@ -1,10 +1,21 @@
+import {
+    module "http" (
+       source="git@github.com/carbonopen/carbon-http"
+    )
+
+    module (
+     source="git@github.com/carbonopen/carbon-switch"
+    )
+
+    module ()
+}
 
 vars {
     test=true
 }
 
 pipeline {
-    /*
+
     http {
         param=true
         int=1
@@ -22,7 +33,7 @@ pipeline {
         interpolation=${ func.exec }
         attach handler
     }
-*/
+
     inter {
         string_1=`its ${ item }`
         string_2=`${ one } and ${ tow }`
