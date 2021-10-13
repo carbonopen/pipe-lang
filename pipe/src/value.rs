@@ -20,24 +20,24 @@ pub struct Object {
 #[derive(Clone, PartialEq, Debug)]
 pub struct Placeholder {
     pub range: Range<usize>,
-    pub handler: String,
+    pub script: String,
 }
 #[derive(Clone, PartialEq, Debug)]
 pub struct Placeholders {
     pub raw: String,
-    pub handlers: Vec<Placeholder>,
+    pub scripts: Vec<Placeholder>,
 }
 
 impl Placeholders {
-    pub fn from_interpolation(raw: String, handler: String) -> Self {
+    pub fn from_interpolation(raw: String, script: String) -> Self {
         Self {
             raw,
-            handlers: vec![Placeholder {
+            scripts: vec![Placeholder {
                 range: Range {
                     start: 0,
-                    end: handler.len() - 1,
+                    end: script.len() - 1,
                 },
-                handler,
+                script,
             }],
         }
     }
@@ -45,7 +45,7 @@ impl Placeholders {
     pub fn from_string(raw: String) -> Self {
         Self {
             raw: raw.clone(),
-            handlers: Placeholders::extract(raw),
+            scripts: Placeholders::extract(raw),
         }
     }
 
@@ -55,8 +55,8 @@ impl Placeholders {
 
         for caps in re.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
-            let handler = caps.get(1).unwrap().as_str().to_string();
-            list.push(Placeholder { range, handler })
+            let script = caps.get(1).unwrap().as_str().to_string();
+            list.push(Placeholder { range, script })
         }
 
         list
