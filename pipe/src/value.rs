@@ -91,7 +91,7 @@ impl Value {
     }
 
     pub fn array_push(&self, target: Value) -> Result<Self, ()> {
-        let mut arr = match self.to_array() {
+        let arr = match self.to_array() {
             Ok(mut map) => {
                 map.push(target);
                 map
@@ -103,7 +103,7 @@ impl Value {
     }
 
     pub fn merge_object(&self, target: HashMap<String, Value>) -> Result<Self, ()> {
-        let mut obj = match self.to_object() {
+        let obj = match self.to_object() {
             Ok(mut map) => {
                 map.extend(target.clone());
                 map
@@ -113,50 +113,54 @@ impl Value {
 
         Ok(Self::Object(obj.clone()))
     }
-}
 
-pub fn serialize_json(val: &Value) -> String {
-    match val {
-        Value::Object(o) => {
-            let contents: Vec<_> = o
-                .iter()
-                .map(|(name, value)| format!("\"{}\":{}", name, serialize_json(value)))
-                .collect();
-            format!("{{{}}}", contents.join(","))
-        }
-        Value::Array(a) => {
-            let contents: Vec<_> = a.iter().map(serialize_json).collect();
-            format!("[{}]", contents.join(","))
-        }
-        Value::String(s) => format!("\"{}\"", s),
-        Value::Number(n) => format!("{}", n),
-        Value::Boolean(b) => format!("{}", b),
-        Value::Null => format!("null"),
-        Value::Undefined => format!("undefined"),
-        Value::Interpolation(place) => {
-            let mut map = HashMap::new();
-            map.insert("raw".to_string(), Value::String(place.raw.clone()));
+    pub fn as_json(&self) -> String {
+        Value::to_json(self)
+    }
 
-            let scripts = {
-                let mut list = Vec::new();
+    pub fn to_json(val: &Value) -> String {
+        match val {
+            Value::Object(o) => {
+                let contents: Vec<_> = o
+                    .iter()
+                    .map(|(name, value)| format!("\"{}\":{}", name, Value::to_json(value)))
+                    .collect();
+                format!("{{{}}}", contents.join(","))
+            }
+            Value::Array(a) => {
+                let contents: Vec<_> = a.iter().map(Value::to_json).collect();
+                format!("[{}]", contents.join(","))
+            }
+            Value::String(s) => format!("\"{}\"", s),
+            Value::Number(n) => format!("{}", n),
+            Value::Boolean(b) => format!("{}", b),
+            Value::Null => format!("null"),
+            Value::Undefined => format!("undefined"),
+            Value::Interpolation(place) => {
+                let mut map = HashMap::new();
+                map.insert("raw".to_string(), Value::String(place.raw.clone()));
 
-                for scr in place.scripts.clone() {
-                    let mut map = HashMap::new();
-                    map.insert("script".to_string(), Value::String(scr.script.clone()));
-                    map.insert(
-                        "start".to_string(),
-                        Value::Number(scr.range.start.to_string()),
-                    );
-                    map.insert("end".to_string(), Value::Number(scr.range.end.to_string()));
-                    list.push(Value::Object(map));
-                }
+                let scripts = {
+                    let mut list = Vec::new();
 
-                Value::Array(list)
-            };
+                    for scr in place.scripts.clone() {
+                        let mut map = HashMap::new();
+                        map.insert("script".to_string(), Value::String(scr.script.clone()));
+                        map.insert(
+                            "start".to_string(),
+                            Value::Number(scr.range.start.to_string()),
+                        );
+                        map.insert("end".to_string(), Value::Number(scr.range.end.to_string()));
+                        list.push(Value::Object(map));
+                    }
 
-            map.insert("scripts".to_string(), scripts);
+                    Value::Array(list)
+                };
 
-            format!("{}", serialize_json(&Value::Object(map)))
+                map.insert("scripts".to_string(), scripts);
+
+                format!("{}", Value::to_json(&Value::Object(map)))
+            }
         }
     }
 }
