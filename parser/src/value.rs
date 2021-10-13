@@ -114,10 +114,12 @@ impl Value {
         Ok(Self::Object(obj.clone()))
     }
 
+    #[cfg(feature = "json")]
     pub fn as_json(&self) -> String {
         Value::to_json(self)
     }
 
+    #[cfg(feature = "json")]
     pub fn to_json(val: &Value) -> String {
         match val {
             Value::Object(o) => {

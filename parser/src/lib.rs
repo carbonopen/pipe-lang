@@ -310,6 +310,10 @@ mod tests {
 
     #[test]
     fn parse_json() {
+        if !cfg!(feature = "json") {
+            return assert!(true);
+        }
+
         let pipe = r#"
             pipeline {
                 macro "http" (
