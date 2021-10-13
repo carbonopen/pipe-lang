@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
@@ -19,8 +19,7 @@ pub struct Object {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Placeholder {
-    pub start: i32,
-    pub end: i32,
+    pub range: Range<usize>,
     pub handler: String,
 }
 #[derive(Clone, PartialEq, Debug)]
@@ -34,8 +33,10 @@ impl Placeholders {
         Self {
             raw,
             handlers: vec![Placeholder {
-                start: 0,
-                end: handler.len() as i32,
+                range: Range {
+                    start: 0,
+                    end: handler.len() - 1,
+                },
                 handler,
             }],
         }
@@ -50,29 +51,15 @@ impl Placeholders {
 
     fn extract(raw: String) -> Vec<Placeholder> {
         let re = Regex::new(r"\$\{(?P<handler>.*?)\}").unwrap();
+        let mut list = Vec::new();
 
-        let mut cap_handler = "".to_string();
-
-        for handler in re.captures_iter(&raw) {
-            println!("handler: {:?}", handler);
-            cap_handler = handler["handler"].to_string();
+        for caps in re.captures_iter(&raw) {
+            let range = caps.get(0).unwrap().range();
+            let handler = caps.get(1).unwrap().as_str().to_string();
+            list.push(Placeholder { range, handler })
         }
 
-        if let Some(caps) = re.captures(&raw) {
-            for handler in caps.iter() {
-                if let Some(mat) = handler {
-                    println!("raw: {:?} | cap: {:?}", raw, mat);
-                }
-            }
-        }
-
-        println!("");
-
-        vec![Placeholder {
-            start: 0,
-            end: 0,
-            handler: "".to_string(),
-        }]
+        list
     }
 }
 

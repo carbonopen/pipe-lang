@@ -4,6 +4,7 @@ vars {
 }
 
 pipeline {
+    /*
     http {
         param=true
         int=1
@@ -21,7 +22,7 @@ pipeline {
         interpolation=${ func.exec }
         attach handler
     }
-
+*/
     inter {
         string_1=`its ${ item }`
         string_2=`${ one } and ${ tow }`
