@@ -33,21 +33,21 @@ macro_rules! map {
 #[derive(Debug)]
 pub struct Error {
     parse: Option<PestError<Rule>>,
-    local: Option<String>,
+    file: Option<String>,
 }
 
 impl Error {
     pub fn parse(error: PestError<Rule>) -> Self {
         Self {
             parse: Some(error),
-            local: None,
+            file: None,
         }
     }
 
-    pub fn local(local: &str) -> Self {
+    pub fn file(local: &str) -> Self {
         Self {
             parse: None,
-            local: Some(local.to_string()),
+            file: Some(local.to_string()),
         }
     }
 }
@@ -66,7 +66,7 @@ impl Pipe {
     pub fn from_path(path: &str) -> Result<Value, Error> {
         let unparsed_file = match fs::read_to_string(path) {
             Ok(file) => file,
-            Err(err) => return Err(Error::local(&err.to_string())),
+            Err(err) => return Err(Error::file(&err.to_string())),
         };
 
         Self::from_str(&unparsed_file)
@@ -119,10 +119,10 @@ impl Pipe {
 
                 Value::Object(item)
             }
-            Rule::session_generic_config_content => {
-                // common_content
-                Self::parse(pair.into_inner().next().unwrap())
-            }
+            Rule::session_generic_config_content => match pair.into_inner().next() {
+                Some(pair) => Self::parse(pair),
+                None => Value::Undefined,
+            },
             Rule::session_pipeline_content => {
                 let mut list = Vec::new();
 
@@ -255,6 +255,26 @@ impl Pipe {
 
                 Value::Boolean(value)
             }
+            Rule::embedded => {
+                let mut map = map!("runtime".to_string(), Value::String("default".to_string()));
+                for pair in pair.into_inner() {
+                    match pair.as_rule() {
+                        Rule::embedded_source => {
+                            let runtime = map.get_mut(&"runtime".to_string()).unwrap();
+                            *runtime = Value::String(pair.as_str().to_string());
+                        }
+                        Rule::embedded_content => {
+                            map.insert(
+                                "script".to_string(),
+                                Value::String(pair.as_str().to_string()),
+                            );
+                        }
+                        _ => return Value::Undefined,
+                    }
+                }
+
+                Value::Object(map)
+            }
             Rule::string => {
                 let mut inner = pair.clone().into_inner();
                 Self::parse(inner.next().unwrap())
@@ -276,6 +296,7 @@ impl Pipe {
 
                 Value::Interpolation(Placeholders::from_interpolation(raw, value))
             }
+            Rule::reference => Value::String(pair.as_str().to_string()),
             _ => Value::Undefined,
         }
     }
@@ -344,10 +365,6 @@ mod tests {
 
     #[test]
     fn parse_json() {
-        if !cfg!(feature = "json") {
-            return assert!(true);
-        }
-
         let pipe = r#"
             pipeline {
                 macro "http" (
@@ -362,6 +379,8 @@ mod tests {
     #[test]
     fn import_file() {
         let value = Pipe::from_path("../demo/example.pipe");
+
+        println!("{:#?}", value);
         assert!(value.is_ok());
     }
 

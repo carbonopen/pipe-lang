@@ -1,15 +1,14 @@
 import {
-    module "http" (
-       source="git@github.com/carbonopen/carbon-http"
+    git "git@github.com/carbonopen/carbon-switch" ()
+
+    git "carbonopen/carbon-switch" ()
+
+    other 1 [1.5] {"item": true} false ()
+
+    git "params" (
+        item=1
+        other=true
     )
-
-    module (
-     source="git@github.com/carbonopen/carbon-switch"
-    )
-
-    module ()
-
-    module 1 [1.5] {"item": true} false ()
 }
 
 vars {
@@ -17,13 +16,36 @@ vars {
 }
 
 pipeline {
-
-    http {
-        param=true
+    module {
+        // embedded_not=```  let item = 1 ```
+        string="foo"
         int=1
+        array=["bar", 1.5]
+        array_new_line=[
+            "bar",
+            1.5
+            ,true
+        ]
+        object={
+            "foo": "bar"
+        }
+        boolean=true
+        interpolation=${ true }
+        string_interpolation=`hello ${ word }`
+        embedded_default=```
+            let item = 1
+        ```
+        embedded_runtime=```python
+            def item:
+                True
+        ```
         attach handler {
-            runtime=`its my: ${ body.runtime }`
+            // runtime=`its my: ${ body.runtime }`
             script=""
+            attach other {
+                als=true
+                attach @origin // @previous @next
+            }
         }
     }
 

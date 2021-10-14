@@ -1,8 +1,6 @@
 use regex::Regex;
 use std::{collections::HashMap, ops::Range};
 
-use crate::Value::Boolean;
-
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
     pub value: String,
@@ -19,12 +17,12 @@ pub struct Object {
     pub value: HashMap<String, Value>,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Placeholder {
     pub range: Range<usize>,
     pub script: String,
 }
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Placeholders {
     pub raw: String,
     pub scripts: Vec<Placeholder>,
@@ -141,7 +139,13 @@ impl Value {
     pub fn to_boolean(&self) -> Result<bool, ()> {
         match self {
             Self::Boolean(value) => Ok(value.clone()),
-            _ => Err(()),
+            Self::Null => Ok(false),
+            Self::Undefined => Ok(false),
+            Self::Object(_) => Ok(true),
+            Self::Array(_) => Ok(true),
+            Self::String(_) => Ok(true),
+            Self::Number(_) => Ok(true),
+            Self::Interpolation(_) => Ok(true),
         }
     }
 
@@ -150,6 +154,7 @@ impl Value {
             Self::String(value) => Ok(value.clone()),
             Self::Number(value) => Ok(value.clone()),
             Self::Interpolation(value) => Ok(value.raw.clone()),
+            Self::Boolean(value) => Ok(format!("{}", value)),
             Self::Null => Ok("null".to_string()),
             Self::Undefined => Ok("undefined".to_string()),
             _ => Err(()),
@@ -272,5 +277,76 @@ impl Value {
                 format!("{}", Value::to_json(&Value::Object(map)))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::map;
+
+    use super::*;
+
+    #[test]
+    fn comparators() {
+        assert_eq!(Value::Array(Vec::default()).is_array(), true);
+        assert_eq!(Value::Object(HashMap::default()).is_object(), true);
+        assert_eq!(Value::String(String::default()).is_string(), true);
+        assert_eq!(Value::Number("1".to_string()).is_number(), true);
+        assert_eq!(
+            Value::Interpolation(Placeholders::default()).is_interpolation(),
+            true
+        );
+        assert_eq!(Value::Boolean(false).is_boolean(), true);
+        assert_eq!(Value::Null.is_null(), true);
+        assert_eq!(Value::Undefined.is_undefined(), true);
+    }
+    #[test]
+    fn converters() {
+        let array = Value::Array(Vec::default());
+        let object = Value::Object(HashMap::default());
+        let string = Value::String("".to_string());
+        let number = Value::Number("1".to_string());
+        let boolean = Value::Boolean(true);
+        let null = Value::Null;
+        let undefined = Value::Undefined;
+        let interpolation = Value::Interpolation(Placeholders::default());
+
+        assert_eq!(array.to_array().unwrap(), Vec::default());
+        assert_eq!(array.to_boolean().unwrap(), true);
+
+        assert_eq!(object.to_object().unwrap(), HashMap::default());
+        assert_eq!(object.to_boolean().unwrap(), true);
+
+        assert_eq!(string.to_string().unwrap(), "".to_string());
+        assert_eq!(string.to_boolean().unwrap(), true);
+
+        assert_eq!(number.to_string().unwrap(), "1".to_string());
+        assert_eq!(number.to_boolean().unwrap(), true);
+        assert_eq!(number.to_i64().unwrap(), 1);
+
+        assert_eq!(boolean.to_string().unwrap(), "true".to_string());
+        assert_eq!(boolean.to_boolean().unwrap(), true);
+
+        assert_eq!(null.to_string().unwrap(), "null".to_string());
+        assert_eq!(null.to_boolean().unwrap(), false);
+
+        assert_eq!(undefined.to_string().unwrap(), "undefined".to_string());
+        assert_eq!(undefined.to_boolean().unwrap(), false);
+
+        assert_eq!(interpolation.to_string().unwrap(), "".to_string());
+        assert_eq!(interpolation.to_boolean().unwrap(), true);
+        assert_eq!(
+            interpolation.to_placeholders().unwrap(),
+            Placeholders::default()
+        );
+
+        assert_eq!(Value::Number("1.5".to_string()).to_f64().unwrap(), 1.5);
+    }
+
+    #[test]
+    fn as_json() {
+        let map = map!("item".to_string(), Value::Boolean(true));
+        let object = Value::Object(map);
+        assert_eq!(object.as_json(), "{\"item\":true}".to_string());
     }
 }

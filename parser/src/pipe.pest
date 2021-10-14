@@ -1,5 +1,5 @@
 pipe = _{ SOI ~ sessions* ~ EOI }
-WHITESPACE = _{ " " | "\t" | "\r" | "\r\n" | "\n"  }
+WHITESPACE = _{ " " | "\t"  }
 COMMENT =  _{ inline_comment | block_comment }
 
 inline_comment = _{ ("#" | "//") ~ (!eo_inline_comment ~ ANY)* }
@@ -10,46 +10,47 @@ comment_block = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 comment_line = _{ "//" ~ ANY*  }
 
 // Session
-sessions = { (session_generic_config | session_pipeline)+ }
+sessions = { (session_generic_config | session_pipeline | NEWLINE )+ }
 
 session_generic_config = { ident ~ session_generic_config_content }
 session_pipeline = { ident ~ session_pipeline_content }
 
-session_generic_config_content = { "{" ~ (common_content)* ~ "}" }
-session_pipeline_content = { "{" ~ (module)* ~ "}" }
+session_generic_config_content = { "{" ~ (NEWLINE | common_content)* ~ "}" }
+session_pipeline_content = { "{" ~ (NEWLINE | module)* ~ "}" }
 
 //Modules
 module = { ident ~ ident? ~ module_content }
-module_content = { "{" ~ (common_content | attach)* ~ "}" }
+module_content = { "{" ~ (NEWLINE | common_content | attach)* ~ "}" }
 
 //Attatch
-attach= { "attach" ~ (module | ident) }
-
+attach= { "attach" ~ (module | ident | reference) }
+reference = @{ "@" ~ ident }
 //Macro
 param_macro = { ident ~ value*? ~ param_macro_content }
 param_macro_content = { "(" ~ common_content* ~ ")" }
 
-common_content = { (param | param_macro )+ }
+common_content = { (NEWLINE | param | param_macro )+ }
 
 // Param
 param = { ident ~ "=" ~ value }
 
 // Ident
-ident = @{ (letter | "_") ~ (ident_char)* }
-ident_char = _{ letter | digit | "-" | "." | "_" }
-// ident_first_char = _{ letter | "_" }
-letter = _{ 'a'..'z' | 'A'..'Z' }
-digit = _{ '0'..'9' }
-// name = _{ string }
+char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
+ident = @{ char+ }
 
 // Value
-value = _{ object | array | string | number | boolean | null | interpolation | string_interpolation  }
+value = _{ object | array | string | number | boolean | null | interpolation | string_interpolation | embedded }
 
 //interpolation
 interpolation = { "${" ~ interpolation_content  ~ "}" }
 interpolation_content = @{ (!"}" ~ ANY)* }
-string_interpolation = { "`" ~ string_interpolation_content ~ "`" }
+string_interpolation = { "`" ~!"``"~ string_interpolation_content ~ "`" }
 string_interpolation_content = @{ (!"`" ~ ANY)* }
+
+//embedded
+embedded = { "```"  ~ (embedded_source)? ~ embedded_content ~ "```" }
+embedded_source = @{ char+ }
+embedded_content = @{ (!"```" ~ ANY)* }
 
 // Var types
 string = { "\"" ~ string_content ~ "\"" }
@@ -64,11 +65,10 @@ number = @{
 }
 array = {
     "[" ~ "]" |
-    "[" ~ value ~ ("," ~ value)* ~ "]"
+    "[" ~  NEWLINE? ~ value ~ ( NEWLINE? ~ "," ~  NEWLINE? ~ value)* ~  NEWLINE? ~ "]"
 }
 object = {
     "{" ~ "}" |
     "{" ~ pair ~ ("," ~ pair)* ~ "}"
 }
-pair = { string ~ ":" ~ value }
-
+pair = { NEWLINE? ~ string ~ ":" ~ value ~ NEWLINE? }
