@@ -135,10 +135,23 @@ impl Pipe {
             Rule::module => {
                 let mut inner = pair.into_inner();
                 let module_name = Value::String(inner.next().unwrap().as_str().to_string());
-                let params = Self::parse(inner.next().unwrap());
+                let attr2 = Self::parse(inner.next().unwrap());
 
+                let (reference, params) = if attr2.is_object() {
+                    (Value::Null, attr2.to_object().unwrap())
+                } else {
+                    (
+                        attr2,
+                        Self::parse(inner.next().unwrap()).to_object().unwrap(),
+                    )
+                };
+
+                println!("module_name {:?}", module_name);
+                println!("reference {:?}", reference);
+                println!("params {:?}", params);
                 let mut map = map!("module".to_string(), module_name);
-                map.extend(params.to_object().unwrap());
+                map.insert("ref".to_string(), reference);
+                map.extend(params);
 
                 Value::Object(map)
             }

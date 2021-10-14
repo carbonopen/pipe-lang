@@ -38,6 +38,7 @@ param = { ident ~ "=" ~ value }
 char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
 ident = @{ char+ }
 
+
 // Value
 value = _{ object | array | string | number | boolean | null | interpolation | string_interpolation | embedded }
 

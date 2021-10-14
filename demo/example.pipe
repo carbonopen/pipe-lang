@@ -16,7 +16,7 @@ vars {
 }
 
 pipeline {
-    module {
+    module types {
         // embedded_not=```  let item = 1 ```
         string="foo"
         int=1
@@ -39,7 +39,7 @@ pipeline {
             def item:
                 True
         ```
-        attach handler {
+        attach handler example  {
             // runtime=`its my: ${ body.runtime }`
             script=""
             attach other {
@@ -50,18 +50,11 @@ pipeline {
     }
 
     mod {
-        boolean=true
-        int=1
-        float=3.13
-        string="text"
-        interpolation=${ func.exec }
         attach handler
+
     }
 
     inter {
-        string_1=`its ${ item }`
-        string_2=`${ one } and ${ tow }`
-        interpolation=${ func.exec }
-        attach handler
+        attach @origin
     }
 }
