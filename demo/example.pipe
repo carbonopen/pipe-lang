@@ -8,6 +8,8 @@ import {
     )
 
     module ()
+
+    module 1 [1.5] {"item": true} false ()
 }
 
 vars {

@@ -18,6 +18,7 @@ struct PipeParser;
 #[derive(Debug)]
 pub struct Pipe {}
 
+#[macro_export]
 macro_rules! map {
     () => {
         HashMap::new();
@@ -220,13 +221,29 @@ impl Pipe {
 
                 for pair in pair.into_inner() {
                     let mut inner = pair.into_inner();
-                    let key = inner.next().unwrap().as_str().to_string();
+                    let key = inner
+                        .next()
+                        .unwrap()
+                        .into_inner()
+                        .next()
+                        .unwrap()
+                        .as_str()
+                        .to_string();
                     let value = Self::parse(inner.next().unwrap());
 
                     map.insert(key, value);
                 }
 
                 Value::Object(map)
+            }
+            Rule::array => {
+                let mut list = Vec::new();
+
+                for pair in pair.into_inner() {
+                    list.push(Self::parse(pair));
+                }
+
+                Value::Array(list)
             }
             Rule::number => Value::Number(pair.as_str().to_string()),
             Rule::boolean => {
@@ -274,17 +291,33 @@ impl Pipe {
     fn make_param_macro(pair: Pair<Rule>) -> (String, Value) {
         let mut inner = pair.into_inner();
         let mut map = map!();
+        let total = inner.clone().count();
         let key = inner.next().unwrap().as_str().to_string();
-        let attr2 = inner.next().unwrap();
 
-        match attr2.as_rule() {
-            Rule::param_macro_content => {
-                let params = Self::parse(attr2);
+        match total {
+            2 => {
+                let params = Self::parse(inner.next().unwrap());
                 (key, params)
             }
-            _ => {
-                let value = Self::parse(attr2);
+            3 => {
+                let value = Self::parse(inner.next().unwrap());
                 map.insert(key.clone(), value);
+                let params = Self::parse(inner.next().unwrap());
+                (key, params.merge_object(map).unwrap())
+            }
+            total => {
+                map.insert(key.clone(), {
+                    let mut list = Vec::new();
+                    let limit = total - 2;
+
+                    loop {
+                        if list.len() < limit {
+                            list.push(Self::parse(inner.next().unwrap()));
+                        } else {
+                            break Value::Array(list);
+                        }
+                    }
+                });
                 let params = Self::parse(inner.next().unwrap());
                 (key, params.merge_object(map).unwrap())
             }
@@ -330,5 +363,50 @@ mod tests {
     fn import_file() {
         let value = Pipe::from_path("../demo/example.pipe");
         assert!(value.is_ok());
+    }
+
+    #[test]
+    fn complex_macro() {
+        let pipe = r#"
+        import {
+            module 1 [1.5] {"item": true} false "name" ()
+        }
+        "#;
+        let value = Pipe::from_str(pipe).unwrap();
+        let module = value
+            .to_object()
+            .unwrap()
+            .get("import")
+            .unwrap()
+            .to_object()
+            .unwrap()
+            .get("module")
+            .unwrap()
+            .to_array()
+            .unwrap()
+            .get(0)
+            .unwrap()
+            .to_object()
+            .unwrap()
+            .get("module")
+            .unwrap()
+            .to_array()
+            .unwrap();
+
+        assert_eq!(module.get(0).unwrap(), &Value::Number("1".to_string()));
+        assert_eq!(
+            module.get(1).unwrap(),
+            &Value::Array(vec![Value::Number("1.5".to_string())])
+        );
+        assert_eq!(
+            module.get(2).unwrap(),
+            &Value::Object({
+                let mut map = HashMap::new();
+                map.insert("item".to_string(), Value::Boolean(true));
+                map
+            })
+        );
+        assert_eq!(module.get(3).unwrap(), &Value::Boolean(false));
+        assert_eq!(module.get(4).unwrap(), &Value::String("name".to_string()));
     }
 }

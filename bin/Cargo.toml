@@ -6,5 +6,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pipe = { path="../parser", features=["json"]}
+pipe-parser = { path="../parser", features=["json"]}
 clap = "2.33.3"
