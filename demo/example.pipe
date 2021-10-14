@@ -36,10 +36,11 @@ pipeline {
             let item = 1
         ```
         embedded_runtime=```python
-            def item:
+            def item():
                 True
+            item()
         ```
-        attach handler example  {
+        attach handler refer {
             // runtime=`its my: ${ body.runtime }`
             script=""
             attach other {
@@ -51,7 +52,6 @@ pipeline {
 
     mod {
         attach handler
-
     }
 
     inter {
