@@ -1,6 +1,8 @@
 use regex::Regex;
 use std::{collections::HashMap, ops::Range};
 
+use crate::Value::Boolean;
+
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
     pub value: String,
@@ -75,7 +77,105 @@ pub enum Value {
     Undefined,
 }
 
+#[cfg(feature = "comparators")]
 impl Value {
+    pub fn is_boolean(&self) -> bool {
+        match self {
+            Self::Boolean(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_object(&self) -> bool {
+        match self {
+            Self::Object(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_array(&self) -> bool {
+        match self {
+            Self::Array(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_string(&self) -> bool {
+        match self {
+            Self::String(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        match self {
+            Self::Number(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_interpolation(&self) -> bool {
+        match self {
+            Self::Interpolation(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        match self {
+            Self::Null => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_undefined(&self) -> bool {
+        match self {
+            Self::Undefined => true,
+            _ => false,
+        }
+    }
+}
+
+#[cfg(feature = "converters")]
+impl Value {
+    pub fn to_boolean(&self) -> Result<bool, ()> {
+        match self {
+            Self::Boolean(value) => Ok(value.clone()),
+            _ => Err(()),
+        }
+    }
+
+    pub fn to_string(&self) -> Result<String, ()> {
+        match self {
+            Self::String(value) => Ok(value.clone()),
+            Self::Number(value) => Ok(value.clone()),
+            Self::Interpolation(value) => Ok(value.raw.clone()),
+            Self::Null => Ok("null".to_string()),
+            Self::Undefined => Ok("undefined".to_string()),
+            _ => Err(()),
+        }
+    }
+
+    pub fn to_f64(&self) -> Result<f64, ()> {
+        match self {
+            Self::Number(value) => match value.parse::<f64>() {
+                Ok(value) => Ok(value),
+                Err(_) => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
+
+    pub fn to_i64(&self) -> Result<i64, ()> {
+        match self {
+            Self::Number(value) => match value.parse::<i64>() {
+                Ok(value) => Ok(value),
+                Err(_) => Err(()),
+            },
+            _ => Err(()),
+        }
+    }
+
     pub fn to_object(&self) -> Result<HashMap<String, Value>, ()> {
         match self {
             Self::Object(value) => Ok(value.clone()),
@@ -86,6 +186,13 @@ impl Value {
     pub fn to_array(&self) -> Result<Vec<Value>, ()> {
         match self {
             Self::Array(value) => Ok(value.clone()),
+            _ => Err(()),
+        }
+    }
+
+    pub fn to_placeholders(&self) -> Result<Placeholders, ()> {
+        match self {
+            Self::Interpolation(value) => Ok(value.clone()),
             _ => Err(()),
         }
     }
@@ -113,13 +220,14 @@ impl Value {
 
         Ok(Self::Object(obj.clone()))
     }
+}
 
-    #[cfg(feature = "json")]
+#[cfg(feature = "json")]
+impl Value {
     pub fn as_json(&self) -> String {
         Value::to_json(self)
     }
 
-    #[cfg(feature = "json")]
     pub fn to_json(val: &Value) -> String {
         match val {
             Value::Object(o) => {

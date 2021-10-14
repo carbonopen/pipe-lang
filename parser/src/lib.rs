@@ -369,11 +369,13 @@ mod tests {
     fn complex_macro() {
         let pipe = r#"
         import {
-            module 1 [1.5] {"item": true} false "name" ()
+            module 1 [1.5] {"item": true} false "name" (
+                item=false
+            )
         }
         "#;
         let value = Pipe::from_str(pipe).unwrap();
-        let module = value
+        let module_base = value
             .to_object()
             .unwrap()
             .get("import")
@@ -387,11 +389,10 @@ mod tests {
             .get(0)
             .unwrap()
             .to_object()
-            .unwrap()
-            .get("module")
-            .unwrap()
-            .to_array()
             .unwrap();
+
+        let module = module_base.get("module").unwrap().to_array().unwrap();
+        let item = module_base.get("item").unwrap().to_boolean().unwrap();
 
         assert_eq!(module.get(0).unwrap(), &Value::Number("1".to_string()));
         assert_eq!(
@@ -408,5 +409,6 @@ mod tests {
         );
         assert_eq!(module.get(3).unwrap(), &Value::Boolean(false));
         assert_eq!(module.get(4).unwrap(), &Value::String("name".to_string()));
+        assert_eq!(item, false);
     }
 }
