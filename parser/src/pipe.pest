@@ -23,7 +23,7 @@ module = { ident ~ ident? ~ module_content }
 module_content = { "{" ~ (NEWLINE | common_content | attach)* ~ "}" }
 
 //Attatch
-attach= { "attach" ~ (module | ident | reference) }
+attach= { ("|" | "pipe") ~ (module | ident | reference) }
 reference = @{ "@" ~ ident }
 //Macro
 param_macro = { ident ~ value*? ~ param_macro_content }

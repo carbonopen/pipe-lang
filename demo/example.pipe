@@ -40,21 +40,21 @@ pipeline {
                 True
             item()
         ```
-        attach handler refer {
+        | handler refer  {
             // runtime=`its my: ${ body.runtime }`
             script=""
-            attach other {
+            | other {
                 als=true
-                attach @origin // @previous @next
+                | @origin // @previous @next
             }
         }
     }
 
     mod {
-        attach handler
+        | handler
     }
 
     inter {
-        attach @origin
+        pipe       @origin
     }
 }
