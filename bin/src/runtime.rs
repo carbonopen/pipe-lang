@@ -2,13 +2,42 @@ use libloading::{Library, Symbol};
 use pipe_core::modules::{Config, Module, ModuleContact, Request, Response, ID};
 use pipe_parser::value::Value;
 use std::collections::HashMap;
+use std::slice::SliceIndex;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{sync::mpsc, thread};
 
 fn load_modules(imports: &HashMap<String, Value>) -> HashMap<String, String> {
     let mut modules = HashMap::new();
 
-    println!("{:?}", imports);
+
+    // TODO: Handle errors
+    for (import_type, value) in imports {
+        if import_type.eq("bin") {
+            value.to_array().unwrap().iter().for_each(|item| {
+                let obj = item.to_object().unwrap();
+                let bin = obj.get("bin").unwrap();
+
+                let (bin, name) = if bin.is_array() {
+                    let array = bin.to_array().unwrap();
+                    let mut array_item = array.iter();
+
+                    (
+                        array_item.next().unwrap().to_string().unwrap(),
+                        array_item.next().unwrap().to_string().unwrap(),
+                    )
+                } else if bin.is_string() {
+                    (
+                        bin.to_string().unwrap(),
+                        obj.get("name").unwrap().to_string().unwrap(),
+                    )
+                } else {
+                    return ();
+                };
+
+                modules.insert(name, bin);
+            });
+        }
+    }
 
     modules
 }

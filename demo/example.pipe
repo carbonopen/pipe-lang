@@ -1,6 +1,6 @@
 import {
-    bin "target/release/libhttp_server" (
-        name="htto"
+    bin "target/release/libhttp_server" "web" (
+        name="http"
     )
     bin "target/release/libswitch" (
         name="switch"

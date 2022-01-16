@@ -162,7 +162,7 @@ impl Pipe {
                     match rule {
                         Rule::attach => {
                             let value = map!("attach".to_string(), value);
-                            println!("attach {:?}", value);
+
                             map.extend(value);
                         }
                         _ => {
