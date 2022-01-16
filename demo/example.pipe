@@ -1,60 +1,85 @@
 import {
-    git "git@github.com/carbonopen/carbon-switch" ()
-
-    git "carbonopen/carbon-switch" ()
-
-    other 1 [1.5] {"item": true} false ()
-
-    git "params" (
-        item=1
-        other=true
+    bin "target/release/libhttp_server" (
+        name="htto"
+    )
+    bin "target/release/libswitch" (
+        name="switch"
+    )
+    bin "target/release/libpayload" (
+        name="payload"
     )
 }
 
-vars {
-    test=true
-}
-
 pipeline {
-    module types {
-        // embedded_not=```  let item = 1 ```
-        string="foo"
-        int=1
-        array=["bar", 1.5]
-        array_new_line=[
-            "bar",
-            1.5
-            ,true
-        ]
-        object={
-            "foo": "bar"
-        }
-        boolean=true
-        interpolation=${ true }
-        string_interpolation=`hello ${ word }`
-        embedded_default=```
-            let item = 1
-        ```
-        embedded_runtime=```python
-            def item():
-                True
-            item()
-        ```
-        | handler refer  {
-            // runtime=`its my: ${ body.runtime }`
-            script=""
-            | other {
-                als=true
-                | @origin // @previous @next
-            }
-        }
+    payload init {
+        port="127.0.0.1:8080"
+        route(
+            path="/send/{number}"
+            pipe cases
+        )
+        route(
+            path="/health"
+            | health
+        )
     }
 
-    mod {
-        | handler
+    switch cases {
+        // condition ${ params.number } "eq" "other" (
+        //     | other
+        // )
+        condition "eq params.number (string number)" (
+            | number
+        )
+        operator "eq" (
+            left=${ params.number }
+            right="other"
+            | other
+        )
+        | default
     }
 
-    inter {
-        pipe       @origin
+    payload number {
+        status_code=403
+        body={
+            "value": ${ params.number },
+            "type": "number"
+        }
+        headers={
+            "content-type": "application/json"
+        }
+        | init
+    }
+
+    payload other {
+        status_code=200
+        body={
+            "value": ${ params.number },
+            "type": "other"
+        }
+        headers={
+            "content-type": "application/json"
+        }
+        | init
+    }
+
+    payload default {
+        status_code=201
+        body={
+            "value": ${ params.number },
+            "type": "default"
+        }
+        headers={
+            "content-type": "application/json"
+        }
+        | init
+    }
+
+    payload health {
+        status_code=200
+        body="check"
+        headers={
+            "content-type": "plain/text"
+        }
+        | init
     }
 }

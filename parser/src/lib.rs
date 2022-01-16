@@ -1,7 +1,7 @@
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
-mod value;
+pub mod value;
 
 use pest::error::Error as PestError;
 use pest::iterators::Pair;
@@ -21,7 +21,7 @@ pub struct Pipe {}
 #[macro_export]
 macro_rules! map {
     () => {
-        HashMap::new();
+        HashMap::new()
     };
     ($key:expr, $value:expr) => {{
         let mut map = map!();
@@ -146,9 +146,6 @@ impl Pipe {
                     )
                 };
 
-                println!("module_name {:?}", module_name);
-                println!("reference {:?}", reference);
-                println!("params {:?}", params);
                 let mut map = map!("module".to_string(), module_name);
                 map.insert("ref".to_string(), reference);
                 map.extend(params);
@@ -165,6 +162,7 @@ impl Pipe {
                     match rule {
                         Rule::attach => {
                             let value = map!("attach".to_string(), value);
+                            println!("attach {:?}", value);
                             map.extend(value);
                         }
                         _ => {
@@ -393,7 +391,6 @@ mod tests {
     fn import_file() {
         let value = Pipe::from_path("../demo/example.pipe");
 
-        println!("{:#?}", value);
         assert!(value.is_ok());
     }
 

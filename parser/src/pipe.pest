@@ -29,7 +29,7 @@ reference = @{ "@" ~ ident }
 param_macro = { ident ~ value*? ~ param_macro_content }
 param_macro_content = { "(" ~ common_content* ~ ")" }
 
-common_content = { (NEWLINE | param | param_macro )+ }
+common_content = { (NEWLINE | param | param_macro| attach )+ }
 
 // Param
 param = { ident ~ "=" ~ value }

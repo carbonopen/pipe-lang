@@ -1,2 +1,12 @@
 [workspace]
-members = ["parser", "bin"]
+members = [
+    "parser",
+    "bin",
+    "core",
+    "modules/mock",
+    "modules/payload",
+    "modules/switch",
+    "modules/http_server",
+    "modules/request",
+    "modules/dispatcher"
+]
