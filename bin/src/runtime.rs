@@ -2,13 +2,15 @@ use libloading::{Library, Symbol};
 use pipe_core::modules::{Config, Module, ModuleContact, Request, Response, ID};
 use pipe_parser::value::Value;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::slice::SliceIndex;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{sync::mpsc, thread};
 
+use crate::pipe::Pipe;
+
 fn load_modules(imports: &HashMap<String, Value>) -> HashMap<String, String> {
     let mut modules = HashMap::new();
-
 
     // TODO: Handle errors
     for (import_type, value) in imports {
@@ -42,30 +44,20 @@ fn load_modules(imports: &HashMap<String, Value>) -> HashMap<String, String> {
     modules
 }
 
-pub fn runtime(pipe: Value) -> Result<(), ()> {
-    let pipe_obj = match pipe.to_object() {
-        Ok(value) => value,
-        Err(_) => return Err(()),
-    };
+pub fn runtime(value: Value) {
+    let pipe = Pipe::try_from(&value).expect("Could not capture code");
 
-    let modules = match pipe_obj.get("import") {
-        Some(value) => match value.to_object() {
-            Ok(imports) => load_modules(&imports),
-            Err(_) => HashMap::default(),
-        },
-        None => HashMap::default(),
-    };
-
-    Ok(())
+    println!("{:?}", pipe);
     /*
     let (tx_senders, rx_senders): (Sender<ModuleContact>, Receiver<ModuleContact>) =
         mpsc::channel();
     let (tx_control, rx_control): (Sender<Response>, Receiver<Response>) = mpsc::channel();
     let mut module_id: ID = 0;
-    let mut references = HashMap::new();
+    // let mut references = HashMap::new();
+
 
     for step in pipe.pipeline {
-        trace!("Load step: {:?}", step);
+        log::trace!("Load step: {:?}", step);
         let response = tx_control.clone();
         let request = tx_senders.clone();
         let module_name = step.module.unwrap_or("payload".to_string());

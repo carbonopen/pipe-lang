@@ -21,7 +21,9 @@ pipeline {
             path="/health"
             | health
         )
-    }
+    } :producer
+
+    test {} :order(2, true, null, ok)
 
     switch cases {
         // condition ${ params.number } "eq" "other" (
@@ -36,7 +38,7 @@ pipeline {
             | other
         )
         | default
-    }
+    } :order(4)
 
     payload number {
         status_code=403

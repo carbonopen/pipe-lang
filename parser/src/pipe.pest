@@ -19,8 +19,11 @@ session_generic_config_content = { "{" ~ (NEWLINE | common_content)* ~ "}" }
 session_pipeline_content = { "{" ~ (NEWLINE | module)* ~ "}" }
 
 //Modules
-module = { ident ~ ident? ~ module_content }
+module = { ident ~ ident? ~ module_content ~ command? }
 module_content = { "{" ~ (NEWLINE | common_content | attach)* ~ "}" }
+
+command = { ":" ~ ident ~ command_args? }
+command_args = {"(" ~ ( number | boolean | null | string | ident | array | object | ",")* ~ ")"}
 
 //Attatch
 attach= { ("|" | "pipe") ~ (module | ident | reference) }

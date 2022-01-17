@@ -134,6 +134,7 @@ impl Pipe {
             }
             Rule::module => {
                 let mut inner = pair.into_inner();
+
                 let module_name = Value::String(inner.next().unwrap().as_str().to_string());
                 let attr2 = Self::parse(inner.next().unwrap());
 
@@ -149,6 +150,10 @@ impl Pipe {
                 let mut map = map!("module".to_string(), module_name);
                 map.insert("ref".to_string(), reference);
                 map.extend(params);
+
+                if let Some(pair) = inner.next() {
+                    map.insert("command".to_string(), Self::parse(pair));
+                }
 
                 Value::Object(map)
             }
@@ -187,12 +192,12 @@ impl Pipe {
             Rule::attach => {
                 let mut inner = pair.into_inner();
                 let value = Self::parse(inner.next().unwrap());
-
                 value
             }
             Rule::param_macro_content => {
-                // common_content
-                match pair.into_inner().next() {
+                let mut inner = pair.into_inner();
+
+                match inner.next() {
                     Some(pair) => Self::parse(pair),
                     None => Value::Object(map!()),
                 }
@@ -202,6 +207,10 @@ impl Pipe {
 
                 for pair in pair.into_inner() {
                     match pair.as_rule() {
+                        Rule::attach => {
+                            let value = Self::parse(pair);
+                            map.insert("attach".to_string(), value);
+                        }
                         Rule::param => {
                             let value = Self::make_param(pair);
                             map.insert(value.0, value.1);
@@ -308,6 +317,29 @@ impl Pipe {
                 Value::Interpolation(Placeholders::from_interpolation(raw, value))
             }
             Rule::reference => Value::String(pair.as_str().to_string()),
+            Rule::command => {
+                let mut list = Vec::new();
+                let mut inner = pair.into_inner();
+
+                list.push(Self::parse(inner.next().unwrap()));
+
+                if let Some(args) = inner.next() {
+                    list.extend(Self::parse(args).to_array().unwrap());
+                }
+
+                Value::Array(list)
+            }
+            Rule::command_args => {
+                let mut list = Vec::new();
+                let mut inner = pair.into_inner();
+
+                while let Some(pair) = inner.next() {
+                    list.push(Self::parse(pair))
+                }
+
+                Value::Array(list)
+            }
+            Rule::null => Value::Null,
             _ => Value::Undefined,
         }
     }
@@ -335,6 +367,7 @@ impl Pipe {
                 let value = Self::parse(inner.next().unwrap());
                 map.insert(key.clone(), value);
                 let params = Self::parse(inner.next().unwrap());
+
                 (key, params.merge_object(map).unwrap())
             }
             total => {

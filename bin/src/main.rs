@@ -1,3 +1,4 @@
+mod pipe;
 mod runtime;
 mod to_file;
 use clap::Parser;
@@ -19,7 +20,7 @@ fn main() {
     match Pipe::from_path(&args.path) {
         Ok(pipe) => match args.to_json {
             Some(path) => to_file::to_json(&pipe, &path),
-            None => runtime::runtime(pipe).unwrap(),
+            None => runtime::runtime(pipe),
         },
         Err(err) => println!("{:?}", err),
     };
