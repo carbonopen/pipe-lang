@@ -103,7 +103,7 @@ mod tests {
                 "spawn_rate": 1,
                 "spawn_interval": 1000,
             })),
-            producer: Some(true),
+            producer: true,
             default_attach: None,
         };
 

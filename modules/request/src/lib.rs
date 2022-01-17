@@ -232,7 +232,7 @@ mod tests {
                 "url": "http://127.0.0.1:10011/test",
                 "method": "GET"
             })),
-            producer: Some(false),
+            producer: false,
             default_attach: None,
         };
 

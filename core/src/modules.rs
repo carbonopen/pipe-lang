@@ -13,7 +13,7 @@ use std::{any::Any, sync::Arc};
 pub struct Config {
     pub reference: String,
     pub params: Option<Value>,
-    pub producer: Option<bool>,
+    pub producer: bool,
     pub default_attach: Option<String>,
 }
 

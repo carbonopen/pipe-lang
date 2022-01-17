@@ -3,71 +3,40 @@ use pipe_core::modules::{Config, Module, ModuleContact, Request, Response, ID};
 use pipe_parser::value::Value;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::slice::SliceIndex;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{sync::mpsc, thread};
 
-use crate::pipe::Pipe;
-
-fn load_modules(imports: &HashMap<String, Value>) -> HashMap<String, String> {
-    let mut modules = HashMap::new();
-
-    // TODO: Handle errors
-    for (import_type, value) in imports {
-        if import_type.eq("bin") {
-            value.to_array().unwrap().iter().for_each(|item| {
-                let obj = item.to_object().unwrap();
-                let bin = obj.get("bin").unwrap();
-
-                let (bin, name) = if bin.is_array() {
-                    let array = bin.to_array().unwrap();
-                    let mut array_item = array.iter();
-
-                    (
-                        array_item.next().unwrap().to_string().unwrap(),
-                        array_item.next().unwrap().to_string().unwrap(),
-                    )
-                } else if bin.is_string() {
-                    (
-                        bin.to_string().unwrap(),
-                        obj.get("name").unwrap().to_string().unwrap(),
-                    )
-                } else {
-                    return ();
-                };
-
-                modules.insert(name, bin);
-            });
-        }
-    }
-
-    modules
-}
+use crate::pipe::{Command, Pipe};
 
 pub fn runtime(value: Value) {
     let pipe = Pipe::try_from(&value).expect("Could not capture code");
+    let modules = {
+        let mut modules = HashMap::new();
+        for module in pipe.modules.unwrap() {
+            log::trace!("Module: {:?}", module);
+            modules.insert(module.name, module.bin);
+        }
+        modules
+    };
 
-    println!("{:?}", pipe);
-    /*
     let (tx_senders, rx_senders): (Sender<ModuleContact>, Receiver<ModuleContact>) =
         mpsc::channel();
     let (tx_control, rx_control): (Sender<Response>, Receiver<Response>) = mpsc::channel();
     let mut module_id: ID = 0;
-    // let mut references = HashMap::new();
-
+    let mut references = HashMap::new();
 
     for step in pipe.pipeline {
         log::trace!("Load step: {:?}", step);
         let response = tx_control.clone();
         let request = tx_senders.clone();
-        let module_name = step.module.unwrap_or("payload".to_string());
+        let module_name = step.module;
         let reference = match step.reference {
             Some(reference) => reference,
             None => format!("step-{}", &module_id),
         };
         references.insert(reference.clone(), module_id);
         let params = step.params;
-        let producer = step.producer;
+        let producer = step.command.eq(&Command::Producer);
         let default_attach = step.attach;
         let filename = {
             let name = (**modules.get(&module_name).unwrap()).to_string();
@@ -81,7 +50,7 @@ pub fn runtime(value: Value) {
             }
         };
 
-        trace!(
+        log::trace!(
             "Starting step {}, module_id: {}.",
             reference.clone(),
             module_id
@@ -122,7 +91,7 @@ pub fn runtime(value: Value) {
     let mut senders = HashMap::new();
 
     for sender in rx_senders {
-        trace!("Step {} started.", sender.id.clone());
+        log::trace!("Step {} started.", sender.id.clone());
         senders.insert(sender.id, sender.tx);
         if (senders.len() as u32) == module_id {
             break;
@@ -130,7 +99,7 @@ pub fn runtime(value: Value) {
     }
 
     for control in rx_control {
-        trace!(
+        log::trace!(
             "trace_id: {} | Step {} sender: {:?}",
             control.trace_id,
             control.origin,
@@ -139,7 +108,7 @@ pub fn runtime(value: Value) {
 
         match control.attach {
             Some(attach) => {
-                trace!(
+                log::trace!(
                     "trace_id: {} | Resolving attach: {}",
                     control.trace_id,
                     attach.clone()
@@ -147,7 +116,7 @@ pub fn runtime(value: Value) {
                 match references.get(&attach.clone()) {
                     Some(module_id) => match senders.get(&module_id) {
                         Some(module) => {
-                            trace!(
+                            log::trace!(
                                 "trace_id: {} | Sender to step: {}",
                                 control.trace_id,
                                 module_id
@@ -160,14 +129,14 @@ pub fn runtime(value: Value) {
                                 })
                                 .unwrap();
                         }
-                        None => warn!("Reference {} not found", attach),
+                        None => log::warn!("Reference {} not found", attach),
                     },
-                    _ => warn!("Reference {} not found", attach),
+                    _ => log::warn!("Reference {} not found", attach),
                 };
             }
             None => {
                 let next_step = control.origin + 1;
-                trace!(
+                log::trace!(
                     "trace_id: {} | Resolving next step id: {}",
                     control.trace_id,
                     next_step
@@ -183,7 +152,7 @@ pub fn runtime(value: Value) {
                             .unwrap();
                     }
                     None if control.origin > 0 => {
-                        trace!(
+                        log::trace!(
                             "trace_id: {} |  Step id {} not exist, send to step id 0",
                             control.trace_id,
                             next_step
@@ -202,5 +171,5 @@ pub fn runtime(value: Value) {
                 };
             }
         }
-    } */
+    }
 }

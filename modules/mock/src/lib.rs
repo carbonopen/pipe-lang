@@ -4,18 +4,15 @@ extern crate pipe_core;
 use pipe_core::modules::{Config, Listener, Return, TraceId};
 
 fn mock<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    match config.producer {
-        Some(active) if active => {
-            let local_trace = TraceId::new();
+    if config.producer {
+        let local_trace = TraceId::new();
 
-            send(Return {
-                payload: Ok(config.params),
-                attach: config.default_attach.clone(),
-                trace_id: local_trace.id,
-            })
-        }
-        _ => {}
-    };
+        send(Return {
+            payload: Ok(config.params),
+            attach: config.default_attach.clone(),
+            trace_id: local_trace.id,
+        });
+    }
 
     for request in listener {
         send(Return {
@@ -37,7 +34,7 @@ mod tests {
         let config = Config {
             reference: "test".parse().unwrap(),
             params: None,
-            producer: Some(true),
+            producer: true,
             default_attach: None,
         };
         create_module_assert_eq!(crate::mock, config, Ok(None), Ok(None), false);
@@ -48,7 +45,7 @@ mod tests {
         let config = Config {
             reference: "test".parse().unwrap(),
             params: None,
-            producer: Some(true),
+            producer: true,
             default_attach: None,
         };
         create_module_assert_eq!(crate::mock, config, Ok(None), Ok(None), true);

@@ -97,13 +97,9 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
 
         let mut services = Vec::new();
 
-        let route = if params_clone["route"].is_array() {
-            params_clone["route"].as_array().unwrap().clone()
-        } else {
-            vec![params_clone.clone()]
-        };
+        let routes = params_clone["route"].as_array().unwrap().clone();
 
-        for route in route {
+        for route in routes {
             let requests_map_inner_clone = requests_map_inner_clone.clone();
             let speaker_clone = speaker_clone.clone();
             let trace_clone = trace_clone.clone();
@@ -293,7 +289,7 @@ mod tests {
             let config = Config {
                 reference: "test".to_string(),
                 params: Some(json!($params)),
-                producer: None,
+                producer: false,
                 default_attach: None,
             };
 
@@ -442,7 +438,7 @@ mod tests {
                 "method": "ANY",
                 "port": 9306
             })),
-            producer: None,
+            producer: false,
             default_attach: None,
         };
 
@@ -477,7 +473,7 @@ mod tests {
         let config = Config {
             reference: "test".to_string(),
             params: Some(json!({
-                "route": [
+                "routes": [
                     {
                         "path": "/foo/fux",
                         "default_status_code": 203,
@@ -498,7 +494,7 @@ mod tests {
                 "method": "ANY",
                 "port": 9307
             })),
-            producer: None,
+            producer: false,
             default_attach: None,
         };
 
@@ -547,7 +543,7 @@ mod tests {
                 "method": "ANY",
                 "port": 9308
             })),
-            producer: None,
+            producer: false,
             default_attach: None,
         };
 

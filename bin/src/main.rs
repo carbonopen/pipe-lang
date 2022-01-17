@@ -2,6 +2,7 @@ mod pipe;
 mod runtime;
 mod to_file;
 use clap::Parser;
+use pipe_core::log::setup;
 use pipe_parser::Pipe;
 
 #[derive(Parser, Debug)]
@@ -15,6 +16,9 @@ struct Args {
 }
 
 fn main() {
+    setup();
+    log::trace!("Start Pipe.");
+
     let args = Args::parse();
 
     match Pipe::from_path(&args.path) {

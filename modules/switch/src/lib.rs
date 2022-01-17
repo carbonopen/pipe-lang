@@ -12,6 +12,26 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 fn value_to_string(item: &Value) -> Result<String, String> {
+    log::info!("item {:?}", item);
+
+    if let Some(obj) = item.as_object() {
+        if let Some(scripts) = obj.get("scripts") {
+            let item = scripts
+                .as_array()
+                .unwrap()
+                .get(0)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .get("script")
+                .unwrap()
+                .as_str()
+                .unwrap();
+
+            return Ok(format!(r#""{{{}}}""#, item));
+        }
+    }
+
     if item.is_string() {
         Ok(format!(r#""{}""#, item.as_str().unwrap()))
     } else if item.is_f64() {
@@ -38,64 +58,44 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
         log_setup();
     }
 
+    log::info!("{:?}", config.params);
+
     match config.params {
-        Some(value) => match value.as_array() {
+        Some(value) => match value.as_object() {
             Some(cases) => {
                 register_helpers!(handlebars);
 
                 let cases_map = {
                     let mut map = HashMap::new();
-                    for case in cases {
-                        if let Some(case) = case.as_object() {
-                            if let Some(condition) = case.get("condition") {
-                                if let Some(attach) = case.get("attach") {
-                                    let template = syntax_wrapper(condition.as_str().unwrap());
 
-                                    match handlebars.register_template_string(
-                                        &template.clone(),
-                                        &template.clone(),
-                                    ) {
-                                        Ok(_) => {}
-                                        Err(err) => {
-                                            panic!("{}", err);
-                                        }
-                                    };
+                    for (case_type, value) in cases {
+                        let values = value.as_array().unwrap();
 
-                                    map.insert(
-                                        template.clone(),
-                                        attach.as_str().unwrap().to_string(),
-                                    );
-                                }
-                            } else if let Some(operator) = case.get("operator") {
-                                let left = match value_to_string(case.get("left").unwrap()) {
-                                    Ok(value) => value,
-                                    Err(err) => panic!("{}", err),
-                                };
-                                let right = match value_to_string(case.get("right").unwrap()) {
-                                    Ok(value) => value,
-                                    Err(err) => panic!("{}", err),
-                                };
-                                let attach =
-                                    case.get("attach").unwrap().as_str().unwrap().to_string();
+                        if case_type.eq("condition") {
+                            values.iter().for_each(|value| {
+                                let param = value.as_object().unwrap();
 
-                                let template = syntax_wrapper(&format!(
-                                    "{} {} {}",
-                                    operator.as_str().unwrap(),
-                                    syntax_clear(&left),
-                                    syntax_clear(&right)
-                                ));
+                                if let Some(condition) = param.get("condition") {
+                                    if let Some(attach) = param.get("attach") {
+                                        let template = syntax_wrapper(condition.as_str().unwrap());
 
-                                match handlebars
-                                    .register_template_string(&template.clone(), &template.clone())
-                                {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        panic!("{}", err);
+                                        match handlebars.register_template_string(
+                                            &template.clone(),
+                                            &template.clone(),
+                                        ) {
+                                            Ok(_) => {}
+                                            Err(err) => {
+                                                panic!("{}", err);
+                                            }
+                                        };
+
+                                        map.insert(
+                                            template.clone(),
+                                            attach.as_str().unwrap().to_string(),
+                                        );
                                     }
-                                };
-
-                                map.insert(template.clone(), attach);
-                            }
+                                }
+                            })
                         }
                     }
                     map
@@ -103,6 +103,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 
                 for request in listener {
                     let mut sent = false;
+                    log::info!("{:?}", request);
                     for (template, attach) in cases_map.clone() {
                         match handlebars.render(&template, &request.payload.clone().unwrap()) {
                             Ok(value) if value == "true" => {
@@ -156,7 +157,7 @@ mod tests {
                     "attach": "bar",
                 }
             ])),
-            producer: None,
+            producer: false,
             default_attach: None,
         };
         let payload = Ok(Some(json!({
@@ -190,7 +191,7 @@ mod tests {
                     "attach": "qux"
                 }
             ])),
-            producer: None,
+            producer: false,
             default_attach: Some("none".to_string()),
         };
 
@@ -233,7 +234,7 @@ mod tests {
                     "attach": "qux",
                 }
             ])),
-            producer: None,
+            producer: false,
             default_attach: None,
         };
 

@@ -7,21 +7,26 @@ use serde_json::Value as JsonValue;
 pub enum Command {
     Order(i64),
     Producer,
+    None,
 }
 
-impl TryFrom<Vec<Value>> for Command {
-    type Error = ();
+impl Default for Command {
+    fn default() -> Self {
+        Command::None
+    }
+}
 
-    fn try_from(value: Vec<Value>) -> Result<Self, Self::Error> {
+impl From<Vec<Value>> for Command {
+    fn from(value: Vec<Value>) -> Self {
         let mut items = value.iter();
         let command = items.next().unwrap().to_string().unwrap();
 
         if command.eq("producer") {
-            Ok(Self::Producer)
+            Self::Producer
         } else if command.eq("order") {
-            Ok(Self::Order(items.next().unwrap().to_i64().unwrap()))
+            Self::Order(items.next().unwrap().to_i64().unwrap())
         } else {
-            Err(())
+            Self::None
         }
     }
 }
@@ -30,7 +35,7 @@ pub struct Step {
     pub module: String,
     pub params: Option<JsonValue>,
     pub reference: Option<String>,
-    pub command: Option<Command>,
+    pub command: Command,
     pub attach: Option<String>,
 }
 
@@ -76,6 +81,7 @@ impl TryFrom<&Value> for Module {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Pipe {
+    pub config: Option<HashMap<String, Value>>,
     pub vars: Option<HashMap<String, Value>>,
     pub modules: Option<Vec<Module>>,
     pub pipeline: Vec<Step>,
@@ -124,16 +130,13 @@ impl Pipe {
                 }
 
                 let val = Value::Object(obj);
-                (Some(serde_json::to_value(val.as_json()).unwrap()), attach)
+                (Some(serde_json::from_str(&val.as_json()).unwrap()), attach)
             } else {
                 (None, None)
             };
             let command = match obj.get("command") {
-                Some(value) => match Command::try_from(value.to_array().unwrap()) {
-                    Ok(value) => Some(value),
-                    Err(_) => None,
-                },
-                None => None,
+                Some(value) => Command::from(value.to_array().unwrap()),
+                None => Command::None,
             };
 
             list.push(Step {
@@ -154,7 +157,6 @@ impl TryFrom<&Value> for Pipe {
 
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
         let pipe_obj = value.to_object().expect("Error trying to capture code.");
-
         let modules = match pipe_obj.get("import") {
             Some(value) => match value.to_object() {
                 Ok(obj) => Some(Self::load_modules(&obj)),
@@ -162,15 +164,16 @@ impl TryFrom<&Value> for Pipe {
             },
             None => None,
         };
-
         let pipeline = {
             let pipeline = pipe_obj.get("pipeline").expect("No pipeline present.");
             let obj = pipeline.to_array().expect("Could not load pipeline");
             Self::pipeline_to_steps(&obj)
         };
         let vars = Default::default();
+        let config = Default::default();
 
         Ok(Self {
+            config,
             modules,
             pipeline,
             vars,

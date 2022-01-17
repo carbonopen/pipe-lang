@@ -1,18 +1,18 @@
 import {
-    bin "target/release/libhttp_server" "web" (
+    bin "target/release/libhttp_server.so" (
         name="http"
     )
-    bin "target/release/libswitch" (
+    bin "target/release/libswitch.so" (
         name="switch"
     )
-    bin "target/release/libpayload" (
+    bin "target/release/libpayload.so" (
         name="payload"
     )
 }
 
 pipeline {
-    payload init {
-        port="127.0.0.1:8080"
+    http init {
+        address="127.0.0.1:8080"
         route(
             path="/send/{number}"
             pipe cases
@@ -21,24 +21,22 @@ pipeline {
             path="/health"
             | health
         )
-    } :producer
-
-    test {} :order(2, true, null, ok)
+    }
 
     switch cases {
         // condition ${ params.number } "eq" "other" (
         //     | other
         // )
-        condition "eq params.number (string number)" (
+        condition "eq params.number (to_string number)" (
             | number
         )
-        operator "eq" (
-            left=${ params.number }
-            right="other"
+
+        condition "eq params.number (to_string other)" (
             | other
         )
+
         | default
-    } :order(4)
+    }
 
     payload number {
         status_code=403

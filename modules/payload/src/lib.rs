@@ -55,8 +55,8 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             }
         };
 
-        match config.producer {
-            Some(active) if active => match handlebars.render("template", &json!({})) {
+        if config.producer {
+            match handlebars.render("template", &json!({})) {
                 Ok(result) => {
                     let local_trace = TraceId::new();
                     let data = serde_json::from_str(&result).unwrap();
@@ -68,9 +68,8 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                     })
                 }
                 _ => {}
-            },
-            _ => {}
-        };
+            };
+        }
 
         for request in listener {
             match request.payload {
@@ -119,7 +118,7 @@ mod tests {
         let config = Config {
             reference: "test".parse().unwrap(),
             params: None,
-            producer: None,
+            producer: false,
             default_attach: None,
         };
         create_module_assert_eq!(crate::payload, config, Ok(None), Ok(None));
@@ -132,7 +131,7 @@ mod tests {
             params: Some(json!({
                 "value": "{{ products.0.price }}"
             })),
-            producer: None,
+            producer: false,
             default_attach: None,
         };
         let payload = Ok(Some(json!({
@@ -156,7 +155,7 @@ mod tests {
             params: Some(json!({
                 "value": "{{ calc \"((1.99 + 0.01) * number) / price\" number=number price=products.0.price}}"
             })),
-            producer: None,
+            producer: false,
             default_attach: None,
         };
         let payload = Ok(Some(json!({
