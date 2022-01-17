@@ -3,12 +3,34 @@ use std::{collections::HashMap, convert::TryFrom};
 use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
 
+#[derive(Clone, PartialEq, Debug)]
+pub enum Command {
+    Order(i64),
+    Producer,
+}
+
+impl TryFrom<Vec<Value>> for Command {
+    type Error = ();
+
+    fn try_from(value: Vec<Value>) -> Result<Self, Self::Error> {
+        let mut items = value.iter();
+        let command = items.next().unwrap().to_string().unwrap();
+
+        if command.eq("producer") {
+            Ok(Self::Producer)
+        } else if command.eq("order") {
+            Ok(Self::Order(items.next().unwrap().to_i64().unwrap()))
+        } else {
+            Err(())
+        }
+    }
+}
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct Step {
     pub module: String,
     pub params: Option<JsonValue>,
     pub reference: Option<String>,
-    pub producer: Option<bool>,
+    pub command: Option<Command>,
     pub attach: Option<String>,
 }
 
@@ -82,8 +104,6 @@ impl Pipe {
     fn pipeline_to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
         let mut list = Vec::new();
 
-        println!("{:?}", pipeline);
-
         for item in pipeline {
             let obj = item.to_object().unwrap();
             let module = obj.get("module").unwrap().to_string().unwrap();
@@ -91,20 +111,38 @@ impl Pipe {
                 Ok(value) => Some(value),
                 Err(_) => None,
             };
-            let params = if let Some(params) = obj.get("params") {
-                Some(params.as_json())
-            } else {
-                None
-            };
-            // let producer = obj.get("producer").unwrap().to_boolean().unwrap_or(false);
+            let (params, attach) = if let Some(params) = obj.get("params") {
+                let mut obj = params.to_object().unwrap();
+                let attach = if let Some(attach) = obj.get("attach") {
+                    Some(attach.to_string().unwrap())
+                } else {
+                    None
+                };
 
-            // list.push(Step {
-            //     module,
-            //     params,
-            //     reference: todo!(),
-            //     producer: todo!(),
-            //     attach: todo!(),
-            // });
+                if attach.is_some() {
+                    obj.remove("attach");
+                }
+
+                let val = Value::Object(obj);
+                (Some(serde_json::to_value(val.as_json()).unwrap()), attach)
+            } else {
+                (None, None)
+            };
+            let command = match obj.get("command") {
+                Some(value) => match Command::try_from(value.to_array().unwrap()) {
+                    Ok(value) => Some(value),
+                    Err(_) => None,
+                },
+                None => None,
+            };
+
+            list.push(Step {
+                module,
+                params,
+                reference,
+                command,
+                attach,
+            })
         }
 
         list
