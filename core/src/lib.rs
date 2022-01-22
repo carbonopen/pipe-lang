@@ -14,3 +14,8 @@ pub mod log {
         builder.init();
     }
 }
+#[cfg(feature = "render")]
+pub extern crate rhai;
+
+#[cfg(feature = "render")]
+pub mod render;

@@ -15,7 +15,7 @@ pipeline {
         address="127.0.0.1:8080"
         route(
             path="/send/{number}"
-            pipe cases
+            pipe match
         )
         route(
             path="/health"
@@ -23,17 +23,28 @@ pipeline {
         )
     }
 
-    switch cases {
-        // condition ${ params.number } "eq" "other" (
-        //     | other
-        // )
-        condition "eq params.number (to_string number)" (
-            | number
-        )
+    switch match {
+        target = ${ payload.params.number }
 
-        condition "eq params.number (to_string other)" (
-            | other
+        case "number" (
+            pipe number
         )
+        case "other" (
+            pipe other
+        )
+        // case "new" (
+        //     pipe payload {
+        //         status_code=202
+        //         body={
+        //             "value": ${ params.number },
+        //             "type": "new"
+        //         }
+        //         headers={
+        //             "content-type": "application/json"
+        //         }
+        //         | init
+        //     }
+        // )
 
         | default
     }
