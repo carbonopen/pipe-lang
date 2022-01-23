@@ -3,6 +3,7 @@ mod runtime;
 mod to_file;
 use clap::Parser;
 use env_logger::{Builder, Env, Target};
+use pipe_core::log;
 use pipe_parser::Pipe;
 
 #[derive(Parser, Debug)]
@@ -19,7 +20,7 @@ fn main() {
     let mut builder = Builder::from_env(Env::default().default_filter_or("trace"));
     builder.target(Target::Stdout);
     builder.init();
-    
+
     log::trace!("Start Pipe.");
 
     let args = Args::parse();

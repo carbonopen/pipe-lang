@@ -4,9 +4,9 @@ extern crate pipe_core;
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use pipe_core::modules::{Config, Listener, Response as CoreResponse, Speaker, TraceId, ID};
+use pipe_core::{
+    serde_json::{json, Map, Value}, modules::{Config, Listener, Response as CoreResponse, Speaker, TraceId, ID}};
 use reqwest::{header::HeaderMap, Client, Method};
-use serde_json::{json, Map, Value};
 use tokio::runtime::Runtime;
 
 pub struct ContentRequest {

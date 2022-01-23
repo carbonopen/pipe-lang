@@ -1,5 +1,8 @@
 use libloading::{Library, Symbol};
-use pipe_core::modules::{Config, Module, ModuleContact, Request, Response, ID};
+use pipe_core::{
+    log,
+    modules::{Config, Module, ModuleContact, Request, Response, ID},
+};
 use pipe_parser::value::Value;
 use std::collections::HashMap;
 use std::convert::TryFrom;

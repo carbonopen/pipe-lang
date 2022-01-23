@@ -8,8 +8,6 @@ edition = "2018"
 
 [dependencies]
 pipe-core = { path = "../../core", features = ["modules"] }
-serde_json = "1.0.60"
-log = "0.4.14"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

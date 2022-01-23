@@ -4,8 +4,9 @@ extern crate pipe_core;
 use pipe_core::{
     log,
     modules::{Config, Listener, Response, Speaker, TraceId, ID},
+    serde_json::Value,
 };
-use serde_json::Value;
+
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
 

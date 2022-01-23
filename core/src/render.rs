@@ -16,7 +16,7 @@ macro_rules! render {
 mod tests {
     use rhai::serde::to_dynamic;
     use rhai::{Engine, Scope};
-    use serde_json::{json, Value};
+    use serde_json::json;
 
     #[test]
     fn test_engine() {
