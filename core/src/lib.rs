@@ -5,18 +5,9 @@ pub mod handlebars_helpers;
 #[cfg(feature = "modules")]
 pub mod modules;
 #[cfg(feature = "modules")]
-pub mod log {
-    use env_logger::{Builder, Env, Target};
+pub extern crate log;
 
-    pub extern crate log;
-
-    pub fn setup() {
-        let mut builder = Builder::from_env(Env::default().default_filter_or("trace"));
-        builder.target(Target::Stdout);
-        builder.init();
-    }
-}
-#[cfg(feature = "render")]
+#[cfg(feature = "modules")]
 pub extern crate rhai;
 
 #[cfg(feature = "render")]

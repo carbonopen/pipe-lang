@@ -5,7 +5,7 @@ use actix_web::http::StatusCode;
 use actix_web::rt::System;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use pipe_core::{
-    log::{log, setup as log_setup},
+    log,
     modules::{Config, Listener, Response, Speaker, TraceId, ID},
     serde_json::{json, Map, Value},
 };
@@ -64,10 +64,6 @@ struct HttpRequestInner {
 }
 
 fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
-    if !cfg!(test) {
-        log_setup();
-    }
-
     let sys = System::new("http-server");
     let params = config.clone().params.unwrap();
     let params_clone = params.clone();

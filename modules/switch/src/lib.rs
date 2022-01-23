@@ -2,9 +2,9 @@
 extern crate pipe_core;
 
 use pipe_core::{
-    log::{log, setup as log_setup},
+    log,
     modules::{Config, Listener, Return},
-    rhai::{serde::to_dynamic, Engine, Scope},
+    rhai::Engine,
     serde_json::Value,
 };
 
@@ -20,10 +20,6 @@ impl Case {
 }
 
 fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    if !cfg!(test) {
-        log_setup();
-    }
-
     let engine = Engine::new();
 
     log::info!("{:?}", config);
@@ -105,19 +101,10 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 
                 if let Ok(payload) = request.payload.clone() {
                     if let Some(payload) = payload {
-                        let mut scope = Scope::new();
-                        let payload_dyn = match to_dynamic(payload) {
-                            Ok(value) => value,
+                        let target_value = match render!(engine, String, payload, &target) {
+                            Ok(value) => Value::from(value),
                             Err(err) => send_error!(config.default_attach, err),
                         };
-
-                        scope.push_dynamic("payload", payload_dyn);
-
-                        let target_value =
-                            match engine.eval_with_scope::<String>(&mut scope, &target) {
-                                Ok(value) => Value::from(value),
-                                Err(err) => send_error!(config.default_attach, err),
-                            };
 
                         for case in cases.iter() {
                             if target_value.eq(&case.case) {

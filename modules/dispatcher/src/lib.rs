@@ -1,9 +1,10 @@
 #[macro_use]
 extern crate pipe_core;
-extern crate log;
 
-use pipe_core::log::setup as log_setup;
-use pipe_core::modules::{Config, Listener, Response, Speaker, TraceId, ID};
+use pipe_core::{
+    log,
+    modules::{Config, Listener, Response, Speaker, TraceId, ID},
+};
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use std::{thread, time};
@@ -14,8 +15,6 @@ fn sleep(millis: u64) {
 }
 
 fn dispatcher(id: ID, listener: Listener, speaker: Speaker, config: Config) {
-    log_setup();
-
     let trace = TraceId::global();
     let attach = config.default_attach.clone();
     let params = config.get_params_object();

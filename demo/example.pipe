@@ -24,7 +24,7 @@ pipeline {
     }
 
     switch match {
-        target = ${ number }
+        target = ${ payload.params.number }
 
         case "number" (
             pipe number
@@ -32,19 +32,6 @@ pipeline {
         case "other" (
             pipe other
         )
-        // case "new" (
-        //     pipe payload {
-        //         status_code=202
-        //         body={
-        //             "value": ${ params.number },
-        //             "type": "new"
-        //         }
-        //         headers={
-        //             "content-type": "application/json"
-        //         }
-        //         | init
-        //     }
-        // )
 
         | default
     }
@@ -52,7 +39,7 @@ pipeline {
     payload number {
         status_code=403
         body={
-            "value": ${ params.number },
+            "value": ${ payload.params.number },
             "type": "number"
         }
         headers={
@@ -64,7 +51,7 @@ pipeline {
     payload other {
         status_code=200
         body={
-            "value": ${ params.number },
+            "value": ${ payload.params.number },
             "type": "other"
         }
         headers={
@@ -76,7 +63,7 @@ pipeline {
     payload default {
         status_code=201
         body={
-            "value": ${ params.number },
+            "value": ${ payload.params.number },
             "type": "default"
         }
         headers={

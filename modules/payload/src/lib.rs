@@ -3,17 +3,13 @@ extern crate pipe_core;
 
 use pipe_core::{
     handlebars_helpers::syntax_wrapper,
-    log::{log, setup as log_setup},
+    log,
     modules::{Config, Listener, Return, TraceId},
     serde_json::json,
 };
 use regex::Regex;
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    if !cfg!(test) {
-        log_setup();
-    }
-
     log::info!("{:?}", config);
 
     let template = match config.params {

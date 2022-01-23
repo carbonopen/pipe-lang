@@ -1,7 +1,16 @@
-use rhai::{Engine, EvalAltResult, Scope};
-use serde_json::Value;
-
-// pub fn resolve(value: Value) -> Value {}
+#[macro_export]
+macro_rules! render {
+    ($engine:ident, $type:ty, $payload:expr, $target:expr) => {{
+        let mut scope = $crate::rhai::Scope::new();
+        match $crate::rhai::serde::to_dynamic($payload) {
+            Ok(value) => {
+                scope.push_dynamic("payload", value);
+                $engine.eval_with_scope::<$type>(&mut scope, $target)
+            }
+            Err(err) => Err(err),
+        }
+    }};
+}
 
 #[cfg(test)]
 mod tests {

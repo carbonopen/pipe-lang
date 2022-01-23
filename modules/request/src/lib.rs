@@ -4,7 +4,6 @@ extern crate pipe_core;
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-use pipe_core::log::setup as log_setup;
 use pipe_core::modules::{Config, Listener, Response as CoreResponse, Speaker, TraceId, ID};
 use reqwest::{header::HeaderMap, Client, Method};
 use serde_json::{json, Map, Value};
@@ -107,8 +106,6 @@ async fn generic_request(method: String, url: String, header: HeaderMap, body: S
 }
 
 fn request(id: ID, listener: Listener, speaker: Speaker, config: Config) {
-    log_setup();
-
     let params = config.clone().params.unwrap();
     let method = params["method"]
         .as_str()
