@@ -4,8 +4,8 @@ extern crate pipe_core;
 use pipe_core::{
     log,
     modules::{Config, Listener, Return},
-    rhai::Engine,
     serde_json::Value,
+    template::rhai::Engine,
 };
 
 struct Case {

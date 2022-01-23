@@ -7,8 +7,5 @@ pub mod modules;
 #[cfg(feature = "modules")]
 pub extern crate log;
 
-#[cfg(feature = "modules")]
-pub extern crate rhai;
-
-#[cfg(feature = "render")]
-pub mod render;
+#[cfg(feature = "template")]
+pub mod template;
