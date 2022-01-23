@@ -1,17 +1,14 @@
 #[macro_use]
 extern crate pipe_core;
-extern crate serde_json;
-#[macro_use]
-extern crate log;
 
 use actix_web::http::StatusCode;
 use actix_web::rt::System;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use pipe_core::{
-    log::setup as log_setup,
+    log::{log, setup as log_setup},
     modules::{Config, Listener, Response, Speaker, TraceId, ID},
+    serde_json::{json, Map, Value},
 };
-use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
@@ -90,7 +87,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let trace = TraceId::global();
 
     HttpServer::new(move || {
-        trace!("New http worker created.");
+        log::trace!("New http worker created.");
         let requests_map_inner_clone = requests_map_clone.clone();
         let speaker_clone = speaker.clone();
         let trace_clone = trace.clone();
@@ -130,14 +127,14 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
                         }
 
                         let trace_id = trace_clone.lock().unwrap().get_trace();
-                        trace!("Run trace: {}", &trace_id);
+                        log::trace!("Run trace: {}", &trace_id);
 
                         let body = {
                             let body = std::str::from_utf8(&body).unwrap();
                             body.to_string()
                         };
                         let headers = {
-                            let mut headers = serde_json::Map::new();
+                            let mut headers = Map::new();
                             for (key, value) in req.headers().iter() {
                                 headers
                                     .insert(key.to_string(), Value::from(value.to_str().unwrap()));
@@ -145,7 +142,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
                             Value::from(headers)
                         };
                         let query_string = {
-                            let mut query_string = serde_json::Map::new();
+                            let mut query_string = Map::new();
                             let query_clean = req.query_string().to_string();
                             let query: Vec<&str> = query_clean.split("&").collect();
 
@@ -161,7 +158,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
                             Some(Value::from(query_string))
                         };
                         let params = {
-                            let mut params = serde_json::Map::new();
+                            let mut params = Map::new();
                             for (key, value) in req.match_info().iter() {
                                 params.insert(key.to_string(), Value::from(value.to_string()));
                             }
@@ -233,7 +230,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     for request_step in listener {
         if let Ok(mut map) = requests_map.lock() {
             if let Some(sender) = map.get(&request_step.trace_id) {
-                trace!("Total request waiting: {}", &map.len());
+                log::trace!("Total request waiting: {}", &map.len());
 
                 let content_response = match request_step.payload {
                     Ok(payload) => {
@@ -276,7 +273,7 @@ create_module_raw!(http_server);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pipe_core::modules::*;
+    use pipe_core::{modules::*, serde_json};
     use reqwest::{Body, IntoUrl};
     use std::thread;
 
@@ -473,7 +470,7 @@ mod tests {
         let config = Config {
             reference: "test".to_string(),
             params: Some(json!({
-                "routes": [
+                "route": [
                     {
                         "path": "/foo/fux",
                         "default_status_code": 203,
@@ -490,8 +487,6 @@ mod tests {
                         "method": "GET"
                     }
                 ],
-                "path": "/",
-                "method": "ANY",
                 "port": 9307
             })),
             producer: false,

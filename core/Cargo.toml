@@ -20,6 +20,7 @@ log = "0.4.14"
 env_logger = "0.9.0"
 uuid = { version = "0.8", features = ["serde", "v4"] }
 rhai = {version= "1.4.0", features = ["default", "metadata"]}
+
 [features]
 default = ["modules"]
 modules = ["handlebars_helpers", "render"]

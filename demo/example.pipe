@@ -24,7 +24,7 @@ pipeline {
     }
 
     switch match {
-        target = ${ payload.params.number }
+        target = ${ number }
 
         case "number" (
             pipe number

@@ -1,15 +1,21 @@
 #[macro_use]
 extern crate pipe_core;
-extern crate serde_json;
 
 use pipe_core::{
     handlebars_helpers::syntax_wrapper,
+    log::{log, setup as log_setup},
     modules::{Config, Listener, Return, TraceId},
+    serde_json::json,
 };
 use regex::Regex;
-use serde_json::json;
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
+    if !cfg!(test) {
+        log_setup();
+    }
+
+    log::info!("{:?}", config);
+
     let template = match config.params {
         Some(template) => {
             let origin = template.to_string();
@@ -59,7 +65,7 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             match handlebars.render("template", &json!({})) {
                 Ok(result) => {
                     let local_trace = TraceId::new();
-                    let data = serde_json::from_str(&result).unwrap();
+                    let data = pipe_core::serde_json::from_str(&result).unwrap();
 
                     send(Return {
                         payload: Ok(data),
@@ -75,7 +81,7 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             match request.payload {
                 Ok(payload) => match payload {
                     Some(content) => match handlebars.render("template", &content) {
-                        Ok(result) => match serde_json::from_str(&result) {
+                        Ok(result) => match pipe_core::serde_json::from_str(&result) {
                             Ok(data) => send(Return {
                                 payload: Ok(data),
                                 attach: config.default_attach.clone(),
@@ -84,6 +90,8 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                             _ => (),
                         },
                         Err(err) => {
+                            log::error!("{}", err);
+
                             send(Return {
                                 payload: Err(None), //todo: repassar erro
                                 attach: config.default_attach.clone(),
@@ -111,7 +119,7 @@ create_module!(payload);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use pipe_core::serde_json::json;
 
     #[test]
     fn without_params() {
