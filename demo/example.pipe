@@ -12,7 +12,7 @@ import {
 
 pipeline {
     http init {
-        address="127.0.0.1:8080"
+        address="127.0.0.1:8085"
         route(
             path="/send/{number}"
             pipe match
@@ -64,7 +64,7 @@ pipeline {
         status_code=201
         body={
             "value": ${ payload.params.number },
-            "type": "default"
+            "type": `default-${ payload.params.number }`
         }
         headers={
             "content-type": "application/json"

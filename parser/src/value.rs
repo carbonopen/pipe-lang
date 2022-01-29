@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::{collections::HashMap, ops::Range};
+use uuid::Uuid;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
@@ -21,45 +22,64 @@ pub struct Object {
 pub struct Placeholder {
     pub range: Range<usize>,
     pub script: String,
+    pub id: Uuid,
 }
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Placeholders {
     pub raw: String,
+    pub replaced: String,
     pub scripts: Vec<Placeholder>,
 }
 
 impl Placeholders {
     pub fn from_interpolation(raw: String, script: String) -> Self {
+        let range = Range {
+            start: 0,
+            end: script.len() - 1,
+        };
+        let id = Uuid::new_v4();
+
         Self {
+            replaced: Self::replaced(&raw, &range, &id),
             raw,
-            scripts: vec![Placeholder {
-                range: Range {
-                    start: 0,
-                    end: script.len() - 1,
-                },
-                script,
-            }],
+            scripts: vec![Placeholder { range, script, id }],
         }
     }
 
     pub fn from_string(raw: String) -> Self {
+        let (scripts, replaced) = Placeholders::extract(&raw);
+
         Self {
-            raw: raw.clone(),
-            scripts: Placeholders::extract(raw),
+            raw,
+            scripts,
+            replaced,
         }
     }
 
-    fn extract(raw: String) -> Vec<Placeholder> {
+    fn replaced(raw: &String, range: &Range<usize>, id: &Uuid) -> String {
+        format!(
+            "{}__{{{}}}{}",
+            raw[0..range.start].to_string(),
+            id,
+            raw[range.end..raw.len()].to_string()
+        )
+    }
+
+    fn extract(raw: &String) -> (Vec<Placeholder>, String) {
+        let mut replaced = raw.clone();
         let re = Regex::new(r"\$\{(?P<handler>.*?)\}").unwrap();
         let mut list = Vec::new();
 
         for caps in re.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
             let script = caps.get(1).unwrap().as_str().to_string();
-            list.push(Placeholder { range, script })
+            let id = Uuid::new_v4();
+
+            replaced = Self::replaced(&replaced, &range, &id);
+            list.push(Placeholder { range, script, id })
         }
 
-        list
+        (list, replaced)
     }
 }
 
@@ -253,26 +273,39 @@ impl Value {
             Value::Undefined => format!("undefined"),
             Value::Interpolation(place) => {
                 let mut map = HashMap::new();
-                map.insert("raw".to_string(), Value::String(place.raw.clone()));
+                map.insert(
+                    "__type".to_string(),
+                    Value::String("interpolation".to_string()),
+                );
+                map.insert("__raw".to_string(), Value::String(place.raw.clone()));
+                map.insert(
+                    "__replaced".to_string(),
+                    Value::String(place.replaced.clone()),
+                );
 
                 let scripts = {
                     let mut list = Vec::new();
 
                     for scr in place.scripts.clone() {
                         let mut map = HashMap::new();
-                        map.insert("script".to_string(), Value::String(scr.script.clone()));
+
+                        map.insert("__script".to_string(), Value::String(scr.script.clone()));
                         map.insert(
-                            "start".to_string(),
+                            "__start".to_string(),
                             Value::Number(scr.range.start.to_string()),
                         );
-                        map.insert("end".to_string(), Value::Number(scr.range.end.to_string()));
+                        map.insert(
+                            "__end".to_string(),
+                            Value::Number(scr.range.end.to_string()),
+                        );
+                        map.insert("__id".to_string(), Value::String(scr.id.to_string()));
                         list.push(Value::Object(map));
                     }
 
                     Value::Array(list)
                 };
 
-                map.insert("scripts".to_string(), scripts);
+                map.insert("__scripts".to_string(), scripts);
 
                 format!("{}", Value::to_json(&Value::Object(map)))
             }

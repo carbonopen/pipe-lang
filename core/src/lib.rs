@@ -1,3 +1,4 @@
+pub extern crate serde;
 pub extern crate serde_derive;
 pub extern crate serde_json;
 #[cfg(feature = "handlebars_helpers")]
@@ -9,3 +10,10 @@ pub extern crate log;
 
 #[cfg(feature = "template")]
 pub mod template;
+
+#[macro_export]
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        println!("{:?}", $($arg)*)
+    };
+}
