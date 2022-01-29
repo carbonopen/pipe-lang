@@ -1,6 +1,12 @@
 pub extern crate rhai;
+use std::convert::TryFrom;
+
+use rhai::{serde::to_dynamic, Engine, Scope};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+
+//TODO criar Error
+pub struct Error {}
 
 #[macro_use]
 pub mod macros;
@@ -11,29 +17,73 @@ pub struct Interpolation {
     id: String,
 }
 
-#[derive(Serialize, Deserialize)]
 pub struct Template {
-    value: Value,
+    value: String,
     scripts: Vec<Interpolation>,
+    engine: Engine,
 }
 
 impl Template {
-    pub fn resolve(&self) -> Result<String, ()> {
-        match serde_json::to_string(&self.value) {
-            Ok(json) => {
-                let mut value = json.clone();
-                self.scripts.iter().for_each(|inter| {
-                    // TODO executar script com rhai
-                    value = value.replace(&inter.id, "RUN_SCRIPT");
-                });
+    pub fn resolve(&self, payload: Value) -> Result<String, ()> {
+        match to_dynamic(payload) {
+            Ok(dynamic) => {
+                let mut value = self.value.clone();
+
+                for inter in self.scripts.iter() {
+                    let mut scope = Scope::new();
+                    scope.push_dynamic("payload", dynamic.clone());
+
+                    match self
+                        .engine
+                        .eval_with_scope::<String>(&mut scope, &inter.script)
+                    {
+                        Ok(output) => {
+                            value = value.replace(&inter.id, &output);
+                        }
+                        Err(_) => return Err(()),
+                    };
+                }
+
                 Ok(value)
             }
-            Err(_err) => Err(()),
+            Err(_) => Err(()),
+        }
+    }
+
+    pub fn resolve_value(&self, payload: Value) -> Result<Value, ()> {
+        match self.resolve(payload) {
+            Ok(value) => match serde_json::from_str(&value) {
+                Ok(value) => Ok(value),
+                Err(_) => Err(()),
+            },
+            Err(_) => Err(()),
         }
     }
 }
 
-impl From<&Value> for Template {
+impl TryFrom<&Value> for Template {
+    type Error = ();
+
+    fn try_from(value: &Value) -> Result<Self, Self::Error> {
+        let inner = TemplateInner::from(value);
+
+        match serde_json::to_string(&inner.value) {
+            Ok(value) => Ok(Self {
+                value,
+                scripts: inner.scripts,
+                engine: Engine::new(),
+            }),
+            Err(_) => Err(()),
+        }
+    }
+}
+
+struct TemplateInner {
+    value: Value,
+    scripts: Vec<Interpolation>,
+}
+
+impl From<&Value> for TemplateInner {
     fn from(value: &Value) -> Self {
         let mut scripts = Vec::new();
 
