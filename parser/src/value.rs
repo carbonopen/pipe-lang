@@ -22,7 +22,7 @@ pub struct Object {
 pub struct Placeholder {
     pub range: Range<usize>,
     pub script: String,
-    pub id: Uuid,
+    pub id: String,
 }
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Placeholders {
@@ -37,7 +37,7 @@ impl Placeholders {
             start: 0,
             end: script.len() - 1,
         };
-        let id = Uuid::new_v4();
+        let id = Self::new_id();
 
         Self {
             replaced: Self::replaced(&raw, &range, &id),
@@ -56,13 +56,17 @@ impl Placeholders {
         }
     }
 
-    fn replaced(raw: &String, range: &Range<usize>, id: &Uuid) -> String {
+    fn replaced(raw: &String, range: &Range<usize>, id: &String) -> String {
         format!(
-            "{}__{{{}}}{}",
+            "{}{}{}",
             raw[0..range.start].to_string(),
             id,
             raw[range.end..raw.len()].to_string()
         )
+    }
+
+    fn new_id() -> String {
+        format!("__{{{}}}", Uuid::new_v4())
     }
 
     fn extract(raw: &String) -> (Vec<Placeholder>, String) {
@@ -73,7 +77,7 @@ impl Placeholders {
         for caps in re.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
             let script = caps.get(1).unwrap().as_str().to_string();
-            let id = Uuid::new_v4();
+            let id = Self::new_id();
 
             replaced = Self::replaced(&replaced, &range, &id);
             list.push(Placeholder { range, script, id })

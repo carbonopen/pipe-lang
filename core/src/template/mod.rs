@@ -1,7 +1,6 @@
+pub extern crate rhai;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-
-pub extern crate rhai;
 
 #[macro_use]
 pub mod macros;
@@ -13,21 +12,28 @@ pub struct Interpolation {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Replaced {
+pub struct Template {
     value: Value,
     scripts: Vec<Interpolation>,
 }
 
-impl Replaced {
+impl Template {
     pub fn resolve(&self) -> Result<String, ()> {
         match serde_json::to_string(&self.value) {
-            Ok(json) => Ok(json),
+            Ok(json) => {
+                let mut value = json.clone();
+                self.scripts.iter().for_each(|inter| {
+                    // TODO executar script com rhai
+                    value = value.replace(&inter.id, "RUN_SCRIPT");
+                });
+                Ok(value)
+            }
             Err(_err) => Err(()),
         }
     }
 }
 
-impl From<&Value> for Replaced {
+impl From<&Value> for Template {
     fn from(value: &Value) -> Self {
         let mut scripts = Vec::new();
 
