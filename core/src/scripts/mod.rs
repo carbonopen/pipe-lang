@@ -77,6 +77,7 @@ impl ScriptInner {
                             let ast = engine
                                 .compile(&fun)
                                 .expect("Could not compile interpolation.");
+
                             Interpolation {
                                 ast,
                                 target: target_fix,
@@ -132,6 +133,7 @@ pub struct Script {
     replaced: String,
     scripts: Vec<Interpolation>,
     engine: Engine,
+    re_no_script: Regex,
 }
 
 impl Script {
@@ -149,12 +151,17 @@ impl Script {
                         .eval_ast_with_scope::<String>(&mut scope, &inter.ast)
                     {
                         Ok(output) => {
-                            replaced = replaced.replace(&inter.target, &output);
+                            if self.re_no_script.is_match(&output) {
+                                replaced = replaced.replace(&inter.target, &output);
+                            } else {
+                                replaced =
+                                    replaced.replace(&inter.target, &format!(r#""{}""#, output));
+                            }
                         }
                         Err(err) => return Err(Error::from(err)),
                     };
                 }
-
+                debug!(replaced);
                 Ok(replaced)
             }
             Err(err) => Err(Error::from(err)),
@@ -184,6 +191,7 @@ impl TryFrom<&Value> for Script {
                 replaced,
                 scripts: inner.scripts,
                 engine,
+                re_no_script: Regex::new(r"[0-9](\.[0-9]*)?|true|false|null|undefined").unwrap(),
             }),
             Err(err) => Err(Error::from(err)),
         }
@@ -293,73 +301,25 @@ mod test {
     fn test_complex() {
         let data = json!({
             "inter": {
-                "string": {
+                "inner": {
                     "__type": "interpolation",
-                    "__raw": "${ payload.string }",
-                    "__replaced": "#__{string}",
+                    "__raw": "${ payload.item }",
+                    "__replaced": "#__{123}",
                     "__scripts": [{
-                        "__target": "#__{string}",
-                        "__script": "payload.string"
+                        "__target": "#__{123}",
+                        "__script": "payload.item"
                     }]
-                },
-                "bool": {
-                    "__type": "interpolation",
-                    "__raw": "${ payload.bool }",
-                    "__replaced": "#__{bool}",
-                    "__scripts": [{
-                        "__target": "#__{bool}",
-                        "__script": "payload.bool"
-                    }]
-                },
-                "number": {
-                    "__type": "interpolation",
-                    "__raw": "${ payload.number }",
-                    "__replaced": "#__{number}",
-                    "__scripts": [{
-                        "__target": "#__{number}",
-                        "__script": "payload.number"
-                    }]
-                },
-                "object": {
-                    "__type": "interpolation",
-                    "__raw": "${ payload.object }",
-                    "__replaced": "#__{object}",
-                    "__scripts": [{
-                        "__target": "#__{object}",
-                        "__script": "payload.object"
-                    }]
-                },
-                "array": {
-                    "__type": "interpolation",
-                    "__raw": "${ payload.array }",
-                    "__replaced": "#__{array}",
-                    "__scripts": [{
-                        "__target": "#__{array}",
-                        "__script": "payload.array"
-                    }]
-                },
+                }
             }
         });
         let compare = json!({
             "inter": {
-                "string": "foo",
-                "bool": true,
-                "number": 123,
-                "object": {
-                    "foo": "bar"
-                },
-                "array": ["foo", true, 123],
+                "inner": "asd"
             }
         });
 
         let payload = json!({
-            "string": "foo",
-            "bool": true,
-            "number": 123,
-            "object": {
-                "foo": "bar"
-            },
-            "array": ["foo", true, 123],
+            "item": "asd",
         });
 
         let script = Script::try_from(&data).unwrap();
