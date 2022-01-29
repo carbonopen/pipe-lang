@@ -5,7 +5,7 @@ use pipe_core::{
     log,
     modules::{Config, Listener, Return},
     serde_json::Value,
-    template::rhai::Engine,
+    scripts::rhai::Engine,
 };
 
 struct Case {

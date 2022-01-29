@@ -8,7 +8,7 @@ use pipe_core::{
     modules::{Config, Listener, Return, TraceId},
     serde::{Deserialize, Serialize},
     serde_json::{json, Value},
-    template::rhai::Engine,
+    scripts::rhai::Engine,
 };
 use regex::Regex;
 

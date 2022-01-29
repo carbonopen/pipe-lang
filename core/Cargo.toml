@@ -22,8 +22,8 @@ rhai = {version= "1.4.0", features = ["default", "metadata"]}
 
 [features]
 default = ["modules"]
-modules = ["handlebars_helpers", "template"]
-template = []
+modules = ["handlebars_helpers", "scripts"]
+scripts = []
 handlebars_helpers = []
 
 [lib]

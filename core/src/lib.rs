@@ -8,8 +8,8 @@ pub mod modules;
 #[cfg(feature = "modules")]
 pub extern crate log;
 
-#[cfg(feature = "template")]
-pub mod template;
+#[cfg(feature = "scripts")]
+pub mod scripts;
 
 #[macro_export]
 macro_rules! debug {

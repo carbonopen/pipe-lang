@@ -66,7 +66,7 @@ impl Placeholders {
     }
 
     fn new_id() -> String {
-        format!("__{{{}}}", Uuid::new_v4())
+        format!("#__{{{}}}", Uuid::new_v4())
     }
 
     fn extract(raw: &String) -> (Vec<Placeholder>, String) {
@@ -302,7 +302,7 @@ impl Value {
                             "__end".to_string(),
                             Value::Number(scr.range.end.to_string()),
                         );
-                        map.insert("__id".to_string(), Value::String(scr.id.to_string()));
+                        map.insert("__target".to_string(), Value::String(scr.id.to_string()));
                         list.push(Value::Object(map));
                     }
 
