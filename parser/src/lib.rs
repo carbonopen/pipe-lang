@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::fs;
 use value::Value;
 
-use crate::value::Placeholders;
+use crate::value::Script;
 #[derive(Parser)]
 #[grammar = "pipe.pest"]
 struct PipeParser;
@@ -307,14 +307,13 @@ impl Pipe {
             }
             Rule::string_interpolation_content => {
                 let raw = pair.as_str().to_string();
-                Value::Interpolation(Placeholders::from_string(raw))
+                Value::Interpolation(Script::from_string(raw))
             }
             Rule::interpolation => {
-                let raw = pair.as_str().to_string();
                 let mut inner = pair.into_inner();
                 let value = inner.next().unwrap().as_str().trim().to_string();
 
-                Value::Interpolation(Placeholders::from_interpolation(raw, value))
+                Value::Interpolation(Script::from_interpolation(value))
             }
             Rule::reference => Value::String(pair.as_str().to_string()),
             Rule::command => {

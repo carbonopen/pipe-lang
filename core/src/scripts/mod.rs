@@ -161,7 +161,7 @@ impl Script {
                         Err(err) => return Err(Error::from(err)),
                     };
                 }
-                debug!(replaced);
+
                 Ok(replaced)
             }
             Err(err) => Err(Error::from(err)),
@@ -240,7 +240,7 @@ mod test {
             "inter": {
                 "__type": "interpolation",
                 "__raw": "string interpolation: ${ payload.item }",
-                "__replaced": "string interpolation: #__{123}",
+                "__replaced": "\"string interpolation: \" + #__{123} + \"\"",
                 "__scripts": [{
                     "__target": "#__{123}",
                     "__script": "payload.item"

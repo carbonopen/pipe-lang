@@ -19,71 +19,39 @@ pub struct Object {
 }
 
 #[derive(Clone, PartialEq, Debug, Default)]
-pub struct Placeholder {
-    pub range: Range<usize>,
-    pub script: String,
-    pub id: String,
-}
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct Placeholders {
+pub struct Script {
     pub raw: String,
-    pub replaced: String,
-    pub scripts: Vec<Placeholder>,
+    pub groups: Vec<String>,
 }
 
-impl Placeholders {
-    pub fn from_interpolation(raw: String, script: String) -> Self {
-        let range = Range {
-            start: 0,
-            end: script.len() - 1,
-        };
-        let id = Self::new_id();
-
+impl Script {
+    pub fn from_interpolation(script: String) -> Self {
         Self {
-            replaced: Self::replaced(&raw, &range, &id),
-            raw,
-            scripts: vec![Placeholder { range, script, id }],
+            groups: vec![script.trim().to_string()],
+            raw: script,
         }
     }
 
     pub fn from_string(raw: String) -> Self {
-        let (scripts, replaced) = Placeholders::extract(&raw);
+        let groups = Self::extract(&raw);
 
-        Self {
-            raw,
-            scripts,
-            replaced,
-        }
+        Self { groups, raw }
     }
 
-    fn replaced(raw: &String, range: &Range<usize>, id: &String) -> String {
-        format!(
-            "{}{}{}",
-            raw[0..range.start].to_string(),
-            id,
-            raw[range.end..raw.len()].to_string()
-        )
-    }
-
-    fn new_id() -> String {
-        format!("#__{{{}}}", Uuid::new_v4())
-    }
-
-    fn extract(raw: &String) -> (Vec<Placeholder>, String) {
-        let mut replaced = raw.clone();
-        let re = Regex::new(r"\$\{(?P<handler>.*?)\}").unwrap();
+    fn extract(raw: &String) -> Vec<String> {
+        let re = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
         let mut list = Vec::new();
+        let mut pos: usize = 0;
 
         for caps in re.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
             let script = caps.get(1).unwrap().as_str().to_string();
-            let id = Self::new_id();
-
-            replaced = Self::replaced(&replaced, &range, &id);
-            list.push(Placeholder { range, script, id })
+            list.push(format!(r#""{}""#, raw[pos..range.start].to_string()));
+            list.push(script[2..(script.len() - 1)].trim().to_string());
+            pos = range.end;
         }
 
-        (list, replaced)
+        list
     }
 }
 
@@ -93,7 +61,7 @@ pub enum Value {
     Array(Vec<Value>),
     String(String),
     Number(String),
-    Interpolation(Placeholders),
+    Interpolation(Script),
     Boolean(bool),
     Null,
     Undefined,
@@ -219,7 +187,7 @@ impl Value {
         }
     }
 
-    pub fn to_placeholders(&self) -> Result<Placeholders, ()> {
+    pub fn to_script(&self) -> Result<Script, ()> {
         match self {
             Self::Interpolation(value) => Ok(value.clone()),
             _ => Err(()),
@@ -275,41 +243,20 @@ impl Value {
             Value::Boolean(b) => format!("{}", b),
             Value::Null => format!("null"),
             Value::Undefined => format!("undefined"),
-            Value::Interpolation(place) => {
+            Value::Interpolation(script) => {
                 let mut map = HashMap::new();
                 map.insert(
                     "__type".to_string(),
                     Value::String("interpolation".to_string()),
                 );
-                map.insert("__raw".to_string(), Value::String(place.raw.clone()));
-                map.insert(
-                    "__replaced".to_string(),
-                    Value::String(place.replaced.clone()),
-                );
+                map.insert("__raw".to_string(), Value::String(script.raw.clone()));
 
-                let scripts = {
-                    let mut list = Vec::new();
-
-                    for scr in place.scripts.clone() {
-                        let mut map = HashMap::new();
-
-                        map.insert("__script".to_string(), Value::String(scr.script.clone()));
-                        map.insert(
-                            "__start".to_string(),
-                            Value::Number(scr.range.start.to_string()),
-                        );
-                        map.insert(
-                            "__end".to_string(),
-                            Value::Number(scr.range.end.to_string()),
-                        );
-                        map.insert("__target".to_string(), Value::String(scr.id.to_string()));
-                        list.push(Value::Object(map));
-                    }
-
-                    Value::Array(list)
-                };
-
-                map.insert("__scripts".to_string(), scripts);
+                let groups = script
+                    .groups
+                    .iter()
+                    .map(|item| Value::String(item.clone()))
+                    .collect::<Vec<_>>();
+                map.insert("__groups".to_string(), Value::Array(groups));
 
                 format!("{}", Value::to_json(&Value::Object(map)))
             }
@@ -330,7 +277,7 @@ mod tests {
         assert_eq!(Value::String(String::default()).is_string(), true);
         assert_eq!(Value::Number("1".to_string()).is_number(), true);
         assert_eq!(
-            Value::Interpolation(Placeholders::default()).is_interpolation(),
+            Value::Interpolation(Script::default()).is_interpolation(),
             true
         );
         assert_eq!(Value::Boolean(false).is_boolean(), true);
@@ -346,7 +293,7 @@ mod tests {
         let boolean = Value::Boolean(true);
         let null = Value::Null;
         let undefined = Value::Undefined;
-        let interpolation = Value::Interpolation(Placeholders::default());
+        let interpolation = Value::Interpolation(Script::default());
 
         assert_eq!(array.to_array().unwrap(), Vec::default());
         assert_eq!(array.to_boolean().unwrap(), true);
@@ -372,10 +319,7 @@ mod tests {
 
         assert_eq!(interpolation.to_string().unwrap(), "".to_string());
         assert_eq!(interpolation.to_boolean().unwrap(), true);
-        assert_eq!(
-            interpolation.to_placeholders().unwrap(),
-            Placeholders::default()
-        );
+        assert_eq!(interpolation.to_script().unwrap(), Script::default());
 
         assert_eq!(Value::Number("1.5".to_string()).to_f64().unwrap(), 1.5);
     }
