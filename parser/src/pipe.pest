@@ -43,13 +43,20 @@ ident = @{ char+ }
 
 
 // Value
-value = _{ object | array | string | number | boolean | null | interpolation | string_interpolation | embedded }
+value = _{ object | array | string | number | boolean | null | interpolation | string_interpolation | object_interpolation | embedded }
+value_withou_interpolation = _{ object | array | string | number | boolean | null | embedded }
 
 //interpolation
 interpolation = { "${" ~ interpolation_content  ~ "}" }
 interpolation_content = @{ (!"}" ~ ANY)* }
 string_interpolation = { "`" ~!"``"~ string_interpolation_content ~ "`" }
 string_interpolation_content = @{ (!"`" ~ ANY)* }
+object_interpolation = {
+    "{" ~ "}" |
+    "{" ~ object_interpolation_pair ~ ("," ~ object_interpolation_pair)* ~ "}"
+}
+object_interpolation_pair = { NEWLINE? ~ string ~ ":" ~ value ~ NEWLINE? }
+
 
 //embedded
 embedded = { "```"  ~ (embedded_source)? ~ embedded_content ~ "```" }
@@ -73,6 +80,6 @@ array = {
 }
 object = {
     "{" ~ "}" |
-    "{" ~ pair ~ ("," ~ pair)* ~ "}"
+    "{" ~ object_pair ~ ("," ~ object_pair)* ~ "}"
 }
-pair = { NEWLINE? ~ string ~ ":" ~ value ~ NEWLINE? }
+object_pair = { NEWLINE? ~ string ~ ":" ~ value_withou_interpolation ~ NEWLINE? }

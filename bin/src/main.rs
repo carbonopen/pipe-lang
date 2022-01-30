@@ -17,7 +17,7 @@ struct Args {
 }
 
 fn main() {
-    let mut builder = Builder::from_env(Env::default().default_filter_or("trace"));
+    let mut builder = Builder::from_env(Env::default().default_filter_or("info"));
     builder.target(Target::Stdout);
     builder.init();
 
@@ -30,6 +30,6 @@ fn main() {
             Some(path) => to_file::to_json(&pipe, &path),
             None => runtime::runtime(pipe),
         },
-        Err(err) => println!("{:?}", err),
+        Err(err) => log::error!("{:?}", err),
     };
 }

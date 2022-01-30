@@ -1,6 +1,5 @@
 use regex::Regex;
-use std::{collections::HashMap, ops::Range};
-use uuid::Uuid;
+use std::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
@@ -21,24 +20,25 @@ pub struct Object {
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Script {
     pub raw: String,
-    pub groups: Vec<String>,
+    pub script: String,
 }
 
 impl Script {
     pub fn from_interpolation(script: String) -> Self {
         Self {
-            groups: vec![script.trim().to_string()],
+            script: script.trim().to_string(),
+            raw: script,
+        }
+    }
+
+    pub fn from_object(script: String) -> Self {
+        Self {
+            script: script.trim().to_string(),
             raw: script,
         }
     }
 
     pub fn from_string(raw: String) -> Self {
-        let groups = Self::extract(&raw);
-
-        Self { groups, raw }
-    }
-
-    fn extract(raw: &String) -> Vec<String> {
         let re = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
         let mut list = Vec::new();
         let mut pos: usize = 0;
@@ -46,12 +46,16 @@ impl Script {
         for caps in re.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
             let script = caps.get(1).unwrap().as_str().to_string();
-            list.push(format!(r#""{}""#, raw[pos..range.start].to_string()));
-            list.push(script[2..(script.len() - 1)].trim().to_string());
+            let prefix = format!(r#""{}""#, raw[pos..range.start].to_string());
+            let content = script[2..(script.len() - 1)].trim().to_string();
+            list.push(prefix);
+            list.push(format!("({})", content));
             pos = range.end;
         }
 
-        list
+        let script = list.join("+");
+
+        Self { script, raw }
     }
 }
 
@@ -222,20 +226,29 @@ impl Value {
 #[cfg(feature = "json")]
 impl Value {
     pub fn as_json(&self) -> String {
-        Value::to_json(self)
+        Value::to_json(self, true)
     }
 
-    pub fn to_json(val: &Value) -> String {
+    pub fn as_json_raw(&self) -> String {
+        Value::to_json(self, false)
+    }
+
+    pub fn to_json(val: &Value, interpolation: bool) -> String {
         match val {
             Value::Object(o) => {
                 let contents: Vec<_> = o
                     .iter()
-                    .map(|(name, value)| format!("\"{}\":{}", name, Value::to_json(value)))
+                    .map(|(name, value)| {
+                        format!("\"{}\":{}", name, Value::to_json(value, interpolation))
+                    })
                     .collect();
                 format!("{{{}}}", contents.join(","))
             }
             Value::Array(a) => {
-                let contents: Vec<_> = a.iter().map(Value::to_json).collect();
+                let contents: Vec<_> = a
+                    .iter()
+                    .map(|value| Value::to_json(value, interpolation))
+                    .collect();
                 format!("[{}]", contents.join(","))
             }
             Value::String(s) => format!("\"{}\"", s),
@@ -244,21 +257,16 @@ impl Value {
             Value::Null => format!("null"),
             Value::Undefined => format!("undefined"),
             Value::Interpolation(script) => {
-                let mut map = HashMap::new();
-                map.insert(
-                    "__type".to_string(),
-                    Value::String("interpolation".to_string()),
-                );
-                map.insert("__raw".to_string(), Value::String(script.raw.clone()));
+                if interpolation {
+                    let mut map = HashMap::new();
+                    map.insert("__type".to_string(), Value::String("script".to_string()));
+                    let script = Value::String(script.script.clone());
+                    map.insert("script".to_string(), script);
 
-                let groups = script
-                    .groups
-                    .iter()
-                    .map(|item| Value::String(item.clone()))
-                    .collect::<Vec<_>>();
-                map.insert("__groups".to_string(), Value::Array(groups));
-
-                format!("{}", Value::to_json(&Value::Object(map)))
+                    format!("{}", Value::to_json(&Value::Object(map), interpolation))
+                } else {
+                    format!("\"{}\"", script.raw)
+                }
             }
         }
     }

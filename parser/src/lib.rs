@@ -315,6 +315,34 @@ impl Pipe {
 
                 Value::Interpolation(Script::from_interpolation(value))
             }
+            Rule::object_interpolation => {
+                let mut map = map!();
+
+                for pair in pair.into_inner() {
+                    let mut inner = pair.into_inner();
+                    let key = inner
+                        .next()
+                        .unwrap()
+                        .into_inner()
+                        .next()
+                        .unwrap()
+                        .as_str()
+                        .to_string();
+                    let next = inner.next().unwrap();
+
+                    let value = match next.as_rule() {
+                        Rule::interpolation => Value::String(next.as_str().to_string()),
+                        _ => Self::parse(next),
+                    };
+
+                    map.insert(key, value);
+                }
+
+                // println!("{:#?}", map);
+
+                let inter = Script::from_string(Value::Object(map).as_json_raw());
+                Value::Interpolation(inter)
+            }
             Rule::reference => Value::String(pair.as_str().to_string()),
             Rule::command => {
                 let mut list = Vec::new();
@@ -420,13 +448,6 @@ mod tests {
     }
 
     #[test]
-    fn import_file() {
-        let value = Pipe::from_path("../demo/example.pipe");
-
-        assert!(value.is_ok());
-    }
-
-    #[test]
     fn complex_macro() {
         let pipe = r#"
         import {
@@ -471,5 +492,26 @@ mod tests {
         assert_eq!(module.get(3).unwrap(), &Value::Boolean(false));
         assert_eq!(module.get(4).unwrap(), &Value::String("name".to_string()));
         assert_eq!(item, false);
+    }
+
+    #[test]
+    fn interpolation() {
+        let pipe = r#"
+            interpolation {
+                value=${item}
+                string=`item is ${item}`
+                object={
+                    "value": ${item},
+                    "other": true,
+                    "string": `Other string ${value + 1}`
+                }
+            }
+        "#;
+        let value = Pipe::from_str(pipe).unwrap();
+        println!("");
+        println!("{:#?}", value);
+        println!("");
+        println!("{:?}", value.as_json());
+        assert!(value.as_json().contains("pipeline"));
     }
 }
