@@ -30,6 +30,6 @@ fn main() {
             Some(path) => to_file::to_json(&pipe, &path),
             None => runtime::runtime(pipe),
         },
-        Err(err) => log::error!("{:?}", err),
+        Err(err) => log::error!("{:?}: {}", err, &args.path),
     };
 }

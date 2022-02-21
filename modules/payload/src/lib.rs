@@ -1,23 +1,19 @@
 #[macro_use]
 extern crate pipe_core;
 
-use std::collections::HashMap;
-
 use pipe_core::{
     log,
-    modules::{Config, Listener, Return, TraceId},
+    modules::{Config, Listener, Return},
     serde::{Deserialize, Serialize},
     serde_json::{json, Value},
-    scripts::rhai::Engine,
 };
-use regex::Regex;
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     log::info!("{:?}", config);
 
     match config.params {
         Some(template) => {
-            debug!(template)
+            // debug!(template)
         }
         _ => (),
     };

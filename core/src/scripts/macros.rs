@@ -11,3 +11,13 @@ macro_rules! render {
         }
     }};
 }
+
+#[macro_export(local_inner_macros)]
+macro_rules! param_test {
+    ($value: expr) => {
+        $crate::serde_json::json!({
+            "___type": "script",
+            "list": $value
+        })
+    };
+}

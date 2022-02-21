@@ -1,285 +1,269 @@
-// pub extern crate rhai;
-// use std::convert::TryFrom;
-// #[macro_use]
-// pub mod macros;
-// use regex::Regex;
-// use rhai::{serde::to_dynamic, Engine, EvalAltResult, Scope, AST};
-// use serde_json::{Error as SerdeJsonError, Map, Value};
+pub extern crate rhai;
+use std::{
+    collections::HashMap,
+    convert::TryFrom,
+    fmt::{write, Display},
+};
+#[macro_use]
+pub mod macros;
+use rhai::{serde::to_dynamic, Engine, EvalAltResult, ParseError, Scope, AST};
+use serde_json::{Error as SerdeJsonError, Value};
 
-// use crate::debug;
+use crate::debug;
 
-// #[derive(Debug, Default)]
-// pub struct Error {
-//     serde_json: Option<SerdeJsonError>,
-//     rhai: Option<Box<EvalAltResult>>,
-// }
+#[derive(Debug)]
+enum ParamError {
+    NoObject,
+    NotFoundParam,
+}
 
-// impl From<SerdeJsonError> for Error {
-//     fn from(error: SerdeJsonError) -> Self {
-//         Self {
-//             serde_json: Some(error),
-//             ..Default::default()
-//         }
-//     }
-// }
+impl Display for ParamError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParamError::NoObject => write!(f, "Params not a object."),
+            ParamError::NotFoundParam => write!(f, "Param not found."),
+        }
+    }
+}
 
-// impl From<Box<EvalAltResult>> for Error {
-//     fn from(error: Box<EvalAltResult>) -> Self {
-//         Self {
-//             rhai: Some(error),
-//             ..Default::default()
-//         }
-//     }
-// }
+#[derive(Debug, Default)]
+pub struct Error {
+    serde_json: Option<SerdeJsonError>,
+    rhai: Option<Box<EvalAltResult>>,
+    ast: Option<ParseError>,
+    param: Option<ParamError>,
+}
 
-// struct ScriptInner {
-//     value: Value,
-//     scripts: Vec<String>,
-// }
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(error) = &self.serde_json {
+            write!(f, "serde_json: {}", error)
+        } else if let Some(error) = &self.rhai {
+            write!(f, "hrai: {}", error)
+        } else if let Some(error) = &self.ast {
+            write!(f, "ast: {}", error)
+        } else if let Some(error) = &self.param {
+            write!(f, "param: {}", error)
+        } else {
+            write!(f, "Params error")
+        }
+    }
+}
 
-// impl ScriptInner {
-//     fn new(engine: &Engine, value: &Value) -> Self {
-//         let mut scripts = Vec::new();
+impl From<SerdeJsonError> for Error {
+    fn from(error: SerdeJsonError) -> Self {
+        Self {
+            serde_json: Some(error),
+            ..Default::default()
+        }
+    }
+}
 
-//         if let Some(obj) = value.as_object() {
-//             if let Some(obj_type_value) = obj.get("__type") {
-//                 if obj_type_value.as_str().unwrap().eq("script") {
-//                     let script = vec![obj.get("script").unwrap().as_str().unwrap().to_string()];
-//                     return Self {
-//                         value: value.clone(),
-//                         scripts,
-//                     };
-//                 }
-//             }
+impl From<Box<EvalAltResult>> for Error {
+    fn from(error: Box<EvalAltResult>) -> Self {
+        Self {
+            rhai: Some(error),
+            ..Default::default()
+        }
+    }
+}
 
-//             let map = obj
-//                 .into_iter()
-//                 .map(|(key, value)| {
-//                     let inner = Self::new(engine, value);
-//                     scripts.push(inner);
-//                     (key.clone(), value.clone())
-//                 })
-//                 .collect::<Map<String, Value>>();
+impl From<ParseError> for Error {
+    fn from(error: ParseError) -> Self {
+        Self {
+            ast: Some(error),
+            ..Default::default()
+        }
+    }
+}
 
-//             let value = Value::from(map);
-//             Self { scripts }
-//         } else if let Some(array) = value.as_array() {
-//             let list = array
-//                 .iter()
-//                 .map(|item| {
-//                     let replaced = Self::new(engine, item);
-//                     scripts.extend(replaced.scripts);
-//                     replaced.value
-//                 })
-//                 .collect::<Vec<_>>();
+impl From<ParamError> for Error {
+    fn from(error: ParamError) -> Self {
+        Self {
+            param: Some(error),
+            ..Default::default()
+        }
+    }
+}
 
-//             let value = Value::from(list);
-//             Self { value, scripts }
-//         } else {
-//             Self {
-//                 value: value.clone(),
-//                 scripts,
-//             }
-//         }
-//     }
-// }
+#[derive(Debug)]
+pub struct Params<'a> {
+    pub default: HashMap<String, Value>,
+    scripts: HashMap<String, AST>,
+    engine: Engine,
+    scope: Scope<'a>,
+}
 
-// #[derive(Clone, Debug)]
-// pub struct Interpolation {
-//     ast: AST,
-//     target: String,
-// }
+impl<'a> Params<'a> {
+    pub fn set_payload(&mut self, payload: Value) -> Result<(), Error> {
+        match to_dynamic(payload) {
+            Ok(dynamic) => {
+                self.scope.push_dynamic("payload", dynamic);
+                Ok(())
+            }
+            Err(err) => Err(Error::from(err)),
+        }
+    }
 
-// #[derive(Debug)]
-// pub struct Script {
-//     script: String,
-//     engine: Engine,
-// }
+    fn compile(engine: &Engine, scope: &mut Scope, ast: &AST) -> Result<Value, Error> {
+        match engine.eval_ast_with_scope::<String>(scope, &ast) {
+            Ok(value) => match serde_json::to_value(value) {
+                Ok(value) => Ok(value),
+                Err(err) => return Err(Error::from(err)),
+            },
+            Err(err) => return Err(Error::from(err)),
+        }
+    }
 
-// impl Script {
-//     pub fn resolve(&self, payload: Value) -> Result<String, Error> {
-//         match to_dynamic(payload) {
-//             Ok(dynamic) => {
-//                 let mut replaced = self.replaced.clone();
+    pub fn get_map(&mut self) -> Result<HashMap<String, Value>, Error> {
+        let mut result = self.default.clone();
 
-//                 for inter in self.scripts.iter() {
-//                     let mut scope = Scope::new();
-//                     scope.push("payload", dynamic.clone());
+        for (key, ast) in self.scripts.iter() {
+            match Self::compile(&self.engine, &mut self.scope, &ast) {
+                Ok(value) => {
+                    result.insert(key.clone(), value);
+                }
+                Err(err) => return Err(Error::from(err)),
+            }
+        }
 
-//                     match self
-//                         .engine
-//                         .eval_ast_with_scope::<String>(&mut scope, &inter.ast)
-//                     {
-//                         Ok(output) => {
-//                             if self.re_no_script.is_match(&output) {
-//                                 replaced = replaced.replace(&inter.target, &output);
-//                             } else {
-//                                 replaced =
-//                                     replaced.replace(&inter.target, &format!(r#""{}""#, output));
-//                             }
-//                         }
-//                         Err(err) => return Err(Error::from(err)),
-//                     };
-//                 }
+        Ok(result)
+    }
 
-//                 Ok(replaced)
-//             }
-//             Err(err) => Err(Error::from(err)),
-//         }
-//     }
+    /// Returns param by name
+    pub fn get_param(&mut self, name: &str) -> Result<Value, Error> {
+        match self.scripts.get(name) {
+            Some(ast) => match Self::compile(&self.engine, &mut self.scope, &ast) {
+                Ok(value) => Ok(value),
+                Err(err) => return Err(Error::from(err)),
+            },
+            None => Err(Error::from(ParamError::NotFoundParam)),
+        }
+    }
 
-//     pub fn resolve_value(&self, payload: Value) -> Result<Value, Error> {
-//         match self.resolve(payload) {
-//             Ok(value) => match serde_json::from_str(&value) {
-//                 Ok(value) => Ok(value),
-//                 Err(err) => Err(Error::from(err)),
-//             },
-//             Err(err) => Err(err),
-//         }
-//     }
-// }
+    /// Returns all parameters compiled in a map
+    pub fn get_value(&mut self) -> Result<Value, Error> {
+        match self.get_map() {
+            Ok(value) => match serde_json::to_value(value) {
+                Ok(value) => Ok(value),
+                Err(err) => Err(Error::from(err)),
+            },
+            Err(err) => Err(Error::from(err)),
+        }
+    }
+}
 
-// impl TryFrom<&Value> for Script {
-//     type Error = Error;
+impl<'a> TryFrom<&Value> for Params<'a> {
+    type Error = Error;
 
-//     fn try_from(value: &Value) -> Result<Self, Self::Error> {
-//         let engine = Engine::new();
-//         let script = ScriptInner::new(&engine, value);
+    fn try_from(target: &Value) -> Result<Self, Self::Error> {
+        let mut default = HashMap::new();
+        let mut scripts = HashMap::new();
+        let engine = Engine::new();
 
-//         match serde_json::to_string(&inner.value) {
-//             Ok(replaced) => Ok(Self { script, engine }),
-//             Err(err) => Err(Error::from(err)),
-//         }
-//     }
-// }
+        match target.as_object() {
+            Some(obj) => {
+                for (key, value) in obj.into_iter() {
+                    if let Some(item) = value.as_object() {
+                        if let Some(obj_type_value) = item.get("___type") {
+                            if obj_type_value.as_str().unwrap().eq("script") {
+                                let script = item
+                                    .get("list")
+                                    .unwrap()
+                                    .as_array()
+                                    .unwrap()
+                                    .iter()
+                                    .map(|item| item.as_str().unwrap())
+                                    .collect::<Vec<_>>()
+                                    .join("+");
 
-// #[cfg(test)]
-// mod test {
-//     use super::Script;
-//     use serde_json::json;
-//     use std::convert::TryFrom;
+                                let handler = format!(
+                                    "fn handler(payload){{{};}}; to_string(handler(payload))",
+                                    script // r#""{\"item\": "+(payload.item)+"}""#
+                                );
 
-//     #[test]
-//     fn test_interpolation() {
-//         let data = json!({
-//             "number": 1,
-//             "inter": {
-//                 "__type": "interpolation",
-//                 "__raw": "${ payload.item }",
-//                 "__replaced": "#__{123}",
-//                 "__scripts": [{
-//                     "__target": "#__{123}",
-//                     "__script": "payload.item"
-//                 }]
-//             }
-//         });
-//         let compare = json!({
-//             "number": 1,
-//             "inter": 2
-//         });
+                                match engine.compile(handler) {
+                                    Ok(ast) => {
+                                        scripts.insert(key.clone(), ast);
+                                    }
+                                    Err(err) => return Err(Error::from(err)),
+                                };
+                            }
+                        }
+                    }
 
-//         let payload = json!({
-//             "item": 2,
-//         });
+                    default.insert(key.clone(), value.clone());
+                }
 
-//         let script = Script::try_from(&data).unwrap();
-//         let resolve = script.resolve_value(payload).unwrap();
+                Ok(Self {
+                    default,
+                    scripts,
+                    engine,
+                    scope: Scope::new(),
+                })
+            }
+            None => Err(Error::from(ParamError::NoObject)),
+        }
+    }
+}
 
-//         assert_eq!(compare, resolve);
-//     }
+#[cfg(test)]
+mod test {
+    use super::Params;
+    use serde_json::json;
+    use std::convert::TryFrom;
 
-//     #[test]
-//     fn test_string_interpolation() {
-//         let data = json!({
-//             "number": 1,
-//             "inter": {
-//                 "__type": "interpolation",
-//                 "__raw": "string interpolation: ${ payload.item }",
-//                 "__replaced": "\"string interpolation: \" + #__{123} + \"\"",
-//                 "__scripts": [{
-//                     "__target": "#__{123}",
-//                     "__script": "payload.item"
-//                 }]
-//             }
-//         });
-//         let compare = json!({
-//             "number": 1,
-//             "inter": "string interpolation: 2"
-//         });
+    #[test]
+    fn test_interpolation_object() {
+        let data = json!({
+            "param1": 1,
+            "param2": {
+                "___type": "script",
+                "list": [
+                    r#""{\"item\": ""#,
+                    "(payload.item)",
+                    r#""}""#
+                ]
+            }
+        });
+        let compare = json!({
+            "param1": 1,
+            "param2": "{\"item\": 2}"
+        });
 
-//         let payload = json!({
-//             "item": 2,
-//         });
+        let payload = json!({
+            "item": 2,
+        });
 
-//         let script = Script::try_from(&data).unwrap();
-//         let resolve = script.resolve_value(payload).unwrap();
+        let mut params = Params::try_from(&data).unwrap();
+        params.set_payload(payload).expect("Payload error.");
+        let resolve = params.get_value().unwrap();
 
-//         assert_eq!(compare, resolve);
-//     }
+        assert_eq!(compare, resolve);
+    }
 
-//     #[test]
-//     fn test_string_interpolation_2() {
-//         let data = json!({
-//             "number": 1,
-//             "inter": {
-//                 "inner": {
-//                     "__type": "interpolation",
-//                     "__raw": "${ payload.item }",
-//                     "__replaced": "#__{123}",
-//                     "__scripts": [{
-//                         "__target": "#__{123}",
-//                         "__script": "payload.item"
-//                     }]
-//                 },
-//                 "other": true
-//             }
-//         });
-//         let compare = json!({
-//             "number": 1,
-//             "inter": {
-//                 "inner": false,
-//                 "other": true
-//             }
-//         });
+    #[test]
+    fn test_interpolation() {
+        let data = json!({
+            "param1": 1,
+            "param2": {
+                "___type": "script",
+                "list": ["10 * payload.item"]
+            }
+        });
+        let compare = json!({
+            "param1": 1,
+            "param2": 20
+        });
 
-//         let payload = json!({
-//             "item": false,
-//         });
+        let payload = json!({
+            "item": 2,
+        });
 
-//         let script = Script::try_from(&data).unwrap();
-//         let resolve = script.resolve_value(payload).unwrap();
+        let mut params = Params::try_from(&data).unwrap();
+        params.set_payload(payload).expect("Payload error.");
+        let value = params.get_value().unwrap();
 
-//         assert_eq!(compare, resolve);
-//     }
-
-//     #[test]
-//     fn test_complex() {
-//         let data = json!({
-//             "inter": {
-//                 "inner": {
-//                     "__type": "interpolation",
-//                     "__raw": "${ payload.item }",
-//                     "__replaced": "#__{123}",
-//                     "__scripts": [{
-//                         "__target": "#__{123}",
-//                         "__script": "payload.item"
-//                     }]
-//                 }
-//             }
-//         });
-//         let compare = json!({
-//             "inter": {
-//                 "inner": "asd"
-//             }
-//         });
-
-//         let payload = json!({
-//             "item": "asd",
-//         });
-
-//         let script = Script::try_from(&data).unwrap();
-//         let resolve = script.resolve_value(payload).unwrap();
-
-//         assert_eq!(compare, resolve);
-//     }
-// }
+        assert_eq!(compare, value);
+    }
+}

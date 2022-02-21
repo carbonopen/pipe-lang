@@ -19,6 +19,7 @@ rcalc_lib = "1.0.0"
 log = "0.4.14"
 uuid = { version = "0.8", features = ["serde", "v4"] }
 rhai = {version= "1.4.0", features = ["default", "metadata"]}
+snailquote="0.3.1"
 
 [features]
 default = ["modules"]

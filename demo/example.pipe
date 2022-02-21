@@ -27,10 +27,10 @@ pipeline {
         target = ${ payload.params.number }
 
         case "number" (
-            pipe number
+            pipe other
         )
         case "other" (
-            pipe other
+            pipe default
         )
 
         | default
@@ -39,7 +39,7 @@ pipeline {
     payload number {
         status_code=403
         body={
-            "value": ${ payload.params.number },
+            "value": `${ 1 + payload.params.number  }`,
             "type": "number"
         }
         headers={
@@ -51,7 +51,7 @@ pipeline {
     payload other {
         status_code=200
         body={
-            "value": ${ payload.params.number },
+            "value": `${ payload.params.number }`,
             "type": "other"
         }
         headers={
@@ -81,3 +81,5 @@ pipeline {
         | init
     }
 }
+
+

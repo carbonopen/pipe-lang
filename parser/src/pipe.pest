@@ -52,10 +52,12 @@ interpolation_content = @{ (!"}" ~ ANY)* }
 string_interpolation = { "`" ~!"``"~ string_interpolation_content ~ "`" }
 string_interpolation_content = @{ (!"`" ~ ANY)* }
 object_interpolation = {
-    "{" ~ "}" |
     "{" ~ object_interpolation_pair ~ ("," ~ object_interpolation_pair)* ~ "}"
 }
-object_interpolation_pair = { NEWLINE? ~ string ~ ":" ~ value ~ NEWLINE? }
+object_interpolation_pair = _{ object_interpolation_pair_default | object_interpolation_pair_merge }
+object_interpolation_pair_merge = { NEWLINE? ~  "..." ~ interpolation  ~ NEWLINE? }
+object_interpolation_pair_key = _{ string | interpolation | string_interpolation }
+object_interpolation_pair_default = { NEWLINE? ~ object_interpolation_pair_key ~ ":" ~ value ~ NEWLINE? }
 
 
 //embedded

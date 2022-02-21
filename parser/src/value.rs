@@ -20,6 +20,7 @@ pub struct Object {
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Script {
     pub raw: String,
+    pub list: Vec<Value>,
     pub script: String,
 }
 
@@ -27,35 +28,45 @@ impl Script {
     pub fn from_interpolation(script: String) -> Self {
         Self {
             script: script.trim().to_string(),
-            raw: script,
+            raw: script.clone(),
+            list: vec![Value::String(script)],
         }
     }
 
     pub fn from_object(script: String) -> Self {
         Self {
             script: script.trim().to_string(),
-            raw: script,
+            raw: script.clone(),
+            list: vec![Value::String(script)],
         }
     }
 
     pub fn from_string(raw: String) -> Self {
+        let re_quotes = Regex::new(r#"""#).unwrap();
         let re = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
+        let mut list_string = Vec::new();
         let mut list = Vec::new();
         let mut pos: usize = 0;
 
         for caps in re.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
             let script = caps.get(1).unwrap().as_str().to_string();
-            let prefix = format!(r#""{}""#, raw[pos..range.start].to_string());
+            let prefix_escape = re_quotes
+                .replace_all(&raw[pos..range.start].to_string(), r#"\""#)
+                .to_string();
+            let prefix = format!(r#"\"{}\""#, prefix_escape);
             let content = script[2..(script.len() - 1)].trim().to_string();
-            list.push(prefix);
-            list.push(format!("({})", content));
+            let item = format!("({})", content);
+            list.push(Value::String(prefix.clone()));
+            list.push(Value::String(item.clone()));
+            list_string.push(prefix);
+            list_string.push(item);
             pos = range.end;
         }
 
-        let script = list.join("+");
+        let script = list_string.join("+");
 
-        Self { script, raw }
+        Self { script, raw, list }
     }
 }
 
@@ -149,7 +160,7 @@ impl Value {
         match self {
             Self::String(value) => Ok(value.clone()),
             Self::Number(value) => Ok(value.clone()),
-            Self::Interpolation(value) => Ok(value.raw.clone()),
+            Self::Interpolation(value) => Ok(value.script.clone()),
             Self::Boolean(value) => Ok(format!("{}", value)),
             Self::Null => Ok("null".to_string()),
             Self::Undefined => Ok("undefined".to_string()),
@@ -259,8 +270,10 @@ impl Value {
             Value::Interpolation(script) => {
                 if interpolation {
                     let mut map = HashMap::new();
-                    map.insert("__type".to_string(), Value::String("script".to_string()));
+                    map.insert("___type".to_string(), Value::String("script".to_string()));
+                    let list = Value::Array(script.list.clone());
                     let script = Value::String(script.script.clone());
+                    map.insert("list".to_string(), list);
                     map.insert("script".to_string(), script);
 
                     format!("{}", Value::to_json(&Value::Object(map), interpolation))

@@ -30,6 +30,13 @@ macro_rules! map {
     }};
 }
 
+#[macro_export]
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        // println!("{:#?}", $($arg)*)
+    };
+}
+
 #[derive(Debug)]
 pub struct Error {
     parse: Option<PestError<Rule>>,
@@ -329,7 +336,6 @@ impl Pipe {
                         .as_str()
                         .to_string();
                     let next = inner.next().unwrap();
-
                     let value = match next.as_rule() {
                         Rule::interpolation => Value::String(next.as_str().to_string()),
                         _ => Self::parse(next),
@@ -338,9 +344,8 @@ impl Pipe {
                     map.insert(key, value);
                 }
 
-                // println!("{:#?}", map);
-
-                let inter = Script::from_string(Value::Object(map).as_json_raw());
+                let raw = Value::Object(map).as_json_raw();
+                let inter = Script::from_string(raw);
                 Value::Interpolation(inter)
             }
             Rule::reference => Value::String(pair.as_str().to_string()),
@@ -507,11 +512,28 @@ mod tests {
                 }
             }
         "#;
-        let value = Pipe::from_str(pipe).unwrap();
-        println!("");
-        println!("{:#?}", value);
-        println!("");
-        println!("{:?}", value.as_json());
-        assert!(value.as_json().contains("pipeline"));
+        let value = match Pipe::from_str(pipe) {
+            Ok(value) => value,
+            Err(err) => panic!("{:?}", err),
+        };
+
+        let obj = value
+            .to_object()
+            .unwrap()
+            .get("interpolation")
+            .unwrap()
+            .to_object()
+            .unwrap();
+
+        assert!(obj
+            .get("object")
+            .unwrap()
+            .to_string()
+            .unwrap()
+            .contains("(value + 1)"));
+        assert_eq!(
+            &obj.get("string").unwrap().to_string().unwrap(),
+            r#""item is "+(item)"#
+        );
     }
 }

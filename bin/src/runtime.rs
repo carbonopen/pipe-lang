@@ -120,21 +120,42 @@ pub fn runtime(value: Value) {
                     Some(module_id) => match senders.get(&module_id) {
                         Some(module) => {
                             log::trace!(
-                                "trace_id: {} | Sender to step: {}",
+                                "trace_id: {} | Sender from {} to step: {}",
                                 control.trace_id,
+                                control.origin,
                                 module_id
                             );
-                            module
-                                .send(Request {
-                                    origin: control.origin,
-                                    payload: control.payload,
-                                    trace_id: control.trace_id,
-                                })
-                                .unwrap();
+                            match module.send(Request {
+                                origin: control.origin,
+                                payload: control.payload,
+                                trace_id: control.trace_id,
+                            }) {
+                                Ok(_) => log::trace!(
+                                    "trace_id: {} | Sended from {} to step {}",
+                                    control.trace_id,
+                                    control.origin,
+                                    module_id
+                                ),
+                                Err(err) => log::error!(
+                                    "trace_id: {} |Send Error from {} to {}: {:?}",
+                                    control.trace_id,
+                                    control.origin,
+                                    module_id,
+                                    err
+                                ),
+                            } // todo: Forçar retorno de erro para o step anterior
                         }
-                        None => log::warn!("Reference {} not found", attach),
+                        None => log::warn!(
+                            "trace_id: {} | Reference {} not found",
+                            control.trace_id,
+                            attach
+                        ),
                     },
-                    _ => log::warn!("Reference {} not found", attach),
+                    _ => log::warn!(
+                        "trace_id: {} | Reference {} not found",
+                        control.trace_id,
+                        attach
+                    ),
                 };
             }
             None => {

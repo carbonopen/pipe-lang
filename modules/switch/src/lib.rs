@@ -1,13 +1,16 @@
 #[macro_use]
 extern crate pipe_core;
 
+use std::convert::TryFrom;
+
 use pipe_core::{
     log,
     modules::{Config, Listener, Return},
+    scripts::Params,
     serde_json::Value,
-    scripts::rhai::Engine,
 };
 
+#[derive(Debug)]
 struct Case {
     pub case: Value,
     pub attach: String,
@@ -20,110 +23,110 @@ impl Case {
 }
 
 fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    let engine = Engine::new();
+    println!("switch init: {:?}", config);
+    if let Some(params_raw) = config.params {
+        let mut params = Params::try_from(&params_raw).unwrap();
 
-    log::info!("{:?}", config);
+        let cases = match params.default.get("case") {
+            Some(case) => match case.as_array() {
+                Some(cases) => {
+                    let mut cases_full = Vec::new();
+                    for case in cases {
+                        let obj = case.as_object().unwrap();
+                        let value_case = obj.get("case").unwrap().clone();
+                        let value_attach = obj.get("attach").unwrap().clone();
 
-    if let Some(params) = config.params {
-        if let Some(params) = params.as_object() {
-            let target = match params.get("target") {
-                Some(value) => {
-                    if value.is_object() {
-                        value
-                            .as_object()
-                            .unwrap()
-                            .get("__scripts")
-                            .unwrap()
-                            .as_array()
-                            .unwrap()
-                            .get(0)
-                            .unwrap()
-                            .get("__script")
-                            .unwrap()
-                            .as_str()
-                            .unwrap()
-                            .to_string()
-                    } else {
-                        panic!("Target no Interpolation")
+                        cases_full.push(Case::new(
+                            value_case,
+                            value_attach.as_str().unwrap().to_string(),
+                        ));
                     }
+                    cases_full
                 }
-                None => panic!("No target"),
-            };
-
-            let cases = match params.get("case") {
-                Some(case) => match case.as_array() {
-                    Some(cases) => {
-                        let mut cases_full = Vec::new();
-                        for case in cases {
-                            let obj = case.as_object().unwrap();
-                            let value_case = obj.get("case").unwrap().clone();
-                            let value_attach = obj.get("attach").unwrap().clone();
-
-                            cases_full.push(Case::new(
-                                value_case,
-                                value_attach.as_str().unwrap().to_string(),
-                            ));
-                        }
-                        cases_full
-                    }
-                    _ => panic!("No case"),
-                },
                 _ => panic!("No case"),
-            };
+            },
+            _ => panic!("No case"),
+        };
 
-            let switch_default_attach = match params.get("attach") {
-                Some(value) => Some(value.as_str().unwrap().to_string()),
-                None => None,
-            };
+        let switch_default_attach = match params.default.get("attach") {
+            Some(value) => Some(value.as_str().unwrap().to_string()),
+            None => None,
+        };
 
-            let target = target.clone();
-            'listener: for request in listener {
-                macro_rules! send_error {
-                    ($attach:expr) => {{
-                        send(Return {
-                            payload: request.payload.clone(),
-                            attach: $attach.clone(),
-                            trace_id: request.trace_id,
-                        });
-                        continue;
-                    }};
-                    ($attach:expr, $err:expr) => {{
-                        send(Return {
-                            payload: Err(Some(Value::from(format!("{}", $err)))),
-                            attach: $attach.clone(),
-                            trace_id: request.trace_id,
-                        });
-                        continue;
-                    }};
-                }
+        println!("switch init listener: {:?}", &cases);
 
-                let target = target.clone();
+        'listener: for request in listener {
+            println!("Receive request {:?}", request);
+            macro_rules! send_error {
+                ($attach:expr) => {{
+                    send(Return {
+                        payload: request.payload.clone(),
+                        attach: $attach.clone(),
+                        trace_id: request.trace_id,
+                    });
+                    continue;
+                }};
+                ($attach:expr, $err:expr) => {{
+                    send(Return {
+                        payload: Err(Some(Value::from(format!("{}", $err)))),
+                        attach: $attach.clone(),
+                        trace_id: request.trace_id,
+                    });
+                    continue;
+                }};
+            }
 
-                if let Ok(payload) = request.payload.clone() {
-                    if let Some(payload) = payload {
-                        let target_value = match render!(engine, String, payload, &target) {
-                            Ok(value) => Value::from(value),
-                            Err(err) => send_error!(config.default_attach, err),
-                        };
+            if let Ok(payload) = request.payload.clone() {
+                if let Some(payload) = payload {
+                    println!("Receive payload {:?}", payload);
+                    match params.set_payload(payload) {
+                        Ok(_) => match params.get_param("target") {
+                            Ok(target_value) => {
+                                println!("Receive target {:?}", &target_value);
+                                let mut sended = false;
+                                for case in cases.iter() {
+                                    println!("Receive case {:?}", &case);
 
-                        for case in cases.iter() {
-                            if target_value.eq(&case.case) {
-                                send(Return {
-                                    payload: request.payload.clone(),
-                                    attach: Some(case.attach.clone()),
-                                    trace_id: request.trace_id,
-                                });
-                                continue 'listener;
+                                    if target_value.eq(&case.case) {
+                                        println!("Receive send!");
+                                        send(Return {
+                                            payload: request.payload.clone(),
+                                            attach: Some(case.attach.clone()),
+                                            trace_id: request.trace_id,
+                                        });
+                                        sended = true;
+                                        break;
+                                    }
+                                }
+
+                                if !sended {
+                                    println!("Receive send default!");
+                                    send(Return {
+                                        payload: request.payload.clone(),
+                                        attach: switch_default_attach.clone(),
+                                        trace_id: request.trace_id,
+                                    });
+                                }
                             }
+                            Err(err) => {
+                                println!("Receive target err {:?}", err);
+                                send_error!(switch_default_attach, err);
+                            }
+                        },
+                        Err(err) => {
+                            println!("Receive payload err {:?}", err);
+                            send_error!(switch_default_attach, err);
                         }
                     }
-                } else if switch_default_attach.is_some() {
-                    send_error!(switch_default_attach)
                 }
-
-                send_error!(config.default_attach)
+            } else if switch_default_attach.is_some() {
+                send_error!(switch_default_attach)
             }
+
+            send_error!(config.default_attach)
         }
+
+        println!("switch finished");
     }
 }
 
@@ -151,13 +154,7 @@ mod tests {
                         "attach": "bar",
                     }
                 ],
-                "target": {
-                    "scripts": [
-                        {
-                            "script": "payload.num"
-                        }
-                    ]
-                }
+                "target": param_test!(["payload.num"])
             })),
             producer: false,
             default_attach: None,
@@ -184,20 +181,14 @@ mod tests {
                         "attach": "bar",
                     }
                 ],
-                "target": {
-                    "scripts": [
-                        {
-                            "script": "payload.num"
-                        }
-                    ]
-                },
+                "target": param_test!(["payload.num"]),
                 "attach": ""
             })),
             producer: false,
             default_attach: None,
         };
         let payload = Ok(Some(Value::default()));
-        let compare = Err(Some(Value::from("Unknown property 'num' - a getter is not registered for type '()' (line 1, position 9)".to_string())));
+        let compare = Err(Some(Value::from("hrai: Unknown property 'num' - a getter is not registered for type '()' (line 1, position 29) in call to function handler (line 1, position 46)".to_string())));
 
         create_module_assert_eq!(crate::switch, config, payload, compare);
     }
