@@ -217,14 +217,9 @@ mod test {
     fn test_interpolation_object() {
         let data = json!({
             "param1": 1,
-            "param2": {
-                "___type": "script",
-                "list": [
-                    r#""{\"item\": ""#,
+            "param2": param_test!([r#""{\"item\": ""#,
                     "(payload.item)",
-                    r#""}""#
-                ]
-            }
+                    r#""}""#])
         });
         let compare = json!({
             "param1": 1,
@@ -246,14 +241,11 @@ mod test {
     fn test_interpolation() {
         let data = json!({
             "param1": 1,
-            "param2": {
-                "___type": "script",
-                "list": ["10 * payload.item"]
-            }
+            "param2": param_test!(["10 * payload.item"])
         });
         let compare = json!({
             "param1": 1,
-            "param2": 20
+            "param2": "20"
         });
 
         let payload = json!({

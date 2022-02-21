@@ -106,7 +106,6 @@ impl Pipe {
                         Rule::session_pipeline => {
                             let mut inner = pair.into_inner();
                             let name = inner.next().unwrap().as_str().to_string();
-
                             let value = Self::parse(inner.next().unwrap());
 
                             match item.get(&name) {
@@ -323,30 +322,10 @@ impl Pipe {
                 Value::Interpolation(Script::from_interpolation(value))
             }
             Rule::object_interpolation => {
-                let mut map = map!();
-
-                for pair in pair.into_inner() {
-                    let mut inner = pair.into_inner();
-                    let key = inner
-                        .next()
-                        .unwrap()
-                        .into_inner()
-                        .next()
-                        .unwrap()
-                        .as_str()
-                        .to_string();
-                    let next = inner.next().unwrap();
-                    let value = match next.as_rule() {
-                        Rule::interpolation => Value::String(next.as_str().to_string()),
-                        _ => Self::parse(next),
-                    };
-
-                    map.insert(key, value);
-                }
-
-                let raw = Value::Object(map).as_json_raw();
-                let inter = Script::from_string(raw);
-                Value::Interpolation(inter)
+                let raw = pair.as_str().to_string();
+                let a = Value::Interpolation(Script::from_string(raw));
+                println!("{:#?}", a);
+                Value::Undefined
             }
             Rule::reference => Value::String(pair.as_str().to_string()),
             Rule::command => {

@@ -64,6 +64,14 @@ impl Script {
             pos = range.end;
         }
 
+        let postfix_escape = re_quotes
+            .replace_all(&raw[pos..].to_string(), r#"\""#)
+            .to_string();
+        let postfix = format!(r#"\"{}\""#, postfix_escape);
+
+        list.push(Value::String(postfix.clone()));
+        list_string.push(postfix);
+
         let script = list_string.join("+");
 
         Self { script, raw, list }

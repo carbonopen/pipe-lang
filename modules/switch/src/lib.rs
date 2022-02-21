@@ -4,7 +4,6 @@ extern crate pipe_core;
 use std::convert::TryFrom;
 
 use pipe_core::{
-    log,
     modules::{Config, Listener, Return},
     scripts::Params,
     serde_json::Value,
@@ -23,7 +22,6 @@ impl Case {
 }
 
 fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    println!("switch init: {:?}", config);
     if let Some(params_raw) = config.params {
         let mut params = Params::try_from(&params_raw).unwrap();
 
@@ -53,10 +51,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             None => None,
         };
 
-        println!("switch init listener: {:?}", &cases);
-
         'listener: for request in listener {
-            println!("Receive request {:?}", request);
             macro_rules! send_error {
                 ($attach:expr) => {{
                     send(Return {
@@ -77,46 +72,32 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             }
 
             if let Ok(payload) = request.payload.clone() {
-                if let Some(payload) = payload {
-                    println!("Receive payload {:?}", payload);
-                    match params.set_payload(payload) {
-                        Ok(_) => match params.get_param("target") {
-                            Ok(target_value) => {
-                                println!("Receive target {:?}", &target_value);
-                                let mut sended = false;
-                                for case in cases.iter() {
-                                    println!("Receive case {:?}", &case);
-
-                                    if target_value.eq(&case.case) {
-                                        println!("Receive send!");
-                                        send(Return {
-                                            payload: request.payload.clone(),
-                                            attach: Some(case.attach.clone()),
-                                            trace_id: request.trace_id,
-                                        });
-                                        sended = true;
-                                        break;
-                                    }
-                                }
-
-                                if !sended {
-                                    println!("Receive send default!");
+                match params.set_payload(payload.unwrap()) {
+                    Ok(_) => match params.get_param("target") {
+                        Ok(target_value) => {
+                            for case in cases.iter() {
+                                if target_value.eq(&case.case) {
                                     send(Return {
                                         payload: request.payload.clone(),
-                                        attach: switch_default_attach.clone(),
+                                        attach: Some(case.attach.clone()),
                                         trace_id: request.trace_id,
                                     });
+                                    continue 'listener;
                                 }
                             }
-                            Err(err) => {
-                                println!("Receive target err {:?}", err);
-                                send_error!(switch_default_attach, err);
-                            }
-                        },
+
+                            send(Return {
+                                payload: request.payload.clone(),
+                                attach: switch_default_attach.clone(),
+                                trace_id: request.trace_id,
+                            });
+                        }
                         Err(err) => {
-                            println!("Receive payload err {:?}", err);
                             send_error!(switch_default_attach, err);
                         }
+                    },
+                    Err(err) => {
+                        send_error!(switch_default_attach, err);
                     }
                 }
             } else if switch_default_attach.is_some() {
@@ -125,8 +106,6 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 
             send_error!(config.default_attach)
         }
-
-        println!("switch finished");
     }
 }
 

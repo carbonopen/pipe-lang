@@ -1,21 +1,49 @@
 #[macro_use]
 extern crate pipe_core;
 
+use std::convert::TryFrom;
+
 use pipe_core::{
-    log,
     modules::{Config, Listener, Return},
-    serde::{Deserialize, Serialize},
-    serde_json::{json, Value},
+    scripts::Params,
+    serde_json::Value,
 };
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    log::info!("{:?}", config);
-
     match config.params {
-        Some(template) => {
-            // debug!(template)
+        Some(params_raw) => {
+            println!("params_raw {:#?}", params_raw);
+            let mut params = Params::try_from(&params_raw).unwrap();
+            println!("params {:#?}", params);
+
+            for request in listener {
+                println!("Payload request {:?}", request);
+                match params.set_payload(request.payload.unwrap().unwrap()) {
+                    Ok(_) => match params.get_value() {
+                        Ok(new_payload) => {
+                            println!("Payload new_payload {:?}", new_payload);
+
+                            send(Return {
+                                payload: Ok(Some(new_payload)),
+                                attach: config.default_attach.clone(),
+                                trace_id: request.trace_id,
+                            })
+                        }
+                        Err(err) => send(Return {
+                            payload: Err(Some(Value::from(format!("{}", err)))),
+                            attach: config.default_attach.clone(),
+                            trace_id: request.trace_id,
+                        }),
+                    },
+                    Err(err) => send(Return {
+                        payload: Err(Some(Value::from(format!("{}", err)))),
+                        attach: config.default_attach.clone(),
+                        trace_id: request.trace_id,
+                    }),
+                }
+            }
         }
-        _ => (),
+        _ => panic!("No params"),
     };
 }
 
@@ -30,14 +58,11 @@ mod tests {
         let config = Config {
             reference: "test".parse().unwrap(),
             params: Some(json!({
-                "body" : {
-                    "value": {
-                        "end": 20,
-                        "script": "payload.params.number",
-                        "start": 0
-                    },
-                    "type": "default"
-                },
+                "body" : param_test!([
+                    r#""{\"value\": ""#,
+                    "(payload.number)",
+                    r#"", \"type\": \"default\"}""#
+                ]),
                 "headers": {
                     "content-type": "application/json"
                 }
@@ -50,10 +75,7 @@ mod tests {
             "number": 10
         })));
         let compare = Ok(Some(json!({
-            "body" : {
-                "value": 10,
-                "type": "default"
-            },
+            "body" : "{\"value\": 10, \"type\": \"default\"}",
             "headers": {
                 "content-type": "application/json"
             }
