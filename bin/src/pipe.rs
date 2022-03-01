@@ -130,7 +130,10 @@ impl Pipe {
                 }
 
                 let val = Value::Object(obj);
+                // println!("{:#?}", val);
+
                 let val_json = val.as_json();
+                println!("{:#?}", val_json);
 
                 (Some(serde_json::from_str(&val_json).unwrap()), attach)
             } else {

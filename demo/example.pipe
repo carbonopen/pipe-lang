@@ -11,30 +11,30 @@ import {
 }
 
 pipeline {
-    http init {
-        address="127.0.0.1:8085"
-        route(
-            path="/send/{number}"
-            pipe match
-        )
-        route(
-            path="/health"
-            | health
-        )
-    }
+    // http init {
+    //     address="127.0.0.1:8085"
+    //     route(
+    //         path="/send/{number}"
+    //         pipe match
+    //     )
+    //     route(
+    //         path="/health"
+    //         | health
+    //     )
+    // }
 
-    switch match {
-        target = ${ payload.params.number }
+    // switch match {
+    //     target = ${ payload.params.number }
 
-        case "number" (
-            pipe number
-        )
-        case "other" (
-            pipe other
-        )
+    //     case "number" (
+    //         pipe number
+    //     )
+    //     case "other" (
+    //         pipe other
+    //     )
 
-        | default
-    }
+    //     | default
+    // }
 
     payload number {
         status_code=403

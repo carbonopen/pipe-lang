@@ -323,9 +323,7 @@ impl Pipe {
             }
             Rule::object_interpolation => {
                 let raw = pair.as_str().to_string();
-                let a = Value::Interpolation(Script::from_string(raw));
-                println!("{:#?}", a);
-                Value::Undefined
+                Value::Interpolation(Script::from_string(raw))
             }
             Rule::reference => Value::String(pair.as_str().to_string()),
             Rule::command => {
@@ -478,20 +476,17 @@ mod tests {
         assert_eq!(item, false);
     }
 
-    #[test]
-    fn interpolation() {
-        let pipe = r#"
+    const PIPE_CONTENT: &str = r#"
             interpolation {
                 value=${item}
-                string=`item is ${item}`
-                object={
-                    "value": ${item},
-                    "other": true,
-                    "string": `Other string ${value + 1}`
-                }
+                string=`item is ${item}!`
+                object={ "value": ${item} }
             }
         "#;
-        let value = match Pipe::from_str(pipe) {
+
+    #[test]
+    fn interpolation_string() {
+        let value = match Pipe::from_str(PIPE_CONTENT) {
             Ok(value) => value,
             Err(err) => panic!("{:?}", err),
         };
@@ -504,15 +499,30 @@ mod tests {
             .to_object()
             .unwrap();
 
-        assert!(obj
-            .get("object")
-            .unwrap()
-            .to_string()
-            .unwrap()
-            .contains("(value + 1)"));
         assert_eq!(
             &obj.get("string").unwrap().to_string().unwrap(),
-            r#""item is "+(item)"#
+            r#""item is "+(item)+"!""#
+        );
+    }
+
+    #[test]
+    fn interpolation() {
+        let value = match Pipe::from_str(PIPE_CONTENT) {
+            Ok(value) => value,
+            Err(err) => panic!("{:?}", err),
+        };
+
+        let obj = value
+            .to_object()
+            .unwrap()
+            .get("interpolation")
+            .unwrap()
+            .to_object()
+            .unwrap();
+
+        assert_eq!(
+            &obj.get("object").unwrap().to_string().unwrap(),
+            r#""{ "value": "+(item)+" }""#
         );
     }
 }
