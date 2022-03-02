@@ -79,7 +79,44 @@ mod tests {
             "number": 10
         })));
         let compare = Ok(Some(json!({
-            "body" : "{\"value\": 10, \"type\": \"default\"}",
+            "body" : {
+                "value": 10,
+                "type": "default"
+            },
+            "headers": {
+                "content-type": "application/json"
+            }
+        })));
+
+        create_module_assert_eq!(crate::payload, config, payload, compare);
+    }
+
+    #[test]
+    fn test_payload_quotes() {
+        let config = Config {
+            reference: "test".parse().unwrap(),
+            params: Some(json!({
+                "body" : param_test!([
+                    r#""{\"value\": ""#,
+                    "(\"\\\"\" + payload.number + \"\\\"\")",
+                    r#"", \"type\": \"default\"}""#
+                ]),
+                "headers": {
+                    "content-type": "application/json"
+                }
+            })),
+            producer: false,
+            default_attach: None,
+        };
+
+        let payload = Ok(Some(json!({
+            "number": 10
+        })));
+        let compare = Ok(Some(json!({
+            "body" : {
+                "value": "10",
+                "type": "default"
+            },
             "headers": {
                 "content-type": "application/json"
             }

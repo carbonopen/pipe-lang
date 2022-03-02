@@ -45,6 +45,7 @@ impl Script {
     pub fn from_string(raw: String) -> Self {
         let re = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
         let re_quotes = Regex::new(r#"""#).unwrap();
+        let re_escape = Regex::new(r#"\\"#).unwrap();
         let mut list_string = Vec::new();
         let mut list = Vec::new();
         let mut pos: usize = 0;
@@ -58,8 +59,12 @@ impl Script {
             let prefix_escape = re_quotes.replace_all(&raw[pos..range.start], r#"\\\""#);
 
             let prefix = format!(r#"\"{}\""#, prefix_escape);
-            let content = script[2..(script.len() - 1)].trim().to_string();
-            let item = format!("({})", content);
+            let item = {
+                let mut inter = script[2..(script.len() - 1)].trim().to_string();
+                inter = re_escape.replace_all(&inter, r#"\\"#).to_string();
+                inter = re_quotes.replace_all(&inter, r#"\""#).to_string();
+                format!("({})", inter)
+            };
 
             list.push(Value::String(prefix.clone()));
             list.push(Value::String(item.clone()));

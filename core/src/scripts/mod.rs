@@ -2,6 +2,7 @@ pub extern crate rhai;
 use std::{collections::HashMap, convert::TryFrom, fmt::Display};
 #[macro_use]
 pub mod macros;
+use regex::Regex;
 use rhai::{serde::to_dynamic, Engine, EvalAltResult, ParseError, Scope, AST};
 use serde_json::{Error as SerdeJsonError, Value};
 
@@ -157,6 +158,7 @@ impl<'a> TryFrom<&Value> for Params<'a> {
         let mut default = HashMap::new();
         let mut scripts = HashMap::new();
         let engine = Engine::new();
+        let re_quotes = Regex::new(r#"\\\\""#).unwrap();
 
         match target.as_object() {
             Some(obj) => {
@@ -174,12 +176,14 @@ impl<'a> TryFrom<&Value> for Params<'a> {
                                     .collect::<Vec<_>>()
                                     .join("+");
 
+                                let script_escape_quotes = re_quotes.replace_all(&script, r#"""#);
+
                                 let handler = format!(
                                     "fn handler(payload){{{}}}; to_string(handler(payload))",
-                                    script
+                                    script_escape_quotes
                                 );
 
-                                println!("{:?}", handler);
+                                println!("HANDLER: {}", handler);
 
                                 match engine.compile(handler) {
                                     Ok(ast) => {
