@@ -14,6 +14,6 @@ pub mod scripts;
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {
-        // println!("{:?}", $($arg)*)
+        println!("{:?}", $($arg)*)
     };
 }

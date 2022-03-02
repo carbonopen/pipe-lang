@@ -12,12 +12,9 @@ use pipe_core::{
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     match config.params {
         Some(params_raw) => {
-            println!("params_raw {:#?}", params_raw);
             let mut params = Params::try_from(&params_raw).unwrap();
-            println!("params {:#?}", params);
 
             for request in listener {
-                println!("Payload request {:?}", request);
                 match params.set_payload(request.payload.unwrap().unwrap()) {
                     Ok(_) => match params.get_value() {
                         Ok(new_payload) => {

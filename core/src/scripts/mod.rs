@@ -9,8 +9,6 @@ pub mod macros;
 use rhai::{serde::to_dynamic, Engine, EvalAltResult, ParseError, Scope, AST};
 use serde_json::{Error as SerdeJsonError, Value};
 
-use crate::debug;
-
 #[derive(Debug)]
 enum ParamError {
     NoObject,
@@ -153,6 +151,9 @@ impl<'a> Params<'a> {
     }
 }
 
+use std::fs::File;
+use std::io::prelude::*;
+
 impl<'a> TryFrom<&Value> for Params<'a> {
     type Error = Error;
 
@@ -178,9 +179,12 @@ impl<'a> TryFrom<&Value> for Params<'a> {
                                     .join("+");
 
                                 let handler = format!(
-                                    "fn handler(payload){{{};}}; to_string(handler(payload))",
-                                    script // r#""{\"item\": "+(payload.item)+"}""#
+                                    "fn handler(payload){{{}}}; to_string(handler(payload))",
+                                    script
                                 );
+
+                                let mut file = File::create("foo.rhai").unwrap();
+                                file.write_all(&handler.as_bytes()).unwrap();
 
                                 match engine.compile(handler) {
                                     Ok(ast) => {

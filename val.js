@@ -1,1 +1,0 @@
-"{\"value\": "+(item)+",\"other\": true,\"string\": `Other string "+(value + 1)+"!`}\"}"

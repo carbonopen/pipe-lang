@@ -33,7 +33,7 @@ macro_rules! map {
 #[macro_export]
 macro_rules! debug {
     ($($arg:tt)*) => {
-        // println!("{:#?}", $($arg)*)
+        println!("{:#?}", $($arg)*)
     };
 }
 
@@ -501,7 +501,7 @@ mod tests {
 
         assert_eq!(
             &obj.get("string").unwrap().to_string().unwrap(),
-            r#""item is "+(item)+"!""#
+            r#"\"item is \"+(item)+\"!\""#
         );
     }
 
@@ -520,9 +520,8 @@ mod tests {
             .to_object()
             .unwrap();
 
-        assert_eq!(
-            &obj.get("object").unwrap().to_string().unwrap(),
-            r#""{ "value": "+(item)+" }""#
-        );
+        let object = obj.get("object").unwrap().to_string().unwrap();
+
+        assert_eq!(object, r#"\"{ \"value\": \"+(item)+\" }\""#);
     }
 }

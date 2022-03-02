@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::from_utf8};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
@@ -38,17 +38,27 @@ impl Script {
         }
     }
 
+    fn remove_break_line(s: String) -> Vec<u8> {
+        s.chars().filter(|c| *c != '\n').map(|c| c as u8).collect()
+    }
+
     pub fn from_string(raw: String) -> Self {
         let re = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
+        let re_quotes = Regex::new(r#"""#).unwrap();
+        // let re_escape = Regex::new(r#"\\n"#).unwrap();
         let mut list_string = Vec::new();
         let mut list = Vec::new();
         let mut pos: usize = 0;
 
+        let raw_escape = Self::remove_break_line(raw);
+        let raw = from_utf8(&raw_escape).unwrap().to_string();
+
         for caps in re.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
             let script = caps.get(1).unwrap().as_str().to_string();
-            let prefix_escape = raw[pos..range.start].to_string();
-            let prefix = format!(r#""{}""#, prefix_escape);
+            let prefix_escape = re_quotes.replace_all(&raw[pos..range.start], r#"\\\""#);
+
+            let prefix = format!(r#"\"{}\""#, prefix_escape);
             let content = script[2..(script.len() - 1)].trim().to_string();
             let item = format!("({})", content);
 
@@ -60,8 +70,8 @@ impl Script {
             pos = range.end;
         }
 
-        let postfix_escape = raw[pos..].to_string();
-        let postfix = format!(r#""{}""#, postfix_escape);
+        let postfix_escape = re_quotes.replace_all(&raw[pos..], r#"\\\""#);
+        let postfix = format!(r#"\"{}\""#, postfix_escape);
         list.push(Value::String(postfix.clone()));
         list_string.push(postfix);
 
@@ -269,8 +279,8 @@ impl Value {
                 format!("[{}]", contents.join(","))
             }
             Value::String(s) => {
-                let fix = re_quotes.replace_all(s, r#"\""#).to_string();
-                format!("\"{}\"", fix)
+                // let fix = re_quotes.replace_all(s, r#"\""#).to_string();
+                format!("\"{}\"", s)
             }
             Value::Number(n) => format!("{}", n),
             Value::Boolean(b) => format!("{}", b),

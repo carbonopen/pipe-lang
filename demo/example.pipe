@@ -11,30 +11,30 @@ import {
 }
 
 pipeline {
-    // http init {
-    //     address="127.0.0.1:8085"
-    //     route(
-    //         path="/send/{number}"
-    //         pipe match
-    //     )
-    //     route(
-    //         path="/health"
-    //         | health
-    //     )
-    // }
+    http init {
+        address="127.0.0.1:8085"
+        route(
+            path="/send/{number}"
+            pipe match
+        )
+        route(
+            path="/health"
+            | health
+        )
+    }
 
-    // switch match {
-    //     target = ${ payload.params.number }
+    switch match {
+        target = ${ payload.params.number }
 
-    //     case "number" (
-    //         pipe number
-    //     )
-    //     case "other" (
-    //         pipe other
-    //     )
+        case "number" (
+            pipe number
+        )
+        case "other" (
+            pipe other
+        )
 
-    //     | default
-    // }
+        | default
+    }
 
     payload number {
         status_code=403
@@ -48,38 +48,38 @@ pipeline {
         | init
     }
 
-    // payload other {
-    //     status_code=200
-    //     body={
-    //         "value": `${ payload.params.number }`,
-    //         "type": "other"
-    //     }
-    //     headers={
-    //         "content-type": "application/json"
-    //     }
-    //     | init
-    // }
+    payload other {
+        status_code=200
+        body={
+            "value": `${ payload.params.number }`,
+            "type": "other"
+        }
+        headers={
+            "content-type": "application/json"
+        }
+        | init
+    }
 
-    // payload default {
-    //     status_code=201
-    //     body={
-    //         "value": ${ payload.params.number },
-    //         "type": `default-${ payload.params.number }-and-${ payload.params.number }`
-    //     }
-    //     headers={
-    //         "content-type": "application/json"
-    //     }
-    //     | init
-    // }
+    payload default {
+        status_code=201
+        body={
+            "value": ${ payload.params.number },
+            "type": `default-${ payload.params.number }-and-${ payload.params.number }`
+        }
+        headers={
+            "content-type": "application/json"
+        }
+        | init
+    }
 
-    // payload health {
-    //     status_code=200
-    //     body="check"
-    //     headers={
-    //         "content-type": "plain/text"
-    //     }
-    //     | init
-    // }
+    payload health {
+        status_code=200
+        body="check"
+        headers={
+            "content-type": "plain/text"
+        }
+        | init
+    }
 }
 
 
