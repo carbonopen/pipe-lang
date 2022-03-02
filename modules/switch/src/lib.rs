@@ -48,8 +48,6 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             _ => panic!("No case"),
         };
 
-        println!("PARAMS: {:#?}", params);
-
         'listener: for request in listener {
             macro_rules! send_error {
                 ($attach:expr) => {{
@@ -75,9 +73,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                     Ok(_) => match params.get_param("target") {
                         Ok(target_value) => {
                             for case in cases.iter() {
-                                println!("CASES: {}, {}", target_value, case.case);
                                 if target_value.eq(&case.case) {
-                                    println!("CASES MATCH:  {}", target_value);
                                     send(Return {
                                         payload: request.payload.clone(),
                                         attach: Some(case.attach.clone()),
@@ -86,8 +82,6 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                                     continue 'listener;
                                 }
                             }
-
-                            println!("NO MATCH");
 
                             send(Return {
                                 payload: request.payload.clone(),
