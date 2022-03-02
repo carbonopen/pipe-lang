@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use pipe_core::{
     modules::{Config, Listener, Return},
     scripts::Params,
-    serde_json::Value,
+    serde_json::{Map, Value},
 };
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
@@ -15,21 +15,32 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             let mut params = Params::try_from(&params_raw).unwrap();
 
             for request in listener {
-                match params.set_payload(request.payload.unwrap().unwrap()) {
-                    Ok(_) => match params.get_value() {
-                        Ok(new_payload) => send(Return {
-                            payload: Ok(Some(new_payload)),
-                            attach: config.default_attach.clone(),
-                            trace_id: request.trace_id,
-                        }),
-                        Err(err) => send(Return {
-                            payload: Err(Some(Value::from(format!("{}", err)))),
-                            attach: config.default_attach.clone(),
-                            trace_id: request.trace_id,
-                        }),
-                    },
+                match request.payload {
+                    Ok(payload) => {
+                        let value = payload.unwrap_or(Value::Object(Map::default()));
+                        println!("PAYLOAD: {:?}", value);
+                        match params.set_payload(value) {
+                            Ok(_) => match params.get_value() {
+                                Ok(new_payload) => send(Return {
+                                    payload: Ok(Some(new_payload)),
+                                    attach: config.default_attach.clone(),
+                                    trace_id: request.trace_id,
+                                }),
+                                Err(err) => send(Return {
+                                    payload: Err(Some(Value::from(format!("{}", err)))),
+                                    attach: config.default_attach.clone(),
+                                    trace_id: request.trace_id,
+                                }),
+                            },
+                            Err(err) => send(Return {
+                                payload: Err(Some(Value::from(format!("{}", err)))),
+                                attach: config.default_attach.clone(),
+                                trace_id: request.trace_id,
+                            }),
+                        }
+                    }
                     Err(err) => send(Return {
-                        payload: Err(Some(Value::from(format!("{}", err)))),
+                        payload: Err(err),
                         attach: config.default_attach.clone(),
                         trace_id: request.trace_id,
                     }),

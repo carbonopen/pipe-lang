@@ -45,7 +45,6 @@ impl Script {
     pub fn from_string(raw: String) -> Self {
         let re = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
         let re_quotes = Regex::new(r#"""#).unwrap();
-        // let re_escape = Regex::new(r#"\\n"#).unwrap();
         let mut list_string = Vec::new();
         let mut list = Vec::new();
         let mut pos: usize = 0;

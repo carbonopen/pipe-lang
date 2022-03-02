@@ -101,11 +101,14 @@ impl<'a> Params<'a> {
 
     fn compile(engine: &Engine, scope: &mut Scope, ast: &AST) -> Result<Value, Error> {
         match engine.eval_ast_with_scope::<String>(scope, &ast) {
-            Ok(value) => match serde_json::to_value(value) {
+            Ok(value) => match serde_json::from_str(&value) {
                 Ok(value) => Ok(value),
-                Err(err) => return Err(Error::from(err)),
+                Err(_) => match serde_json::to_value(value) {
+                    Ok(value) => Ok(value),
+                    Err(err) => Err(Error::from(err)),
+                },
             },
-            Err(err) => return Err(Error::from(err)),
+            Err(err) => Err(Error::from(err)),
         }
     }
 

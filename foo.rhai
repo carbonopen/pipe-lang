@@ -1,1 +1,0 @@
-fn handler(payload){payload.params.number}; to_string(handler(payload))
