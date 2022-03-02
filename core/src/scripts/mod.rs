@@ -1,13 +1,10 @@
 pub extern crate rhai;
-use std::{
-    collections::HashMap,
-    convert::TryFrom,
-    fmt::{write, Display},
-};
+use std::{collections::HashMap, convert::TryFrom, fmt::Display};
 #[macro_use]
 pub mod macros;
 use rhai::{serde::to_dynamic, Engine, EvalAltResult, ParseError, Scope, AST};
 use serde_json::{Error as SerdeJsonError, Value};
+use snailquote::{unescape, UnescapeError};
 
 #[derive(Debug)]
 enum ParamError {
@@ -30,6 +27,7 @@ pub struct Error {
     rhai: Option<Box<EvalAltResult>>,
     ast: Option<ParseError>,
     param: Option<ParamError>,
+    unscape: Option<UnescapeError>,
 }
 
 impl Display for Error {
@@ -79,6 +77,15 @@ impl From<ParamError> for Error {
     fn from(error: ParamError) -> Self {
         Self {
             param: Some(error),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<UnescapeError> for Error {
+    fn from(error: UnescapeError) -> Self {
+        Self {
+            unscape: Some(error),
             ..Default::default()
         }
     }
@@ -182,6 +189,8 @@ impl<'a> TryFrom<&Value> for Params<'a> {
                                     "fn handler(payload){{{}}}; to_string(handler(payload))",
                                     script
                                 );
+
+                                println!("{:?}", handler);
 
                                 let mut file = File::create("foo.rhai").unwrap();
                                 file.write_all(&handler.as_bytes()).unwrap();

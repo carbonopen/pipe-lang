@@ -1,1 +1,1 @@
-fn handler(payload){"{            \"value\": "+(1 + payload.params.number)+",            \"type\": \"number\"        }"}; to_string(handler(payload))
+fn handler(payload){payload.params.number}; to_string(handler(payload))

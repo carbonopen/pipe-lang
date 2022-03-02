@@ -39,7 +39,7 @@ pipeline {
     payload number {
         status_code=403
         body={
-            "value": ${ 1 + payload.params.number  },
+            "value": ${ payload.params.number  },
             "type": "number"
         }
         headers={
@@ -51,7 +51,7 @@ pipeline {
     payload other {
         status_code=200
         body={
-            "value": `${ payload.params.number }`,
+            "value": ${ payload.params.number },
             "type": "other"
         }
         headers={
@@ -64,7 +64,7 @@ pipeline {
         status_code=201
         body={
             "value": ${ payload.params.number },
-            "type": `default-${ payload.params.number }-and-${ payload.params.number }`
+            "type": "default"
         }
         headers={
             "content-type": "application/json"
