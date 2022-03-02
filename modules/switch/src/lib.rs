@@ -22,6 +22,8 @@ impl Case {
 }
 
 fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
+    let switch_default_attach = config.default_attach.clone();
+
     if let Some(params_raw) = config.params {
         let mut params = Params::try_from(&params_raw).unwrap();
 
@@ -46,10 +48,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             _ => panic!("No case"),
         };
 
-        let switch_default_attach = match params.default.get("attach") {
-            Some(value) => Some(value.as_str().unwrap().to_string()),
-            None => None,
-        };
+        println!("PARAMS: {:#?}", params);
 
         'listener: for request in listener {
             macro_rules! send_error {
@@ -76,7 +75,9 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                     Ok(_) => match params.get_param("target") {
                         Ok(target_value) => {
                             for case in cases.iter() {
+                                println!("CASES: {}, {}", target_value, case.case);
                                 if target_value.eq(&case.case) {
+                                    println!("CASES MATCH:  {}", target_value);
                                     send(Return {
                                         payload: request.payload.clone(),
                                         attach: Some(case.attach.clone()),
@@ -85,6 +86,8 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                                     continue 'listener;
                                 }
                             }
+
+                            println!("NO MATCH");
 
                             send(Return {
                                 payload: request.payload.clone(),

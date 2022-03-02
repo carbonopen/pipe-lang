@@ -501,7 +501,7 @@ mod tests {
 
         assert_eq!(
             &obj.get("string").unwrap().to_string().unwrap(),
-            r#"\"item is \"+(item)+\"!\""#
+            r#""item is \"+(item)+\"!""#
         );
     }
 
@@ -522,6 +522,6 @@ mod tests {
 
         let object = obj.get("object").unwrap().to_string().unwrap();
 
-        assert_eq!(object, r#"\"{ \"value\": \"+(item)+\" }\""#);
+        assert_eq!(object, r#"{ \"value\": \"+(item)+\" }"#);
     }
 }

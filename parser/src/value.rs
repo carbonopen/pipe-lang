@@ -259,8 +259,6 @@ impl Value {
     }
 
     pub fn to_json(val: &Value, interpolation: bool) -> String {
-        let re_quotes = Regex::new(r#"""#).unwrap();
-
         match val {
             Value::Object(o) => {
                 let contents: Vec<_> = o
@@ -279,7 +277,6 @@ impl Value {
                 format!("[{}]", contents.join(","))
             }
             Value::String(s) => {
-                // let fix = re_quotes.replace_all(s, r#"\""#).to_string();
                 format!("\"{}\"", s)
             }
             Value::Number(n) => format!("{}", n),

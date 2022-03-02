@@ -39,7 +39,7 @@ pipeline {
     payload number {
         status_code=403
         body={
-            "value": ${ payload.params.number  },
+            "value": ${ payload.params.number },
             "type": "number"
         }
         headers={
