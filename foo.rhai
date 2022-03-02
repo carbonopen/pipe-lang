@@ -1,1 +1,0 @@
-fn handler(payload){"{            \"value\": "+(payload.params.number)+",            \"type\": `default-"+(payload.params.number)+"-and-"+(payload.params.number)+"`        }"}; to_string(handler(payload))
