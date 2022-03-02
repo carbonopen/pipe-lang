@@ -17,15 +17,11 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             for request in listener {
                 match params.set_payload(request.payload.unwrap().unwrap()) {
                     Ok(_) => match params.get_value() {
-                        Ok(new_payload) => {
-                            println!("Payload new_payload {:?}", new_payload);
-
-                            send(Return {
-                                payload: Ok(Some(new_payload)),
-                                attach: config.default_attach.clone(),
-                                trace_id: request.trace_id,
-                            })
-                        }
+                        Ok(new_payload) => send(Return {
+                            payload: Ok(Some(new_payload)),
+                            attach: config.default_attach.clone(),
+                            trace_id: request.trace_id,
+                        }),
                         Err(err) => send(Return {
                             payload: Err(Some(Value::from(format!("{}", err)))),
                             attach: config.default_attach.clone(),
