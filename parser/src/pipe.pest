@@ -41,15 +41,14 @@ param = { ident ~ "=" ~ value }
 char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
 ident = @{ char+ }
 
-
 // Value
 value = _{ object | array | string | number | boolean | null | interpolation | string_interpolation | object_interpolation | embedded }
 value_withou_interpolation = _{ object | array | string | number | boolean | null | embedded }
 
 //interpolation
-interpolation = { "${" ~ interpolation_content  ~ "}" }
+interpolation = { "${" ~ (ident)? ~ interpolation_content  ~ "}" }
 interpolation_content = @{ (!"}" ~ ANY)* }
-string_interpolation = { "`" ~!"``"~ string_interpolation_content ~ "`" }
+string_interpolation = { "`" ~ !"``" ~ string_interpolation_content ~ "`" }
 string_interpolation_content = @{ (!"`" ~ ANY)* }
 object_interpolation = {
     "{" ~ object_interpolation_pair ~ ("," ~ object_interpolation_pair)* ~ "}"

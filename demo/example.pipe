@@ -51,8 +51,8 @@ pipeline {
     payload other {
         status_code=200
         body={
-            "value": ${ payload.params.number },
-            "type": "other"
+            "value": `${ payload.params.number + " 1"} and ${ payload.params.number + " 2"}`,
+            "type": `other`
         }
         headers={
             "content-type": "application/json"
@@ -60,11 +60,33 @@ pipeline {
         | init
     }
 
-    payload default {
+    switch default {
+        target = ${ to_string(payload.params.number) }
+
+        case "string" (
+            | default_string
+        )
+
+        | default_any
+    }
+
+     payload default_string {
+        status_code=201
+        body={
+            "value": `${ payload.params.number }`,
+            "type": "default_string"
+        }
+        headers={
+            "content-type": "application/json"
+        }
+        | init
+    }
+
+    payload default_any {
         status_code=201
         body={
             "value": ${ payload.params.number },
-            "type": "default"
+            "type": "default_any"
         }
         headers={
             "content-type": "application/json"

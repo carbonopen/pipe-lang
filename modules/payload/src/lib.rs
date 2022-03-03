@@ -18,7 +18,6 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                 match request.payload {
                     Ok(payload) => {
                         let value = payload.unwrap_or(Value::Object(Map::default()));
-                        println!("PAYLOAD: {:?}", value);
                         match params.set_payload(value) {
                             Ok(_) => match params.get_value() {
                                 Ok(new_payload) => send(Return {

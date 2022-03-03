@@ -81,8 +81,14 @@ impl From<ParamError> for Error {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
+pub struct Item {
+    pub value: String,
+    pub script_type: String,
+}
+
 #[derive(Debug)]
-pub struct Params<'a> {
+pub struct  Params<'a> {
     pub default: HashMap<String, Value>,
     scripts: HashMap<String, AST>,
     engine: Engine,
@@ -172,18 +178,28 @@ impl<'a> TryFrom<&Value> for Params<'a> {
                                     .as_array()
                                     .unwrap()
                                     .iter()
-                                    .map(|item| item.as_str().unwrap())
+                                    .map(|item| {
+                                        let obj = item.as_object().unwrap();
+                                        let value =
+                                            obj.get("value").unwrap().as_str().unwrap().to_string();
+                                        let script_type =
+                                            obj.get("type").unwrap().as_str().unwrap().to_string();
+
+                                        if script_type.eq("script") {
+                                            format!(r#"("\"" + {} + "\"")"#, value)
+                                        } else {
+                                            value
+                                        }
+                                    })
                                     .collect::<Vec<_>>()
                                     .join("+");
 
                                 let script_escape_quotes = re_quotes.replace_all(&script, r#"""#);
 
                                 let handler = format!(
-                                    "fn handler(payload){{{}}}; to_string(handler(payload))",
+                                    "fn handler(payload){{{}}};  to_string(handler(payload))",
                                     script_escape_quotes
                                 );
-
-                                println!("HANDLER: {}", handler);
 
                                 match engine.compile(handler) {
                                     Ok(ast) => {

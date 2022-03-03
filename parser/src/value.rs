@@ -1,5 +1,5 @@
 use regex::Regex;
-use std::{collections::HashMap, str::from_utf8};
+use std::{collections::HashMap, fmt::Display, str::from_utf8};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Number {
@@ -20,21 +20,75 @@ pub struct Object {
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Script {
     pub raw: String,
-    pub list: Vec<Value>,
+    pub list: Vec<Item>,
+}
+
+impl Script {
+    pub fn get_list_value(&self) -> Vec<Value> {
+        self.list
+            .iter()
+            .map(|item| Value::Object(item.to_map()))
+            .collect::<Vec<_>>()
+    }
+}
+
+// TODO: remover scriptType?
+#[derive(Clone, PartialEq, Debug)]
+pub enum ScriptType {
+    Undefined,
+    String,
+}
+
+impl Display for ScriptType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScriptType::String => write!(f, "string"),
+            ScriptType::Undefined => write!(f, "undefined"),
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct Item {
+    pub value: Value,
+    pub script_type: ScriptType,
+}
+
+impl Item {
+    pub fn new(script: String, script_type: ScriptType) -> Self {
+        let value = match script_type {
+            ScriptType::String => Value::String(script),
+            ScriptType::Undefined => Value::String(script),
+        };
+
+        Self { value, script_type }
+    }
+
+    pub fn to_map(&self) -> HashMap<String, Value> {
+        let mut map = HashMap::new();
+
+        map.insert("value".to_string(), self.value.clone());
+        map.insert(
+            "type".to_string(),
+            Value::String(self.script_type.to_string()),
+        );
+
+        map
+    }
 }
 
 impl Script {
     pub fn from_interpolation(script: String) -> Self {
         Self {
             raw: script.clone(),
-            list: vec![Value::String(script)],
+            list: vec![Item::new(script, ScriptType::String)],
         }
     }
 
     pub fn from_object(script: String) -> Self {
         Self {
             raw: script.clone(),
-            list: vec![Value::String(script)],
+            list: vec![Item::new(script, ScriptType::String)],
         }
     }
 
@@ -43,31 +97,33 @@ impl Script {
     }
 
     pub fn from_string(raw: String) -> Self {
-        let re = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
+        let re_inter_string = Regex::new(r"`(?P<c>\s*.*?(\$\{.*?\})?\s*)?`").unwrap();
+        let re_inter = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
         let re_quotes = Regex::new(r#"""#).unwrap();
         let re_escape = Regex::new(r#"\\"#).unwrap();
         let mut list_string = Vec::new();
         let mut list = Vec::new();
         let mut pos: usize = 0;
 
+        let mut raw = re_inter_string.replace_all(&raw, r#""$c""#).to_string();
         let raw_escape = Self::remove_break_line(raw);
-        let raw = from_utf8(&raw_escape).unwrap().to_string();
+        raw = from_utf8(&raw_escape).unwrap().to_string();
 
-        for caps in re.captures_iter(&raw) {
+        for caps in re_inter.captures_iter(&raw) {
             let range = caps.get(0).unwrap().range();
-            let script = caps.get(1).unwrap().as_str().to_string();
+            let mut script = caps.name("script").unwrap().as_str().to_string();
+
             let prefix_escape = re_quotes.replace_all(&raw[pos..range.start], r#"\\\""#);
 
             let prefix = format!(r#"\"{}\""#, prefix_escape);
             let item = {
-                let mut inter = script[2..(script.len() - 1)].trim().to_string();
-                inter = re_escape.replace_all(&inter, r#"\\"#).to_string();
-                inter = re_quotes.replace_all(&inter, r#"\""#).to_string();
-                format!("({})", inter)
+                script = re_escape.replace_all(&script, r#"\\"#).to_string();
+                script = re_quotes.replace_all(&script, r#"\""#).to_string();
+                format!("({})", script)
             };
 
-            list.push(Value::String(prefix.clone()));
-            list.push(Value::String(item.clone()));
+            list.push(Item::new(prefix.clone(), ScriptType::Undefined));
+            list.push(Item::new(item.clone(), ScriptType::Undefined));
 
             list_string.push(prefix);
             list_string.push(item);
@@ -76,7 +132,8 @@ impl Script {
 
         let postfix_escape = re_quotes.replace_all(&raw[pos..], r#"\\\""#);
         let postfix = format!(r#"\"{}\""#, postfix_escape);
-        list.push(Value::String(postfix.clone()));
+        list.push(Item::new(postfix.clone(), ScriptType::Undefined));
+
         list_string.push(postfix);
 
         Self { raw, list }
@@ -176,7 +233,7 @@ impl Value {
             Self::Interpolation(script) => Ok(script
                 .list
                 .iter()
-                .map(|value| value.to_string().unwrap())
+                .map(|value| value.value.to_string().unwrap())
                 .collect::<Vec<_>>()
                 .join("+")),
             Self::Boolean(value) => Ok(format!("{}", value)),
@@ -291,7 +348,8 @@ impl Value {
                 if interpolation {
                     let mut map = HashMap::new();
                     map.insert("___type".to_string(), Value::String("script".to_string()));
-                    let list = Value::Array(script.list.clone());
+
+                    let list = Value::Array(script.get_list_value());
                     map.insert("list".to_string(), list);
 
                     format!("{}", Value::to_json(&Value::Object(map), interpolation))

@@ -1,8 +1,6 @@
-use std::{collections::HashMap, convert::TryFrom};
-
-use pipe_core::log;
 use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
+use std::{collections::HashMap, convert::TryFrom};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Command {
