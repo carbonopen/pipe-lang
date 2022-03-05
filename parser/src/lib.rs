@@ -316,8 +316,8 @@ impl Pipe {
                 Value::Interpolation(Script::from_string(raw))
             }
             Rule::interpolation => {
-                let mut inner = pair.into_inner();
-                let value = inner.next().unwrap().as_str().trim().to_string();
+                let inner = pair.into_inner();
+                let value = inner.as_str().trim().to_string();
 
                 Value::Interpolation(Script::from_interpolation(value))
             }

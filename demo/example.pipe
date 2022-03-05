@@ -61,7 +61,7 @@ pipeline {
     }
 
     switch default {
-        target = ${ to_string(payload.params.number) }
+        target = ${ try { parse_int(payload.params.number); "number" } catch { "string" } }
 
         case "string" (
             | default_string

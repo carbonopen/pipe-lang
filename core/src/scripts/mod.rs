@@ -88,7 +88,7 @@ pub struct Item {
 }
 
 #[derive(Debug)]
-pub struct  Params<'a> {
+pub struct Params<'a> {
     pub default: HashMap<String, Value>,
     scripts: HashMap<String, AST>,
     engine: Engine,

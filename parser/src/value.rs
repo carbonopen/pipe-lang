@@ -92,10 +92,6 @@ impl Script {
         }
     }
 
-    fn remove_break_line(s: String) -> Vec<u8> {
-        s.chars().filter(|c| *c != '\n').map(|c| c as u8).collect()
-    }
-
     pub fn from_string(raw: String) -> Self {
         let re_inter_string = Regex::new(r"`(?P<c>\s*.*?(\$\{.*?\})?\s*)?`").unwrap();
         let re_inter = Regex::new(r"(\$\{(?P<script>.*?)\})").unwrap();
@@ -137,6 +133,10 @@ impl Script {
         list_string.push(postfix);
 
         Self { raw, list }
+    }
+
+    fn remove_break_line(s: String) -> Vec<u8> {
+        s.chars().filter(|c| *c != '\n').map(|c| c as u8).collect()
     }
 }
 
