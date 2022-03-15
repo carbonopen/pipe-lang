@@ -61,16 +61,23 @@ pipeline {
     }
 
     switch default {
-        target = ${ try { parse_int(payload.params.number); "number" } catch { "string" } }
+        target = {
+            "___type": "script",
+            "list": [{
+                "type": "string",
+                "value": 'try { parse_int(payload.params.number); "number"} catch { "string" }'
+            }]
+        }
 
-        case "string" (
-            | default_string
+        case "number" (
+            | default_number
         )
 
-        | default_any
+
+        | default_string
     }
 
-     payload default_string {
+    payload default_string {
         status_code=201
         body={
             "value": `${ payload.params.number }`,
@@ -82,11 +89,11 @@ pipeline {
         | init
     }
 
-    payload default_any {
+    payload default_number {
         status_code=201
         body={
-            "value": ${ payload.params.number },
-            "type": "default_any"
+            "value": `${ payload.params.number }`,
+            "type": "default_number"
         }
         headers={
             "content-type": "application/json"

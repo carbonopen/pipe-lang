@@ -110,6 +110,7 @@ impl Script {
             let mut script = caps.name("script").unwrap().as_str().to_string();
 
             let prefix_escape = re_quotes.replace_all(&raw[pos..range.start], r#"\\\""#);
+            // let prefix_escape = &raw[pos..range.start];
 
             let prefix = format!(r#"\"{}\""#, prefix_escape);
             let item = {
@@ -127,6 +128,7 @@ impl Script {
         }
 
         let postfix_escape = re_quotes.replace_all(&raw[pos..], r#"\\\""#);
+        // let postfix_escape = &raw[pos..];
         let postfix = format!(r#"\"{}\""#, postfix_escape);
         list.push(Item::new(postfix.clone(), ScriptType::Undefined));
 
@@ -338,7 +340,31 @@ impl Value {
                 format!("[{}]", contents.join(","))
             }
             Value::String(s) => {
-                format!("\"{}\"", s)
+                let re = Regex::new(r#"""#).unwrap();
+                let mut list = s
+                    .chars()
+                    .into_iter()
+                    .map(|c| c.to_string())
+                    .collect::<Vec<_>>();
+                let mut result = list.clone();
+                let mut add_posi = 0;
+
+                for item in re.captures_iter(s) {
+                    let range = item.get(0).unwrap().range();
+
+                    if range.start.eq(&0) {
+                        continue;
+                    }
+
+                    let before = range.start - 1;
+
+                    if list.get(before).unwrap().ne(r#"\"#) {
+                        result.insert(range.start + add_posi, r#"\"#.to_string());
+                        add_posi += 1;
+                    }
+                }
+
+                format!("\"{}\"", result.join(""))
             }
             Value::Number(n) => format!("{}", n),
             Value::Boolean(b) => format!("{}", b),

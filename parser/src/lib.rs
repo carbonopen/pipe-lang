@@ -305,7 +305,12 @@ impl Pipe {
                 let mut inner = pair.clone().into_inner();
                 Self::parse(inner.next().unwrap())
             }
+            Rule::string_alt => {
+                let mut inner = pair.clone().into_inner();
+                Self::parse(inner.next().unwrap())
+            }
             Rule::string_content => Value::String(pair.as_str().to_string()),
+            Rule::string_content_alt => Value::String(pair.as_str().to_string()),
             Rule::ident => Value::String(pair.as_str().to_string()),
             Rule::string_interpolation => {
                 let mut inner = pair.clone().into_inner();

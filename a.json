@@ -1,0 +1,217 @@
+{
+    "import": {
+        "bin": [
+            {
+                "bin": "target/release/libhttp_server.so",
+                "name": "http"
+            },
+            {
+                "name": "switch",
+                "bin": "target/release/libswitch.so"
+            },
+            {
+                "name": "payload",
+                "bin": "target/release/libpayload.so"
+            }
+        ]
+    },
+    "pipeline": [
+        {
+            "params": {
+                "address": "127.0.0.1:8085",
+                "route": [
+                    {
+                        "path": "/send/{number}",
+                        "attach": "match"
+                    },
+                    {
+                        "attach": "health",
+                        "path": "/health"
+                    }
+                ]
+            },
+            "module": "http",
+            "ref": "init"
+        },
+        {
+            "module": "switch",
+            "params": {
+                "attach": "default",
+                "target": {
+                    "___type": "script",
+                    "list": [
+                        {
+                            "value": "payload.params.number",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "case": [
+                    {
+                        "attach": "number",
+                        "case": "number"
+                    },
+                    {
+                        "attach": "other",
+                        "case": "other"
+                    }
+                ]
+            },
+            "ref": "match"
+        },
+        {
+            "ref": "number",
+            "params": {
+                "attach": "init",
+                "body": {
+                    "list": [
+                        {
+                            "type": "undefined",
+                            "value": "\"{            \\\"value\\\": \""
+                        },
+                        {
+                            "value": "( \"\\\"\" + payload.params.number + \"\\\"\" )",
+                            "type": "undefined"
+                        },
+                        {
+                            "value": "\",            \\\"type\\\": \\\"number\\\"        }\"",
+                            "type": "undefined"
+                        }
+                    ],
+                    "___type": "script"
+                },
+                "status_code": 403,
+                "headers": {
+                    "content-type": "application/json"
+                }
+            },
+            "module": "payload"
+        },
+        {
+            "ref": "other",
+            "params": {
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "attach": "init",
+                "status_code": 200,
+                "body": {
+                    "___type": "script",
+                    "list": [
+                        {
+                            "type": "undefined",
+                            "value": "\"{            \\\"value\\\": \\\"\""
+                        },
+                        {
+                            "type": "undefined",
+                            "value": "( payload.params.number + \" 1\")"
+                        },
+                        {
+                            "value": "\" and \"",
+                            "type": "undefined"
+                        },
+                        {
+                            "type": "undefined",
+                            "value": "( payload.params.number + \" 2\")"
+                        },
+                        {
+                            "type": "undefined",
+                            "value": "\"\\\",            \\\"type\\\": \\\"other\\\"        }\""
+                        }
+                    ]
+                }
+            },
+            "module": "payload"
+        },
+        {
+            "params": {
+                "case": [
+                    {
+                        "attach": "default_string",
+                        "case": "string"
+                    }
+                ],
+                "attach": "default_any",
+                "target": {
+                    "___type": "script",
+                    "list": [
+                        {
+                            "type": "string",
+                            "value": "try { parse_int(payload.params.number); \"number\"} catch { \"string\" }"
+                        }
+                    ]
+                }
+            },
+            "module": "switch",
+            "ref": "default"
+        },
+        {
+            "ref": "default_string",
+            "params": {
+                "status_code": 201,
+                "body": {
+                    "___type": "script",
+                    "list": [
+                        {
+                            "type": "undefined",
+                            "value": "\"{            \\\"value\\\": \\\"\""
+                        },
+                        {
+                            "type": "undefined",
+                            "value": "( payload.params.number )"
+                        },
+                        {
+                            "type": "undefined",
+                            "value": "\"\\\",            \\\"type\\\": \\\"default_string\\\"        }\""
+                        }
+                    ]
+                },
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "attach": "init"
+            },
+            "module": "payload"
+        },
+        {
+            "ref": "default_any",
+            "params": {
+                "body": {
+                    "___type": "script",
+                    "list": [
+                        {
+                            "value": "\"{            \\\"value\\\": \"",
+                            "type": "undefined"
+                        },
+                        {
+                            "value": "( payload.params.number )",
+                            "type": "undefined"
+                        },
+                        {
+                            "type": "undefined",
+                            "value": "\",            \\\"type\\\": \\\"default_any\\\"        }\""
+                        }
+                    ]
+                },
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "attach": "init",
+                "status_code": 201
+            },
+            "module": "payload"
+        },
+        {
+            "params": {
+                "body": "check",
+                "headers": {
+                    "content-type": "plain/text"
+                },
+                "attach": "init",
+                "status_code": 200
+            },
+            "ref": "health",
+            "module": "payload"
+        }
+    ]
+}
