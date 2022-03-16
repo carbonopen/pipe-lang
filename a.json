@@ -1,217 +1,169 @@
 {
-    "import": {
-        "bin": [
-            {
-                "bin": "target/release/libhttp_server.so",
-                "name": "http"
-            },
-            {
-                "name": "switch",
-                "bin": "target/release/libswitch.so"
-            },
-            {
-                "name": "payload",
-                "bin": "target/release/libpayload.so"
-            }
-        ]
-    },
     "pipeline": [
         {
+            "ref": "init",
             "params": {
                 "address": "127.0.0.1:8085",
                 "route": [
                     {
-                        "path": "/send/{number}",
+                        "path": "/send/{item}",
                         "attach": "match"
                     },
                     {
-                        "attach": "health",
-                        "path": "/health"
+                        "path": "/health",
+                        "attach": "health"
                     }
                 ]
             },
-            "module": "http",
-            "ref": "init"
+            "module": "http"
         },
         {
-            "module": "switch",
             "params": {
-                "attach": "default",
-                "target": {
-                    "___type": "script",
-                    "list": [
-                        {
-                            "value": "payload.params.number",
-                            "type": "string"
-                        }
-                    ]
-                },
                 "case": [
                     {
-                        "attach": "number",
-                        "case": "number"
+                        "attach": "one",
+                        "case": "one"
                     },
                     {
                         "attach": "other",
                         "case": "other"
                     }
-                ]
+                ],
+                "target": {
+                    "___type": "script",
+                    "___list": [
+                        "payload.params.item"
+                    ]
+                },
+                "attach": "default"
             },
-            "ref": "match"
+            "ref": "match",
+            "module": "switch"
         },
         {
-            "ref": "number",
             "params": {
-                "attach": "init",
                 "body": {
-                    "list": [
-                        {
-                            "type": "undefined",
-                            "value": "\"{            \\\"value\\\": \""
-                        },
-                        {
-                            "value": "( \"\\\"\" + payload.params.number + \"\\\"\" )",
-                            "type": "undefined"
-                        },
-                        {
-                            "value": "\",            \\\"type\\\": \\\"number\\\"        }\"",
-                            "type": "undefined"
-                        }
+                    "___list": [
+                        "\"{            \\\"value\\\": \"",
+                        "( \"\\\"\" + payload.params.item + \"\\\"\" )",
+                        "\",            \\\"type\\\": \\\"one\\\"        }\""
                     ],
                     "___type": "script"
                 },
+                "attach": "init",
                 "status_code": 403,
                 "headers": {
                     "content-type": "application/json"
                 }
             },
+            "ref": "one",
             "module": "payload"
         },
         {
             "ref": "other",
+            "module": "payload",
             "params": {
                 "headers": {
                     "content-type": "application/json"
                 },
-                "attach": "init",
                 "status_code": 200,
                 "body": {
-                    "___type": "script",
-                    "list": [
-                        {
-                            "type": "undefined",
-                            "value": "\"{            \\\"value\\\": \\\"\""
-                        },
-                        {
-                            "type": "undefined",
-                            "value": "( payload.params.number + \" 1\")"
-                        },
-                        {
-                            "value": "\" and \"",
-                            "type": "undefined"
-                        },
-                        {
-                            "type": "undefined",
-                            "value": "( payload.params.number + \" 2\")"
-                        },
-                        {
-                            "type": "undefined",
-                            "value": "\"\\\",            \\\"type\\\": \\\"other\\\"        }\""
-                        }
-                    ]
-                }
-            },
-            "module": "payload"
+                    "___list": [
+                        "\"{            \\\"value\\\": \\\"\"",
+                        "( payload.params.item + \" 1\")",
+                        "\" and \"",
+                        "( payload.params.item + \" 2\")",
+                        "\"\\\",            \\\"type\\\": \\\"other\\\"        }\""
+                    ],
+                    "___type": "script"
+                },
+                "attach": "init"
+            }
         },
         {
+            "module": "switch",
             "params": {
                 "case": [
                     {
-                        "attach": "default_string",
-                        "case": "string"
+                        "case": "number",
+                        "attach": "default_number"
                     }
                 ],
-                "attach": "default_any",
                 "target": {
                     "___type": "script",
-                    "list": [
-                        {
-                            "type": "string",
-                            "value": "try { parse_int(payload.params.number); \"number\"} catch { \"string\" }"
-                        }
+                    "___list": [
+                        "try { parse_int(payload.params.item); \"number\"} catch { \"number\" }"
                     ]
-                }
+                },
+                "attach": "default_string"
             },
-            "module": "switch",
             "ref": "default"
         },
         {
             "ref": "default_string",
             "params": {
-                "status_code": 201,
                 "body": {
                     "___type": "script",
-                    "list": [
-                        {
-                            "type": "undefined",
-                            "value": "\"{            \\\"value\\\": \\\"\""
-                        },
-                        {
-                            "type": "undefined",
-                            "value": "( payload.params.number )"
-                        },
-                        {
-                            "type": "undefined",
-                            "value": "\"\\\",            \\\"type\\\": \\\"default_string\\\"        }\""
-                        }
+                    "___list": [
+                        "\"{            \\\"value\\\": \\\"\"",
+                        "( payload.params.item )",
+                        "\"\\\",            \\\"type\\\": \\\"default_string\\\"        }\""
                     ]
-                },
-                "headers": {
-                    "content-type": "application/json"
-                },
-                "attach": "init"
-            },
-            "module": "payload"
-        },
-        {
-            "ref": "default_any",
-            "params": {
-                "body": {
-                    "___type": "script",
-                    "list": [
-                        {
-                            "value": "\"{            \\\"value\\\": \"",
-                            "type": "undefined"
-                        },
-                        {
-                            "value": "( payload.params.number )",
-                            "type": "undefined"
-                        },
-                        {
-                            "type": "undefined",
-                            "value": "\",            \\\"type\\\": \\\"default_any\\\"        }\""
-                        }
-                    ]
-                },
-                "headers": {
-                    "content-type": "application/json"
                 },
                 "attach": "init",
+                "headers": {
+                    "content-type": "application/json"
+                },
                 "status_code": 201
             },
             "module": "payload"
         },
         {
             "params": {
+                "status_code": 201,
+                "attach": "init",
+                "body": {
+                    "___type": "script",
+                    "___list": [
+                        "\"{            \\\"value\\\": \\\"\"",
+                        "( payload.params.item )",
+                        "\"\\\",            \\\"type\\\": \\\"default_number\\\"        }\""
+                    ]
+                },
+                "headers": {
+                    "content-type": "application/json"
+                }
+            },
+            "module": "payload",
+            "ref": "default_number"
+        },
+        {
+            "params": {
+                "status_code": 200,
                 "body": "check",
                 "headers": {
                     "content-type": "plain/text"
                 },
-                "attach": "init",
-                "status_code": 200
+                "attach": "init"
             },
-            "ref": "health",
-            "module": "payload"
+            "module": "payload",
+            "ref": "health"
         }
-    ]
+    ],
+    "import": {
+        "bin": [
+            {
+                "name": "http",
+                "bin": "target/release/libhttp_server.so"
+            },
+            {
+                "bin": "target/release/libswitch.so",
+                "name": "switch"
+            },
+            {
+                "bin": "target/release/libpayload.so",
+                "name": "payload"
+            }
+        ]
+    }
 }

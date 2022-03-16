@@ -111,7 +111,12 @@ impl<'a> Params<'a> {
             Ok(value) => match serde_json::from_str(&value) {
                 Ok(value) => Ok(value),
                 Err(_) => match serde_json::to_value(value) {
-                    Ok(value) => Ok(value),
+                    Ok(value) => {
+                        println!("{:?}", value);
+                        println!("{:?}", value);
+                        println!("");
+                        Ok(value)
+                    }
                     Err(err) => Err(Error::from(err)),
                 },
             },
@@ -173,23 +178,14 @@ impl<'a> TryFrom<&Value> for Params<'a> {
                         if let Some(obj_type_value) = item.get("___type") {
                             if obj_type_value.as_str().unwrap().eq("script") {
                                 let script = item
-                                    .get("list")
+                                    .get("___list")
                                     .unwrap()
                                     .as_array()
                                     .unwrap()
                                     .iter()
                                     .map(|item| {
-                                        let obj = item.as_object().unwrap();
-                                        let value =
-                                            obj.get("value").unwrap().as_str().unwrap().to_string();
-                                        let script_type =
-                                            obj.get("type").unwrap().as_str().unwrap().to_string();
-
-                                        if script_type.eq("script") {
-                                            format!(r#"("\"" + {} + "\"")"#, value)
-                                        } else {
-                                            value
-                                        }
+                                        let value = item.as_str().unwrap();
+                                        value.to_string()
                                     })
                                     .collect::<Vec<_>>()
                                     .join("+");

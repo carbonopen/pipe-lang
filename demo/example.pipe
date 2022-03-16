@@ -14,7 +14,7 @@ pipeline {
     http init {
         address="127.0.0.1:8085"
         route(
-            path="/send/{number}"
+            path="/send/{item}"
             pipe match
         )
         route(
@@ -24,10 +24,10 @@ pipeline {
     }
 
     switch match {
-        target = ${ payload.params.number }
+        target = ${ payload.params.item }
 
-        case "number" (
-            pipe number
+        case "one" (
+            pipe one
         )
         case "other" (
             pipe other
@@ -36,11 +36,11 @@ pipeline {
         | default
     }
 
-    payload number {
+    payload one {
         status_code=403
         body={
-            "value": ${ "\"" + payload.params.number + "\"" },
-            "type": "number"
+            "value": ${ "\"" + payload.params.item + "\"" },
+            "type": "one"
         }
         headers={
             "content-type": "application/json"
@@ -51,7 +51,7 @@ pipeline {
     payload other {
         status_code=200
         body={
-            "value": `${ payload.params.number + " 1"} and ${ payload.params.number + " 2"}`,
+            "value": `${ payload.params.item + " 1"} and ${ payload.params.item + " 2"}`,
             "type": `other`
         }
         headers={
@@ -63,10 +63,7 @@ pipeline {
     switch default {
         target = {
             "___type": "script",
-            "list": [{
-                "type": "string",
-                "value": 'try { parse_int(payload.params.number); "number"} catch { "string" }'
-            }]
+            "___list": ['try { parse_int(payload.params.item); return "number"} catch { return "string" }']
         }
 
         case "number" (
@@ -80,7 +77,7 @@ pipeline {
     payload default_string {
         status_code=201
         body={
-            "value": `${ payload.params.number }`,
+            "value": `${ payload.params.item }`,
             "type": "default_string"
         }
         headers={
@@ -92,7 +89,7 @@ pipeline {
     payload default_number {
         status_code=201
         body={
-            "value": `${ payload.params.number }`,
+            "value": `${ payload.params.item }`,
             "type": "default_number"
         }
         headers={
