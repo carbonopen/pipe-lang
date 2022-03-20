@@ -61,10 +61,14 @@ pipeline {
     }
 
     switch default {
-        target = {
-            "___type": "script",
-            "___list": ['try { parse_int(payload.params.item); return "number"} catch { return "string" }']
-        }
+        target = ```
+            try {
+                parse_int(payload.params.item);
+                return "number"
+            } catch {
+                return "string"
+            }
+        ```
 
         case "number" (
             | default_number

@@ -3,9 +3,12 @@ extern crate pest;
 extern crate pest_derive;
 pub mod value;
 
+use escapade::Append;
+use escapade::Escapable;
 use pest::error::Error as PestError;
 use pest::iterators::Pair;
 use pest::Parser;
+use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use value::Value;
@@ -61,7 +64,7 @@ impl Error {
 
 impl Pipe {
     pub fn from_str(unparsed_file: &str) -> Result<Value, Error> {
-        match PipeParser::parse(Rule::pipe, unparsed_file) {
+        match PipeParser::parse(Rule::pipe, &Self::pre_parse(unparsed_file.to_string())) {
             Ok(mut pairs) => match pairs.next() {
                 Some(pair) => Ok(Self::parse(pair)),
                 None => Ok(Value::Undefined),
@@ -77,6 +80,32 @@ impl Pipe {
         };
 
         Self::from_str(&unparsed_file)
+    }
+
+    pub fn pre_parse(content: String) -> String {
+        let re = Regex::new(r#"(?s)```.*?```"#).unwrap();
+
+        println!("RANGE:");
+
+        let mut result = String::default();
+        let mut content_last_end = 0;
+
+        for cap in re.captures_iter(&content) {
+            let range = cap.get(0).unwrap().range();
+            let content_start = range.start + 3;
+            let content_end = range.end - 3;
+            let target = content[content_start..content_end].to_string();
+            let body = format!(r#""{}""#, target.escape().into_inner());
+            result.push_str(&content[content_last_end..range.start]);
+            result.push_str(&body);
+            content_last_end = range.end;
+        }
+
+        result.push_str(&content[content_last_end..]);
+
+        println!("{}", result);
+
+        result
     }
 
     // TODO: Criar carregamento de "runtime", exemplo: ```javascript

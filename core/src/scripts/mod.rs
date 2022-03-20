@@ -111,12 +111,7 @@ impl<'a> Params<'a> {
             Ok(value) => match serde_json::from_str(&value) {
                 Ok(value) => Ok(value),
                 Err(_) => match serde_json::to_value(value) {
-                    Ok(value) => {
-                        println!("{:?}", value);
-                        println!("{:?}", value);
-                        println!("");
-                        Ok(value)
-                    }
+                    Ok(value) => Ok(value),
                     Err(err) => Err(Error::from(err)),
                 },
             },
