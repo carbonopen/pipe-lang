@@ -121,7 +121,7 @@ impl Pipe {
             let target_fix = target[target_start..].to_string();
 
             let body = format!(
-                r#"{{ "___type": "embedded", "___content": "{}", "___runtime": "{}"}}"#,
+                r#"{{ "___type": "embedded", "___content": "{}", "___lang": "{}"}}"#,
                 target_fix.escape().into_inner(),
                 runtime
             );
@@ -136,7 +136,6 @@ impl Pipe {
         result
     }
 
-    // TODO: Criar carregamento de "runtime", exemplo: ```javascript
     fn parse(pair: Pair<Rule>) -> Value {
         match pair.as_rule() {
             Rule::sessions => {

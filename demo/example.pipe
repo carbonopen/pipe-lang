@@ -8,6 +8,9 @@ import {
     bin "target/release/libpayload.so" (
         name="payload"
     )
+    bin "target/release/run.so" (
+        name="run"
+    )
 }
 
 pipeline {
@@ -60,8 +63,8 @@ pipeline {
         | init
     }
 
-    switch default {
-        target = ```python
+    run ___local_run_1 {
+        script = ```
             try {
                 parse_int(payload.params.item);
                 return "number"
@@ -69,6 +72,11 @@ pipeline {
                 return "string"
             }
         ```
+        runtime="python3.2"
+    } :before(default)
+
+    switch default {
+        target = ${ module.___local_run_1.payload }
 
         case "number" (
             | default_number

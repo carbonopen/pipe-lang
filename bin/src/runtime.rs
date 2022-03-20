@@ -101,6 +101,9 @@ pub fn runtime(value: Value) {
         }
     }
 
+    //TODO: criar uma arvore contendo todos os payloads e passar como "module"
+    //TODO: criar tags
+
     for control in rx_control {
         log::trace!(
             "trace_id: {} | Step {} sender: {:?}",
@@ -143,7 +146,7 @@ pub fn runtime(value: Value) {
                                     module_id,
                                     err
                                 ),
-                            } // todo: Forçar retorno de erro para o step anterior
+                            } // TODO: Forçar retorno de erro para o step anterior
                         }
                         None => log::warn!(
                             "trace_id: {} | Reference {} not found",
