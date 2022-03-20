@@ -326,10 +326,13 @@ impl Value {
             Value::Interpolation(script) => {
                 if interpolation {
                     let mut map = HashMap::new();
-                    map.insert("___type".to_string(), Value::String("script".to_string()));
+                    map.insert(
+                        "___PIPE___type".to_string(),
+                        Value::String("script".to_string()),
+                    );
 
                     let list = Value::Array(script.get_list_value());
-                    map.insert("___list".to_string(), list);
+                    map.insert("___PIPE___list".to_string(), list);
 
                     format!("{}", Value::to_json(&Value::Object(map), interpolation))
                 } else {

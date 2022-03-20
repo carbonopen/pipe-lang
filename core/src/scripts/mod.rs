@@ -170,10 +170,10 @@ impl<'a> TryFrom<&Value> for Params<'a> {
             Some(obj) => {
                 for (key, value) in obj.into_iter() {
                     if let Some(item) = value.as_object() {
-                        if let Some(obj_type_value) = item.get("___type") {
+                        if let Some(obj_type_value) = item.get("___PIPE___type") {
                             if obj_type_value.as_str().unwrap().eq("script") {
                                 let script = item
-                                    .get("___list")
+                                    .get("___PIPE___list")
                                     .unwrap()
                                     .as_array()
                                     .unwrap()

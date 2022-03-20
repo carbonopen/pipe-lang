@@ -62,17 +62,8 @@ impl Error {
     }
 }
 
+// TODO: criar exportação de .pipe com pre_parse realizado.
 impl Pipe {
-    pub fn from_str(unparsed_file: &str) -> Result<Value, Error> {
-        match PipeParser::parse(Rule::pipe, &Self::pre_parse(unparsed_file.to_string())) {
-            Ok(mut pairs) => match pairs.next() {
-                Some(pair) => Ok(Self::parse(pair)),
-                None => Ok(Value::Undefined),
-            },
-            Err(error) => Err(Error::parse(error)),
-        }
-    }
-
     pub fn from_path(path: &str) -> Result<Value, Error> {
         let unparsed_file = match fs::read_to_string(path) {
             Ok(file) => file,
@@ -82,11 +73,44 @@ impl Pipe {
         Self::from_str(&unparsed_file)
     }
 
-    pub fn pre_parse(content: String) -> String {
-        Self::parse_embed(content)
+    pub fn from_str(unparsed_file: &str) -> Result<Value, Error> {
+        let pre_parse = Self::pre_parse(unparsed_file.to_string());
+        Self::from_pre_parsed_str(&pre_parse)
     }
 
-    pub fn parse_embed(content: String) -> String {
+    pub fn from_pre_parsed_str(pre_parse_file: &str) -> Result<Value, Error> {
+        match PipeParser::parse(Rule::pipe, pre_parse_file) {
+            Ok(mut pairs) => match pairs.next() {
+                Some(pair) => Ok(Self::parse(pair)),
+                None => Ok(Value::Undefined),
+            },
+            Err(error) => Err(Error::parse(error)),
+        }
+    }
+
+    pub fn pre_parse(content: String) -> String {
+        Self::parse_embedded(content)
+        //TODO:parse_module_run
+    }
+
+    // pub fn parse_tags(content: String) -> String {
+    //     let re = Regex::new(r#":[a-z_]*\([a-z_0-9.!?]*\)"#).unwrap();
+
+    //     let mut result = String::default();
+    //     let mut content_last_end = 0;
+    //     let mut tags = HashMap::new();
+
+    //     for cap in re.captures_iter(&content) {
+    //         let range = cap.get(0).unwrap().range();
+    //         let target = content[range.start..range.end].to_string();
+    //     }
+
+    //     result.push_str(&content[content_last_end..]);
+
+    //     result
+    // }
+
+    pub fn parse_embedded(content: String) -> String {
         let re = Regex::new(r#"(?s)```.*?```"#).unwrap();
 
         let mut result = String::default();
@@ -121,7 +145,7 @@ impl Pipe {
             let target_fix = target[target_start..].to_string();
 
             let body = format!(
-                r#"{{ "___type": "embedded", "___content": "{}", "___lang": "{}"}}"#,
+                r#"{{ "___PIPE___type": "embedded", "___PIPE___content": "{}", "___PIPE___lang": "{}"}}"#,
                 target_fix.escape().into_inner(),
                 runtime
             );
@@ -213,8 +237,17 @@ impl Pipe {
                 map.insert("ref".to_string(), reference);
                 map.extend(params);
 
-                if let Some(pair) = inner.next() {
-                    map.insert("command".to_string(), Self::parse(pair));
+                let mut tags = map!();
+                while let Some(pair) = inner.next() {
+                    let tag = Self::parse(pair).to_array().unwrap();
+                    let key = tag.get(0).unwrap().to_string().unwrap();
+                    let value = tag.get(1).unwrap();
+
+                    tags.insert(key, value.clone());
+                }
+
+                if tags.len() > 0 {
+                    map.insert("___tags".to_string(), Value::Object(tags));
                 }
 
                 Value::Object(map)
@@ -337,26 +370,6 @@ impl Pipe {
 
                 Value::Boolean(value)
             }
-            Rule::embedded => {
-                let mut map = map!("runtime".to_string(), Value::String("default".to_string()));
-                for pair in pair.into_inner() {
-                    match pair.as_rule() {
-                        Rule::embedded_source => {
-                            let runtime = map.get_mut(&"runtime".to_string()).unwrap();
-                            *runtime = Value::String(pair.as_str().to_string());
-                        }
-                        Rule::embedded_content => {
-                            map.insert(
-                                "script".to_string(),
-                                Value::String(pair.as_str().to_string()),
-                            );
-                        }
-                        _ => return Value::Undefined,
-                    }
-                }
-
-                Value::Object(map)
-            }
             Rule::string => {
                 let mut inner = pair.clone().into_inner();
                 Self::parse(inner.next().unwrap())
@@ -387,19 +400,21 @@ impl Pipe {
                 Value::Interpolation(Script::from_string(raw))
             }
             Rule::reference => Value::String(pair.as_str().to_string()),
-            Rule::command => {
-                let mut list = Vec::new();
+            Rule::tag => {
                 let mut inner = pair.into_inner();
 
-                list.push(Self::parse(inner.next().unwrap()));
+                let key = Self::parse(inner.next().unwrap()).to_string().unwrap();
+                let mut value = Vec::new();
 
                 if let Some(args) = inner.next() {
-                    list.extend(Self::parse(args).to_array().unwrap());
+                    value.extend(Self::parse(args).to_array().unwrap());
                 }
+
+                let list = vec![Value::String(key), Value::Array(value)];
 
                 Value::Array(list)
             }
-            Rule::command_args => {
+            Rule::tag_args => {
                 let mut list = Vec::new();
                 let mut inner = pair.into_inner();
 

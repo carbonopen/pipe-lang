@@ -19,11 +19,11 @@ session_generic_config_content = { "{" ~ (NEWLINE | common_content)* ~ "}" }
 session_pipeline_content = { "{" ~ (NEWLINE | module)* ~ "}" }
 
 //Modules
-module = { ident ~ ident? ~ module_content ~ command? }
+module = { ident ~ ident? ~ module_content ~ (tag)*? }
 module_content = { "{" ~ (NEWLINE | common_content | attach)* ~ "}" }
 
-command = { ":" ~ ident ~ command_args? }
-command_args = {"(" ~ ( number | boolean | null | string| string_alt | ident | array | object | ",")* ~ ")"}
+tag = { ":" ~ ident ~ tag_args? }
+tag_args = {"(" ~ ( number | boolean | null | string| string_alt | ident | array | object | ",")* ~ ")"}
 
 //Attatch
 attach= { ("|" | "pipe") ~ (module | ident | reference) }
@@ -38,12 +38,12 @@ common_content = { (NEWLINE | param | param_macro| attach )+ }
 param = { ident ~ "=" ~ value }
 
 // Ident
-char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
+char = { ASCII_ALPHANUMERIC | "." | "_" }
 ident = @{ char+ }
 
 // Value
-value = _{ object | array | string | string_alt | number | boolean | null | interpolation | string_interpolation | object_interpolation | embedded }
-value_withou_interpolation = _{ object | array | string | string_alt | number | boolean | null | embedded }
+value = _{ object | array | string | string_alt | number | boolean | null | interpolation | string_interpolation | object_interpolation  }
+value_withou_interpolation = _{ object | array | string | string_alt | number | boolean | null  }
 
 //interpolation
 interpolation = { "${" ~ (ident)? ~ interpolation_content  ~ "}" }
@@ -57,12 +57,6 @@ object_interpolation_pair = _{ object_interpolation_pair_default | object_interp
 object_interpolation_pair_merge = { NEWLINE? ~  "..." ~ interpolation  ~ NEWLINE? }
 object_interpolation_pair_key = _{ string | interpolation | string_interpolation }
 object_interpolation_pair_default = { NEWLINE? ~ object_interpolation_pair_key ~ ":" ~ value ~ NEWLINE? }
-
-
-//embedded
-embedded = { "```"  ~ (embedded_source)? ~ embedded_content ~ "```" }
-embedded_source = @{ char+ }
-embedded_content = @{ (!"```" ~ ANY)* }
 
 // Var types
 string = { "\"" ~ string_content ~ "\"" }
