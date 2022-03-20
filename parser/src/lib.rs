@@ -247,7 +247,7 @@ impl Pipe {
                 }
 
                 if tags.len() > 0 {
-                    map.insert("___tags".to_string(), Value::Object(tags));
+                    map.insert("___PIPE___tags".to_string(), Value::Object(tags));
                 }
 
                 Value::Object(map)

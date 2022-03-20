@@ -1,1 +1,198 @@
-{"pipeline":[{"params":{"route":[{"path":"/send/{item}","attach":"match"},{"attach":"health","path":"/health"}],"address":"127.0.0.1:8085"},"ref":"init","module":"http"},{"ref":"match","params":{"attach":"default","case":[{"attach":"one","case":"one"},{"attach":"other","case":"other"}],"target":{"___PIPE___list":["payload.params.item"],"___PIPE___type":"script"}},"module":"switch"},{"params":{"attach":"init","status_code":403,"body":{"___PIPE___list":["\"{            \\\"value\\\": \"","( \"\\\"\" + payload.params.item + \"\\\"\" )","\",            \\\"type\\\": \\\"one\\\"        }\""],"___PIPE___type":"script"},"headers":{"content-type":"application/json"}},"module":"payload","ref":"one"},{"module":"payload","ref":"other","params":{"headers":{"content-type":"application/json"},"attach":"init","body":{"___PIPE___type":"script","___PIPE___list":["\"{            \\\"value\\\": \\\"\"","( payload.params.item + \" 1\")","\" and \"","( payload.params.item + \" 2\")","\"\\\",            \\\"type\\\": \\\"other\\\"        }\""]},"status_code":200}},{"module":"switch","params":{"target":{"___PIPE___list":["module.___PIPE___local_run_1.payload"],"___PIPE___type":"script"},"case":[{"attach":"default_number","case":"number"}],"attach":"default_string"},"ref":"default"},{"params":{"status_code":201,"body":{"___PIPE___type":"script","___PIPE___list":["\"{            \\\"value\\\": \\\"\"","( payload.params.item )","\"\\\",            \\\"type\\\": \\\"default_string\\\"        }\""]},"attach":"init","headers":{"content-type":"application/json"}},"module":"payload","ref":"default_string"},{"module":"payload","params":{"status_code":201,"attach":"init","body":{"___PIPE___list":["\"{            \\\"value\\\": \\\"\"","( payload.params.item )","\"\\\",            \\\"type\\\": \\\"default_number\\\"        }\""],"___PIPE___type":"script"},"headers":{"content-type":"application/json"}},"ref":"default_number"},{"params":{"status_code":200,"body":"check","attach":"init","headers":{"content-type":"plain/text"}},"ref":"health","module":"payload"},{"ref":"___PIPE___local_run_1","___tags":{"other":[{"key":[1,2]}],"before":["default"]},"params":{"script":{"___PIPE___content":"&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;try&#x20;&#x7B;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;parse&#x5F;int&#x28;payload&#x2E;params&#x2E;item&#x29;&#x3B;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;return&#x20;&quot;number&quot;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x7D;&#x20;catch&#x20;&#x7B;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;return&#x20;&quot;string&quot;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x7D;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;","___PIPE___type":"embedded","___PIPE___lang":"default"},"runtime":"python3.2"},"module":"run"}],"import":{"bin":[{"name":"http","bin":"target/release/libhttp_server.so"},{"name":"switch","bin":"target/release/libswitch.so"},{"bin":"target/release/libpayload.so","name":"payload"},{"bin":"target/release/run.so","name":"run"}]}}
+{
+    "import": {
+        "bin": [
+            {
+                "name": "http",
+                "bin": "target/release/libhttp_server.so"
+            },
+            {
+                "name": "switch",
+                "bin": "target/release/libswitch.so"
+            },
+            {
+                "bin": "target/release/libpayload.so",
+                "name": "payload"
+            },
+            {
+                "bin": "target/release/run.so",
+                "name": "run"
+            }
+        ]
+    },
+    "pipeline": [
+        {
+            "ref": "init",
+            "module": "http",
+            "params": {
+                "route": [
+                    {
+                        "attach": "match",
+                        "path": "/send/{item}"
+                    },
+                    {
+                        "path": "/health",
+                        "attach": "health"
+                    }
+                ],
+                "address": "127.0.0.1:8085"
+            }
+        },
+        {
+            "params": {
+                "target": {
+                    "___PIPE___type": "script",
+                    "___PIPE___list": [
+                        "payload.params.item"
+                    ]
+                },
+                "case": [
+                    {
+                        "case": "one",
+                        "attach": "one"
+                    },
+                    {
+                        "case": "other",
+                        "attach": "other"
+                    }
+                ],
+                "attach": "default"
+            },
+            "ref": "match",
+            "module": "switch"
+        },
+        {
+            "ref": "one",
+            "params": {
+                "status_code": 403,
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "attach": "init",
+                "body": {
+                    "___PIPE___list": [
+                        "\"{            \\\"value\\\": \"",
+                        "( \"\\\"\" + payload.params.item + \"\\\"\" )",
+                        "\",            \\\"type\\\": \\\"one\\\"        }\""
+                    ],
+                    "___PIPE___type": "script"
+                }
+            },
+            "module": "payload"
+        },
+        {
+            "ref": "other",
+            "params": {
+                "status_code": 200,
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "body": {
+                    "___PIPE___list": [
+                        "\"{            \\\"value\\\": \\\"\"",
+                        "( payload.params.item + \" 1\")",
+                        "\" and \"",
+                        "( payload.params.item + \" 2\")",
+                        "\"\\\",            \\\"type\\\": \\\"other\\\"        }\""
+                    ],
+                    "___PIPE___type": "script"
+                },
+                "attach": "init"
+            },
+            "module": "payload"
+        },
+        {
+            "ref": "default",
+            "params": {
+                "attach": "default_string",
+                "case": [
+                    {
+                        "attach": "default_number",
+                        "case": "number"
+                    }
+                ],
+                "target": {
+                    "___PIPE___type": "script",
+                    "___PIPE___list": [
+                        "module.___PIPE___local_run_1.payload"
+                    ]
+                }
+            },
+            "module": "switch"
+        },
+        {
+            "ref": "default_string",
+            "module": "payload",
+            "params": {
+                "body": {
+                    "___PIPE___list": [
+                        "\"{            \\\"value\\\": \\\"\"",
+                        "( payload.params.item )",
+                        "\"\\\",            \\\"type\\\": \\\"default_string\\\"        }\""
+                    ],
+                    "___PIPE___type": "script"
+                },
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "status_code": 201,
+                "attach": "init"
+            }
+        },
+        {
+            "params": {
+                "headers": {
+                    "content-type": "application/json"
+                },
+                "attach": "init",
+                "body": {
+                    "___PIPE___type": "script",
+                    "___PIPE___list": [
+                        "\"{            \\\"value\\\": \\\"\"",
+                        "( payload.params.item )",
+                        "\"\\\",            \\\"type\\\": \\\"default_number\\\"        }\""
+                    ]
+                },
+                "status_code": 201
+            },
+            "module": "payload",
+            "ref": "default_number"
+        },
+        {
+            "params": {
+                "status_code": 200,
+                "body": "check",
+                "attach": "init",
+                "headers": {
+                    "content-type": "plain/text"
+                }
+            },
+            "module": "payload",
+            "ref": "health"
+        },
+        {
+            "___PIPE___tags": {
+                "other": [
+                    {
+                        "key": [
+                            1,
+                            2
+                        ]
+                    }
+                ],
+                "before": [
+                    "default"
+                ]
+            },
+            "ref": "___PIPE___local_run_1",
+            "module": "run",
+            "params": {
+                "script": {
+                    "___PIPE___content": "&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;try&#x20;&#x7B;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;parse&#x5F;int&#x28;payload&#x2E;params&#x2E;item&#x29;&#x3B;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;return&#x20;&quot;number&quot;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x7D;&#x20;catch&#x20;&#x7B;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;return&#x20;&quot;string&quot;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x7D;&#x0A;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;&#x20;",
+                    "___PIPE___type": "embedded",
+                    "___PIPE___lang": "default"
+                },
+                "runtime": "python3.2"
+            }
+        }
+    ]
+}
