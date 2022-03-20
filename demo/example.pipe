@@ -61,7 +61,7 @@ pipeline {
     }
 
     switch default {
-        target = ```
+        target = ```python
             try {
                 parse_int(payload.params.item);
                 return "number"

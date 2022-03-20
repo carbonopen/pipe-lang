@@ -83,9 +83,11 @@ impl Pipe {
     }
 
     pub fn pre_parse(content: String) -> String {
-        let re = Regex::new(r#"(?s)```.*?```"#).unwrap();
+        Self::parse_embed(content)
+    }
 
-        println!("RANGE:");
+    pub fn parse_embed(content: String) -> String {
+        let re = Regex::new(r#"(?s)```.*?```"#).unwrap();
 
         let mut result = String::default();
         let mut content_last_end = 0;
@@ -95,15 +97,41 @@ impl Pipe {
             let content_start = range.start + 3;
             let content_end = range.end - 3;
             let target = content[content_start..content_end].to_string();
-            let body = format!(r#""{}""#, target.escape().into_inner());
+
+            let (runtime, target_start) = {
+                let mut first_line = Vec::new();
+                let mut end = 0;
+
+                for char in target.chars() {
+                    if char == '\n' {
+                        break;
+                    }
+
+                    end += 1;
+                    first_line.push(char as u8);
+                }
+
+                if first_line.len() == 0 {
+                    ("default".to_string(), end)
+                } else {
+                    (String::from_utf8(first_line).unwrap(), end)
+                }
+            };
+
+            let target_fix = target[target_start..].to_string();
+
+            let body = format!(
+                r#"{{ "___type": "embedded", "___content": "{}", "___runtime": "{}"}}"#,
+                target_fix.escape().into_inner(),
+                runtime
+            );
+
             result.push_str(&content[content_last_end..range.start]);
             result.push_str(&body);
             content_last_end = range.end;
         }
 
         result.push_str(&content[content_last_end..]);
-
-        println!("{}", result);
 
         result
     }
