@@ -4,7 +4,7 @@ extern crate pipe_core;
 use std::convert::TryFrom;
 
 use pipe_core::{
-    modules::{Config, Listener, Return},
+    modules::{Config, Listener, Return, TraceId},
     scripts::Params,
     serde_json::{Map, Value},
 };
@@ -13,6 +13,30 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     match config.params {
         Some(params_raw) => {
             let mut params = Params::try_from(&params_raw).unwrap();
+
+            if config.producer {
+                let mut trace = TraceId::new();
+
+                match params.set_payload(Value::Null) {
+                    Ok(_) => match params.get_value() {
+                        Ok(new_payload) => send(Return {
+                            payload: Ok(Some(new_payload)),
+                            attach: config.default_attach.clone(),
+                            trace_id: trace.get_trace(),
+                        }),
+                        Err(err) => send(Return {
+                            payload: Err(Some(Value::from(format!("{}", err)))),
+                            attach: config.default_attach.clone(),
+                            trace_id: trace.get_trace(),
+                        }),
+                    },
+                    Err(err) => send(Return {
+                        payload: Err(Some(Value::from(format!("{}", err)))),
+                        attach: config.default_attach.clone(),
+                        trace_id: trace.get_trace(),
+                    }),
+                }
+            }
 
             for request in listener {
                 match request.payload {
