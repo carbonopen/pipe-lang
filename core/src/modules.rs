@@ -3,6 +3,7 @@ extern crate serde_json;
 pub use serde_json::json;
 use serde_json::{Map, Value};
 
+use std::collections::HashMap;
 use std::fmt::Debug;
 pub use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
@@ -15,6 +16,7 @@ pub struct Config {
     pub params: Option<Value>,
     pub producer: bool,
     pub default_attach: Option<String>,
+    pub tags: HashMap<String, Value>,
 }
 
 impl Config {

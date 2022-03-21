@@ -293,7 +293,7 @@ impl Value {
             }
             Value::String(s) => {
                 let re = Regex::new(r#"""#).unwrap();
-                let mut list = s
+                let list = s
                     .chars()
                     .into_iter()
                     .map(|c| c.to_string())

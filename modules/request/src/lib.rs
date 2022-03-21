@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 
 use pipe_core::{
-    serde_json::{json, Map, Value}, modules::{Config, Listener, Response as CoreResponse, Speaker, TraceId, ID}};
+    modules::{Config, Listener, Response as CoreResponse, Speaker, TraceId, ID},
+    serde_json::{json, Map, Value},
+};
 use reqwest::{header::HeaderMap, Client, Method};
 use tokio::runtime::Runtime;
 
@@ -189,7 +191,7 @@ mod tests {
     use actix_web::{rt::System, web, App, HttpRequest, HttpResponse, HttpServer};
     use pipe_core::modules::*;
     use reqwest::StatusCode;
-    use std::thread;
+    use std::{thread, collections::HashMap};
     use tokio::runtime::Runtime;
 
     macro_rules! create_server {
@@ -231,6 +233,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default(),
         };
 
         create_server!(10011u16, "other");

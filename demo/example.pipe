@@ -64,12 +64,14 @@ pipeline {
     }
 
     switch default {
-        target = ${ module.___PIPE___local_run_1.payload }
+        target = {
+            "___PIPE___type": "script",
+            "___PIPE___list": ['try { parse_int(payload.params.item); return "number"; } catch { return "string"; }']
+        }
 
         case "number" (
             | default_number
         )
-
 
         | default_string
     }
@@ -106,18 +108,6 @@ pipeline {
         }
         | init
     }
-
-    run ___PIPE___local_run_1 {
-        script = ```
-            try {
-                parse_int(payload.params.item);
-                return "number"
-            } catch {
-                return "string"
-            }
-        ```
-        runtime="python3.2"
-    } :before(default) :other({ "key": [1,2]})
 }
 
 

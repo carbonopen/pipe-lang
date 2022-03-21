@@ -2,39 +2,12 @@ use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
 use std::{collections::HashMap, convert::TryFrom};
 
-#[derive(Clone, PartialEq, Debug)]
-pub enum Command {
-    Order(i64),
-    Producer,
-    None,
-}
-
-impl Default for Command {
-    fn default() -> Self {
-        Command::None
-    }
-}
-
-impl From<Vec<Value>> for Command {
-    fn from(value: Vec<Value>) -> Self {
-        let mut items = value.iter();
-        let command = items.next().unwrap().to_string().unwrap();
-
-        if command.eq("producer") {
-            Self::Producer
-        } else if command.eq("order") {
-            Self::Order(items.next().unwrap().to_i64().unwrap())
-        } else {
-            Self::None
-        }
-    }
-}
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct Step {
     pub module: String,
     pub params: Option<JsonValue>,
     pub reference: Option<String>,
-    pub command: Command,
+    pub tags: HashMap<String, JsonValue>,
     pub attach: Option<String>,
 }
 
@@ -135,16 +108,20 @@ impl Pipe {
             } else {
                 (None, None)
             };
-            let command = match obj.get("command") {
-                Some(value) => Command::from(value.to_array().unwrap()),
-                None => Command::None,
+
+            let tags = match obj.get("tags") {
+                Some(value) => {
+                    let json = value.as_json();
+                    serde_json::from_str(&json).unwrap()
+                }
+                None => HashMap::default(),
             };
 
             list.push(Step {
                 module,
                 params,
                 reference,
-                command,
+                tags,
                 attach,
             })
         }

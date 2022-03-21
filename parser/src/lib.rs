@@ -3,7 +3,6 @@ extern crate pest;
 extern crate pest_derive;
 pub mod value;
 
-use escapade::Append;
 use escapade::Escapable;
 use pest::error::Error as PestError;
 use pest::iterators::Pair;
@@ -145,7 +144,7 @@ impl Pipe {
             let target_fix = target[target_start..].to_string();
 
             let body = format!(
-                r#"{{ "___PIPE___type": "embedded", "___PIPE___content": "{}", "___PIPE___lang": "{}"}}"#,
+                r#"{{ "___PIPE___type": "embedded", "___PIPE___script": "{}", "___PIPE___runtime": "{}"}}"#,
                 target_fix.escape().into_inner(),
                 runtime
             );
@@ -247,7 +246,7 @@ impl Pipe {
                 }
 
                 if tags.len() > 0 {
-                    map.insert("___PIPE___tags".to_string(), Value::Object(tags));
+                    map.insert("tags".to_string(), Value::Object(tags));
                 }
 
                 Value::Object(map)

@@ -27,6 +27,8 @@ create_module!(mock);
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use pipe_core::modules::*;
 
     #[test]
@@ -36,6 +38,7 @@ mod tests {
             params: None,
             producer: true,
             default_attach: None,
+            tags: HashMap::default(),
         };
         create_module_assert_eq!(crate::mock, config, Ok(None), Ok(None), false);
     }
@@ -47,6 +50,7 @@ mod tests {
             params: None,
             producer: true,
             default_attach: None,
+            tags: HashMap::default(),
         };
         create_module_assert_eq!(crate::mock, config, Ok(None), Ok(None), true);
     }

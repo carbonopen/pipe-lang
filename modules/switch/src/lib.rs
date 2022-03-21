@@ -110,6 +110,8 @@ create_module!(switch);
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use pipe_core::{
         modules::*,
         serde_json::{json, Value},
@@ -134,6 +136,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default(),
         };
         let payload = Ok(Some(json!({
             "num": "bar"
@@ -162,6 +165,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default(),
         };
         let payload = Ok(Some(Value::default()));
         let compare = Err(Some(Value::from("hrai: Unknown property 'num' - a getter is not registered for type '()' (line 1, position 29) in call to function handler (line 1, position 46)".to_string())));

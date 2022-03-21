@@ -284,6 +284,7 @@ mod tests {
                 params: Some(json!($params)),
                 producer: false,
                 default_attach: None,
+                tags: HashMap::default(),
             };
 
             run_module_raw!(crate::http_server, config, tx, rx);
@@ -433,6 +434,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);
@@ -487,6 +489,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);
@@ -536,6 +539,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default()
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);

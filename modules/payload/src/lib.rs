@@ -53,6 +53,8 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 create_module!(payload);
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use pipe_core::serde_json::json;
 
@@ -72,6 +74,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default(),
         };
 
         let payload = Ok(Some(json!({
@@ -106,6 +109,7 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
+            tags: HashMap::default(),
         };
 
         let payload = Ok(Some(json!({

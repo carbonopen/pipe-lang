@@ -1,0 +1,27 @@
+import {
+    bin "target/release/libpayload.so" (
+        name="payload"
+    )
+}
+
+pipeline {
+    payload my {
+        content="my"
+    } :before(hello)
+
+    payload hello {
+        content="Hello"
+    } :produce()
+
+    payload brother {
+        content="brother"
+    }
+
+    // log {
+    //     level="info"
+    //     message=${payload}
+    // }
+
+}
+
+

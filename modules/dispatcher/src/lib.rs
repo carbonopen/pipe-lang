@@ -92,6 +92,8 @@ create_module_raw!(dispatcher);
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use pipe_core::modules::*;
 
     #[test]
@@ -105,6 +107,7 @@ mod tests {
             })),
             producer: true,
             default_attach: None,
+            tags: HashMap::default()
         };
 
         run_module_raw!(crate::dispatcher, config, tx, rx);

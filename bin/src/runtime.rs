@@ -9,7 +9,7 @@ use std::convert::TryFrom;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{sync::mpsc, thread};
 
-use crate::pipe::{Command, Pipe};
+use crate::pipe::Pipe;
 
 pub fn runtime(value: Value) {
     let pipe = Pipe::try_from(&value).expect("Could not capture code");
@@ -39,8 +39,9 @@ pub fn runtime(value: Value) {
         };
         references.insert(reference.clone(), module_id);
         let params = step.params;
-        let producer = step.command.eq(&Command::Producer);
+        let producer = step.tags.get("producer").is_some();
         let default_attach = step.attach;
+
         let filename = {
             let name = (**modules.get(&module_name).unwrap()).to_string();
 
@@ -61,6 +62,8 @@ pub fn runtime(value: Value) {
 
         {
             let module_id = module_id.clone();
+
+            let tags = step.tags.clone();
 
             thread::spawn(move || {
                 let lib = match Library::new(filename.clone()) {
@@ -83,6 +86,7 @@ pub fn runtime(value: Value) {
                         params,
                         producer,
                         default_attach,
+                        tags,
                     },
                 );
             });

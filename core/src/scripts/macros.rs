@@ -17,7 +17,7 @@ macro_rules! param_test {
     ($value: expr) => {
         $crate::serde_json::json!({
             "___PIPE___type": "script",
-            "__list": $value
+            "___PIPE___list": $value
         })
     };
 }
