@@ -1,12 +1,15 @@
 use libloading::{Library, Symbol};
 use pipe_core::{
     log,
-    modules::{Config, Module, ModuleContact, Request, Response, ID},
+    modules::{Config, History, Module, ModuleContact, Request, Response, ID},
 };
 use pipe_parser::value::Value;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::mpsc::{Receiver, Sender};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 use std::{sync::mpsc, thread};
 
 use crate::pipe::Pipe;
@@ -17,7 +20,7 @@ pub fn runtime(value: Value) {
         let mut modules = HashMap::new();
         for module in pipe.modules.unwrap() {
             log::trace!("Module: {:?}", module);
-            modules.insert(module.name, module.bin);
+            modules.insert(module.name.clone(), module.clone());
         }
         modules
     };
@@ -26,7 +29,8 @@ pub fn runtime(value: Value) {
         mpsc::channel();
     let (tx_control, rx_control): (Sender<Response>, Receiver<Response>) = mpsc::channel();
     let mut module_id: ID = 0;
-    let mut references = HashMap::new();
+    let mut reference_id = HashMap::new();
+    let mut id_reference = HashMap::new();
 
     for step in pipe.pipeline {
         log::trace!("Load step: {:?}", step);
@@ -37,13 +41,15 @@ pub fn runtime(value: Value) {
             Some(reference) => reference,
             None => format!("step-{}", &module_id),
         };
-        references.insert(reference.clone(), module_id);
+        reference_id.insert(reference.clone(), module_id);
+        id_reference.insert(module_id, reference.clone());
         let params = step.params;
         let producer = step.tags.get("producer").is_some();
         let default_attach = step.attach;
+        let current_module = modules.get(&module_name).unwrap().clone();
 
         let filename = {
-            let name = (**modules.get(&module_name).unwrap()).to_string();
+            let name = current_module.bin.to_string();
 
             if cfg!(unix) && !name.contains(".so") {
                 format!("{}.so", name)
@@ -87,6 +93,7 @@ pub fn runtime(value: Value) {
                         producer,
                         default_attach,
                         tags,
+                        module_params: current_module.params.clone(),
                     },
                 );
             });
@@ -108,6 +115,8 @@ pub fn runtime(value: Value) {
     //TODO: criar uma arvore contendo todos os payloads e passar como "module"
     //TODO: criar tags
 
+    let history = Arc::new(Mutex::new(History::new()));
+
     for control in rx_control {
         log::trace!(
             "trace_id: {} | Step {} sender: {:?}",
@@ -116,6 +125,23 @@ pub fn runtime(value: Value) {
             control
         );
 
+        let module_name = id_reference.get(&control.origin).unwrap().to_string();
+        let mut his_lock = history.lock().unwrap();
+
+        his_lock.insert(control.trace_id, module_name, control.clone());
+
+        let steps = match his_lock.steps.get(&control.trace_id) {
+            Some(steps) => Some(steps.clone()),
+            None => None,
+        };
+
+        let request = Request {
+            origin: control.origin,
+            payload: control.payload,
+            trace_id: control.trace_id,
+            steps,
+        };
+
         match control.attach {
             Some(attach) => {
                 log::trace!(
@@ -123,7 +149,7 @@ pub fn runtime(value: Value) {
                     control.trace_id,
                     attach.clone()
                 );
-                match references.get(&attach.clone()) {
+                match reference_id.get(&attach.clone()) {
                     Some(module_id) => match senders.get(&module_id) {
                         Some(module) => {
                             log::trace!(
@@ -132,11 +158,7 @@ pub fn runtime(value: Value) {
                                 control.origin,
                                 module_id
                             );
-                            match module.send(Request {
-                                origin: control.origin,
-                                payload: control.payload,
-                                trace_id: control.trace_id,
-                            }) {
+                            match module.send(request) {
                                 Ok(_) => log::trace!(
                                     "trace_id: {} | Sended from {} to step {}",
                                     control.trace_id,
@@ -174,13 +196,7 @@ pub fn runtime(value: Value) {
                 );
                 match senders.get(&next_step) {
                     Some(module) => {
-                        module
-                            .send(Request {
-                                origin: control.origin,
-                                payload: control.payload,
-                                trace_id: control.trace_id,
-                            })
-                            .unwrap();
+                        module.send(request).unwrap();
                     }
                     None if control.origin > 0 => {
                         log::trace!(
@@ -188,15 +204,7 @@ pub fn runtime(value: Value) {
                             control.trace_id,
                             next_step
                         );
-                        senders
-                            .get(&0)
-                            .unwrap()
-                            .send(Request {
-                                origin: control.origin,
-                                payload: control.payload,
-                                trace_id: control.trace_id,
-                            })
-                            .unwrap();
+                        senders.get(&0).unwrap().send(request).unwrap();
                     }
                     None => (),
                 };

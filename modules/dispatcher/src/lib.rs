@@ -17,6 +17,7 @@ fn sleep(millis: u64) {
 
 fn dispatcher(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let trace = TraceId::global();
+    let producer = config.producer;
     let attach = config.default_attach.clone();
     let params = config.get_params_object();
     let payload = match params.get("payload") {
@@ -44,47 +45,46 @@ fn dispatcher(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let speaker_th = speaker.clone();
     let attach_th = attach.clone();
 
-    thread::spawn(move || loop {
-        if total_dispatch.lock().unwrap().ge(&number_of_dispatch) {
-            return ();
-        }
+    macro_rules! exec {
+        () => {{
+            loop {
+                if total_dispatch.lock().unwrap().ge(&number_of_dispatch) {
+                    break;
+                }
 
-        for _ in 0..spawn_rate {
-            let trace_id = trace_th.lock().unwrap().get_trace();
+                for _ in 0..spawn_rate {
+                    let trace_id = trace_th.lock().unwrap().get_trace();
 
-            if total_dispatch.lock().unwrap().ge(&number_of_dispatch) {
-                break;
+                    if total_dispatch.lock().unwrap().ge(&number_of_dispatch) {
+                        break;
+                    }
+
+                    speaker_th
+                        .send(Response {
+                            origin: id,
+                            trace_id,
+                            payload: Ok(Some(payload_th.clone())),
+                            attach: attach_th.clone(),
+                        })
+                        .unwrap();
+
+                    let mut total = total_dispatch.lock().unwrap();
+                    *total += 1;
+
+                    log::info!("Total spawner: {}", total);
+                }
+
+                sleep(spawn_interval);
             }
+        }};
+    }
 
-            speaker_th
-                .send(Response {
-                    origin: id,
-                    trace_id,
-                    payload: Ok(Some(payload_th.clone())),
-                    attach: attach_th.clone(),
-                })
-                .unwrap();
-
-            let mut total = total_dispatch.lock().unwrap();
-            *total += 1;
-
-            log::info!("Total spawner: {}", total);
+    if producer {
+        exec!();
+    } else {
+        for _request in listener {
+            exec!();
         }
-
-        sleep(spawn_interval);
-    });
-
-    for _ in listener {
-        let trace_id = trace.lock().unwrap().get_trace();
-
-        speaker
-            .send(Response {
-                origin: id,
-                trace_id,
-                payload: Ok(Some(payload.clone())),
-                attach: attach.clone(),
-            })
-            .unwrap();
     }
 }
 
@@ -92,8 +92,6 @@ create_module_raw!(dispatcher);
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use pipe_core::modules::*;
 
     #[test]
@@ -107,7 +105,8 @@ mod tests {
             })),
             producer: true,
             default_attach: None,
-            tags: HashMap::default()
+            tags: Default::default(),
+            module_params: Default::default(),
         };
 
         run_module_raw!(crate::dispatcher, config, tx, rx);
@@ -125,6 +124,7 @@ mod tests {
                 origin: 2,
                 trace_id: response.trace_id,
                 payload: Ok(None),
+                steps: None,
             })
             .unwrap();
         }

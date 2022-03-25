@@ -3,10 +3,10 @@ members = [
     "parser",
     "bin",
     "core",
-    "modules/mock",
     "modules/payload",
     "modules/switch",
     "modules/http_server",
     "modules/request",
-    "modules/dispatcher"
+    "modules/dispatcher",
+    "modules/log"
 ]

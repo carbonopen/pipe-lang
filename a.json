@@ -1,16 +1,6 @@
 {
-    "import": {
-        "bin": [
-            {
-                "name": "payload",
-                "bin": "target/release/libpayload.so"
-            }
-        ]
-    },
     "pipeline": [
         {
-            "ref": "my",
-            "module": "payload",
             "tags": {
                 "before": [
                     "hello"
@@ -18,24 +8,71 @@
             },
             "params": {
                 "content": "my"
-            }
+            },
+            "ref": "my",
+            "module": "payload"
         },
         {
-            "tags": {
-                "produce": []
-            },
-            "module": "payload",
-            "ref": "hello",
             "params": {
                 "content": "Hello"
-            }
+            },
+            "module": "payload",
+            "ref": "hello"
+        },
+        {
+            "params": {
+                "spawn_interval": 100000,
+                "number_of_dispatch": 10,
+                "spawn_rate": 1
+            },
+            "ref": "init",
+            "tags": {
+                "producer": []
+            },
+            "module": "dispatcher"
         },
         {
             "params": {
                 "content": "brother"
             },
-            "module": "payload",
-            "ref": "brother"
+            "ref": "brother",
+            "module": "payload"
+        },
+        {
+            "module": "log",
+            "params": {
+                "message": {
+                    "___PIPE___list": [
+                        "\"\"",
+                        "(steps.brother.payload)",
+                        "\"\""
+                    ],
+                    "___PIPE___type": "script"
+                },
+                "level": "info"
+            },
+            "ref": null
         }
-    ]
+    ],
+    "import": {
+        "bin": [
+            {
+                "bin": "target/release/libpayload.so",
+                "name": "payload"
+            },
+            {
+                "name": "log",
+                "bin": "target/release/liblog.so",
+                "config": {
+                    "output": {
+                        "type": "stdout"
+                    }
+                }
+            },
+            {
+                "name": "dispatcher",
+                "bin": "target/release/libdispatcher.so"
+            }
+        ]
+    }
 }

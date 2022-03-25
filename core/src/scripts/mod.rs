@@ -6,6 +6,8 @@ use regex::Regex;
 use rhai::{serde::to_dynamic, Engine, EvalAltResult, ParseError, Scope, AST};
 use serde_json::{Error as SerdeJsonError, Value};
 
+use crate::modules::Request;
+
 #[derive(Debug)]
 enum ParamError {
     NoObject,
@@ -96,11 +98,40 @@ pub struct Params<'a> {
 }
 
 impl<'a> Params<'a> {
-    pub fn set_payload(&mut self, payload: Value) -> Result<(), Error> {
+    pub fn set_request(&mut self, request: &Request) -> Result<(), Error> {
+        let payload = match request.payload.clone() {
+            Ok(payload) => payload.unwrap(),
+            Err(err) => err.unwrap(),
+        };
+        let steps = match request.steps.clone() {
+            Some(steps) => steps,
+            None => HashMap::default(),
+        };
+        let origin = request.origin.clone();
+        let trace_id = request.trace_id.clone();
+
         match to_dynamic(payload) {
-            Ok(dynamic) => {
-                self.scope.push_dynamic("payload", dynamic);
-                Ok(())
+            Ok(value) => {
+                self.scope.push_dynamic("payload", value);
+                match to_dynamic(steps) {
+                    Ok(value) => {
+                        self.scope.push_dynamic("steps", value);
+                        match to_dynamic(origin) {
+                            Ok(value) => {
+                                self.scope.push_dynamic("origin", value);
+                                match to_dynamic(trace_id) {
+                                    Ok(value) => {
+                                        self.scope.push_dynamic("trace_id", value);
+                                        Ok(())
+                                    }
+                                    Err(err) => Err(Error::from(err)),
+                                }
+                            }
+                            Err(err) => Err(Error::from(err)),
+                        }
+                    }
+                    Err(err) => Err(Error::from(err)),
+                }
             }
             Err(err) => Err(Error::from(err)),
         }
@@ -188,7 +219,7 @@ impl<'a> TryFrom<&Value> for Params<'a> {
                                 let script_escape_quotes = re_quotes.replace_all(&script, r#"""#);
 
                                 let handler = format!(
-                                    "fn handler(payload){{{}}};  to_string(handler(payload))",
+                                    "fn handler(payload, steps, origin, trace_id){{{}}};  to_string(handler(payload, steps, origin, trace_id))",
                                     script_escape_quotes
                                 );
 
@@ -219,6 +250,8 @@ impl<'a> TryFrom<&Value> for Params<'a> {
 
 #[cfg(test)]
 mod test {
+    use crate::modules::Request;
+
     use super::Params;
     use serde_json::json;
     use std::convert::TryFrom;
@@ -241,7 +274,9 @@ mod test {
         });
 
         let mut params = Params::try_from(&data).unwrap();
-        params.set_payload(payload).expect("Payload error.");
+        params
+            .set_request(&Request::from_payload(payload))
+            .expect("Payload error.");
         let resolve = params.get_value().unwrap();
 
         assert_eq!(compare, resolve);
@@ -263,7 +298,9 @@ mod test {
         });
 
         let mut params = Params::try_from(&data).unwrap();
-        params.set_payload(payload).expect("Payload error.");
+        params
+            .set_request(&Request::from_payload(payload))
+            .expect("Payload error.");
         let value = params.get_value().unwrap();
 
         assert_eq!(compare, value);

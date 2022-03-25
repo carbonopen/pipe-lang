@@ -2,6 +2,15 @@ import {
     bin "target/release/libpayload.so" (
         name="payload"
     )
+    bin "target/release/liblog.so" (
+        name="log"
+        output={
+            "type": "stdout"
+        }
+    )
+    bin "target/release/libdispatcher.so" (
+        name="dispatcher"
+    )
 }
 
 pipeline {
@@ -9,19 +18,37 @@ pipeline {
         content="my"
     } :before(hello)
 
+
+    log {
+        level="info"
+        message=`my: ${steps}`
+    }
+
     payload hello {
         content="Hello"
-    } :produce()
+    }
+
+    log {
+        level="info"
+        message=`hello: ${steps}`
+    }
+
+    dispatcher init {
+        number_of_dispatch=10
+        spawn_rate=1
+        spawn_interval=100000
+
+        | my
+    } :producer()
 
     payload brother {
         content="brother"
     }
 
-    // log {
-    //     level="info"
-    //     message=${payload}
-    // }
-
+    log {
+        level="info"
+        message=`brother: ${steps}`
+    }
 }
 
 

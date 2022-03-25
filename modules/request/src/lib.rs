@@ -191,7 +191,7 @@ mod tests {
     use actix_web::{rt::System, web, App, HttpRequest, HttpResponse, HttpServer};
     use pipe_core::modules::*;
     use reqwest::StatusCode;
-    use std::{thread, collections::HashMap};
+    use std::{collections::HashMap, thread};
     use tokio::runtime::Runtime;
 
     macro_rules! create_server {
@@ -233,7 +233,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default(),
+            tags: Default::default(),
+            module_params: Default::default(),
         };
 
         create_server!(10011u16, "other");
@@ -246,6 +247,7 @@ mod tests {
             payload: Ok(Some(json!({
                 "url": "http://127.0.0.1:10011/other",
             }))),
+            steps: None,
         })
         .unwrap();
 

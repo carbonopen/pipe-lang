@@ -1,5 +1,6 @@
 extern crate serde_json;
 
+use serde::Serialize;
 pub use serde_json::json;
 use serde_json::{Map, Value};
 
@@ -17,6 +18,7 @@ pub struct Config {
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
+    pub module_params: HashMap<String, Value>,
 }
 
 impl Config {
@@ -41,19 +43,78 @@ impl Config {
     }
 }
 
+pub type Payload = Result<Option<Value>, Option<Value>>;
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
+pub struct Step {
+    pub origin: ID,
+    pub payload: Option<Value>,
+    pub trace_id: ID,
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct History {
+    pub steps: HashMap<ID, HashMap<String, Step>>,
+}
+
+impl History {
+    pub fn new() -> Self {
+        Self {
+            steps: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, trace_id: ID, module_name: String, response: Response) {
+        let content = Step {
+            origin: response.origin,
+            payload: response.payload.unwrap(),
+            trace_id: response.trace_id,
+        };
+
+        if let Some(step) = self.steps.get_mut(&trace_id) {
+            step.insert(module_name, content);
+            return;
+        };
+
+        let mut step = HashMap::new();
+        step.insert(module_name, content);
+
+        self.steps.insert(trace_id, step);
+    }
+}
+
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct Request {
     pub origin: ID,
-    pub payload: Result<Option<Value>, Option<Value>>,
+    pub payload: Payload,
+    pub steps: Option<HashMap<String, Step>>,
     pub trace_id: ID,
 }
 
-pub type Payload = Result<Option<Value>, Option<Value>>;
-pub type Listener = Receiver<Request>;
-pub type Speaker = Sender<Response>;
+impl Default for Request {
+    fn default() -> Self {
+        Self {
+            origin: Default::default(),
+            payload: Ok(None),
+            steps: Default::default(),
+            trace_id: Default::default(),
+        }
+    }
+}
 
-#[derive(Debug)]
+impl Request {
+    pub fn from_payload(payload: Value) -> Self {
+        Self {
+            payload: Ok(Some(payload)),
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Response {
     pub payload: Result<Option<Value>, Option<Value>>,
@@ -61,6 +122,9 @@ pub struct Response {
     pub origin: ID,
     pub trace_id: ID,
 }
+
+pub type Listener = Receiver<Request>;
+pub type Speaker = Sender<Response>;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -313,6 +377,7 @@ macro_rules! create_module_assert_eq {
                     payload: $payload,
                     origin: 0,
                     trace_id: 0,
+                    steps: None,
                 })
                 .unwrap();
         }
@@ -357,6 +422,7 @@ macro_rules! create_module_assert_eq_attach {
                 payload: $payload,
                 origin: 0,
                 trace_id: 0,
+                steps: None,
             })
             .unwrap();
 

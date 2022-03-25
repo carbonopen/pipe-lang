@@ -68,37 +68,33 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                 }};
             }
 
-            if let Ok(payload) = request.payload.clone() {
-                match params.set_payload(payload.unwrap()) {
-                    Ok(_) => match params.get_param("target") {
-                        Ok(target_value) => {
-                            for case in cases.iter() {
-                                if target_value.eq(&case.case) {
-                                    send(Return {
-                                        payload: request.payload.clone(),
-                                        attach: Some(case.attach.clone()),
-                                        trace_id: request.trace_id,
-                                    });
-                                    continue 'listener;
-                                }
+            match params.set_request(&request) {
+                Ok(_) => match params.get_param("target") {
+                    Ok(target_value) => {
+                        for case in cases.iter() {
+                            if target_value.eq(&case.case) {
+                                send(Return {
+                                    payload: request.payload.clone(),
+                                    attach: Some(case.attach.clone()),
+                                    trace_id: request.trace_id,
+                                });
+                                continue 'listener;
                             }
+                        }
 
-                            send(Return {
-                                payload: request.payload.clone(),
-                                attach: switch_default_attach.clone(),
-                                trace_id: request.trace_id,
-                            });
-                        }
-                        Err(err) => {
-                            send_error!(switch_default_attach, err);
-                        }
-                    },
+                        send(Return {
+                            payload: request.payload.clone(),
+                            attach: switch_default_attach.clone(),
+                            trace_id: request.trace_id,
+                        });
+                    }
                     Err(err) => {
                         send_error!(switch_default_attach, err);
                     }
+                },
+                Err(err) => {
+                    send_error!(switch_default_attach, err);
                 }
-            } else if switch_default_attach.is_some() {
-                send_error!(switch_default_attach)
             }
 
             send_error!(config.default_attach)
@@ -136,7 +132,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default(),
+            tags: Default::default(),
+            module_params: Default::default(),
         };
         let payload = Ok(Some(json!({
             "num": "bar"
@@ -165,7 +162,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default(),
+            tags: Default::default(),
+            module_params: Default::default(),
         };
         let payload = Ok(Some(Value::default()));
         let compare = Err(Some(Value::from("hrai: Unknown property 'num' - a getter is not registered for type '()' (line 1, position 29) in call to function handler (line 1, position 46)".to_string())));

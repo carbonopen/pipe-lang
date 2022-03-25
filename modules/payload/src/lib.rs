@@ -4,9 +4,9 @@ extern crate pipe_core;
 use std::convert::TryFrom;
 
 use pipe_core::{
-    modules::{Config, Listener, Return, TraceId},
+    modules::{Config, Listener, Request, Return, TraceId},
     scripts::Params,
-    serde_json::{Map, Value},
+    serde_json::Value,
 };
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
@@ -17,7 +17,7 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             if config.producer {
                 let mut trace = TraceId::new();
 
-                match params.set_payload(Value::Null) {
+                match params.set_request(&Request::default()) {
                     Ok(_) => match params.get_value() {
                         Ok(new_payload) => send(Return {
                             payload: Ok(Some(new_payload)),
@@ -39,31 +39,21 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             }
 
             for request in listener {
-                match request.payload {
-                    Ok(payload) => {
-                        let value = payload.unwrap_or(Value::Object(Map::default()));
-                        match params.set_payload(value) {
-                            Ok(_) => match params.get_value() {
-                                Ok(new_payload) => send(Return {
-                                    payload: Ok(Some(new_payload)),
-                                    attach: config.default_attach.clone(),
-                                    trace_id: request.trace_id,
-                                }),
-                                Err(err) => send(Return {
-                                    payload: Err(Some(Value::from(format!("{}", err)))),
-                                    attach: config.default_attach.clone(),
-                                    trace_id: request.trace_id,
-                                }),
-                            },
-                            Err(err) => send(Return {
-                                payload: Err(Some(Value::from(format!("{}", err)))),
-                                attach: config.default_attach.clone(),
-                                trace_id: request.trace_id,
-                            }),
-                        }
-                    }
+                match params.set_request(&request) {
+                    Ok(_) => match params.get_value() {
+                        Ok(new_payload) => send(Return {
+                            payload: Ok(Some(new_payload)),
+                            attach: config.default_attach.clone(),
+                            trace_id: request.trace_id,
+                        }),
+                        Err(err) => send(Return {
+                            payload: Err(Some(Value::from(format!("{}", err)))),
+                            attach: config.default_attach.clone(),
+                            trace_id: request.trace_id,
+                        }),
+                    },
                     Err(err) => send(Return {
-                        payload: Err(err),
+                        payload: Err(Some(Value::from(format!("{}", err)))),
                         attach: config.default_attach.clone(),
                         trace_id: request.trace_id,
                     }),
@@ -98,7 +88,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default(),
+            tags: Default::default(),
+            module_params: Default::default(),
         };
 
         let payload = Ok(Some(json!({
@@ -133,7 +124,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default(),
+            tags: Default::default(),
+            module_params: Default::default(),
         };
 
         let payload = Ok(Some(json!({

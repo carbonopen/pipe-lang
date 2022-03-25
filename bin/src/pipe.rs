@@ -21,14 +21,15 @@ pub struct Payload {
 pub struct Module {
     pub name: String,
     pub bin: String,
+    pub params: HashMap<String, JsonValue>,
 }
 
 impl TryFrom<&Value> for Module {
     type Error = ();
 
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        let obj = value.to_object().unwrap();
-        let bin = obj.get("bin").unwrap();
+        let params = value.to_object().unwrap();
+        let bin = params.get("bin").unwrap();
 
         let (bin, name) = if bin.is_array() {
             let array = bin.to_array().unwrap();
@@ -41,13 +42,16 @@ impl TryFrom<&Value> for Module {
         } else if bin.is_string() {
             (
                 bin.to_string().unwrap(),
-                obj.get("name").unwrap().to_string().unwrap(),
+                params.get("name").unwrap().to_string().unwrap(),
             )
         } else {
             return Err(());
         };
 
-        Ok(Self { name, bin })
+        let val_json = value.as_json();
+        let params = serde_json::from_str(&val_json).unwrap();
+
+        Ok(Self { name, bin, params })
     }
 }
 

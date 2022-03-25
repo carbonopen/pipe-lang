@@ -284,7 +284,8 @@ mod tests {
                 params: Some(json!($params)),
                 producer: false,
                 default_attach: None,
-                tags: HashMap::default(),
+                tags: Default::default(),
+                module_params: Default::default(),
             };
 
             run_module_raw!(crate::http_server, config, tx, rx);
@@ -297,6 +298,7 @@ mod tests {
                     origin: 1,
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
+                    steps: None,
                 });
             });
         };
@@ -434,7 +436,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default(),
+            tags: Default::default(),
+            module_params: Default::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);
@@ -448,6 +451,7 @@ mod tests {
                     origin: 1,
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
+                    steps: None,
                 });
             }
         });
@@ -489,7 +493,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default(),
+            tags: Default::default(),
+            module_params: Default::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);
@@ -501,6 +506,7 @@ mod tests {
                     origin: 1,
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
+                    steps: None,
                 });
             }
         });
@@ -539,7 +545,8 @@ mod tests {
             })),
             producer: false,
             default_attach: None,
-            tags: HashMap::default()
+            tags: Default::default(),
+            module_params: Default::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);
@@ -553,6 +560,7 @@ mod tests {
                     origin: 1,
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
+                    steps: None,
                 });
             }
         });
