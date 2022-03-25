@@ -8,5 +8,6 @@ members = [
     "modules/http_server",
     "modules/request",
     "modules/dispatcher",
-    "modules/log"
+    "modules/log",
+    "modules/link"
 ]

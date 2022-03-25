@@ -85,6 +85,7 @@ impl Pipe {
 
     fn pipeline_to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
         let mut list = Vec::new();
+        let mut references = HashMap::new();
 
         for item in pipeline {
             let obj = item.to_object().unwrap();
@@ -121,16 +122,73 @@ impl Pipe {
                 None => HashMap::default(),
             };
 
+            if let Some(reference) = reference.clone() {
+                references.insert(reference, list.len());
+            }
+
             list.push(Step {
                 module,
                 params,
                 reference,
                 tags,
                 attach,
-            })
+            });
         }
 
-        list
+        let mut order = list.clone();
+
+        for (index, item) in list.iter().enumerate() {
+            let step = match item.tags.get("step") {
+                Some(value) => value.as_i64().unwrap(),
+                None => -1,
+            };
+
+            if item.tags.get("producer").is_some() || item.tags.get("first").is_some() {
+                order.remove(index);
+                order.insert(0, item.clone());
+            } else if item.tags.get("last").is_some() {
+                order.remove(index);
+                order.push(item.clone());
+            } else if step.ge(&0) {
+                order.remove(index);
+                order.insert(step as usize, item.clone());
+            } else if let Some(value) = item.tags.get("before") {
+                let refer = match value.as_array() {
+                    Some(refer) => Some(refer.get(0).unwrap().as_str().unwrap().to_string()),
+                    None => continue,
+                };
+
+                let step = match order.iter().position(|item| item.reference.eq(&refer)) {
+                    Some(step) => {
+                        let res = step - 1;
+                        if res.lt(&0) {
+                            0
+                        } else {
+                            res
+                        }
+                    }
+                    None => panic!("Unable to order modules by reference {}.", refer.unwrap()),
+                };
+
+                order.remove(index);
+                order.insert(step, item.clone());
+            } else if let Some(value) = item.tags.get("after") {
+                let refer = match value.as_array() {
+                    Some(refer) => Some(refer.get(0).unwrap().as_str().unwrap().to_string()),
+                    None => continue,
+                };
+
+                let step = match order.iter().position(|item| item.reference.eq(&refer)) {
+                    Some(step) => step,
+                    None => panic!("Unable to order modules by reference {}.", refer.unwrap()),
+                };
+
+                order.remove(index);
+                order.insert(step, item.clone());
+            }
+        }
+
+        order
     }
 }
 

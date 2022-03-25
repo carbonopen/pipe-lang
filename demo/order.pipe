@@ -1,6 +1,6 @@
 import {
-    bin "target/release/libpayload.so" (
-        name="payload"
+    bin "target/release/liblink.so" (
+        name="link"
     )
     bin "target/release/liblog.so" (
         name="log"
@@ -14,23 +14,33 @@ import {
 }
 
 pipeline {
-    payload my {
-        content="my"
-    } :before(hello)
-
-
-    log {
-        level="info"
-        message=`my: ${steps}`
+    link my {
+        | a
     }
 
-    payload hello {
-        content="Hello"
+    log b {
+        level="info"
+        message=`2`
+    } :after(a)
+
+    log a {
+        level="info"
+        message=`1`
     }
 
-    log {
+    log d {
         level="info"
-        message=`hello: ${steps}`
+        message=`4`
+    } :before(e)
+
+    log c {
+        level="info"
+        message=`3`
+    }
+
+    log e {
+        level="info"
+        message=`5`
     }
 
     dispatcher init {
@@ -41,13 +51,20 @@ pipeline {
         | my
     } :producer()
 
-    payload brother {
-        content="brother"
+
+    log f {
+        level="info"
+        message=`6`
     }
 
-    log {
+    log h {
         level="info"
-        message=`brother: ${steps}`
+        message=`8`
+    } :last
+
+    log g {
+        level="info"
+        message=`7`
     }
 }
 
