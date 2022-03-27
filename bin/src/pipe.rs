@@ -65,13 +65,6 @@ pub struct Pipe {
     pub pipeline: Vec<Step>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum Direction {
-    Forward,
-    Backward,
-    None,
-}
-
 impl Pipe {
     fn load_modules(imports: &HashMap<String, Value>) -> Vec<Module> {
         let mut modules = Vec::new();
@@ -90,41 +83,6 @@ impl Pipe {
         }
 
         modules
-    }
-
-    fn change_position(
-        mut map: HashMap<usize, Step>,
-        index: usize,
-        from: usize,
-        direction: Direction,
-    ) -> HashMap<usize, Step> {
-        if index == from {
-            map
-        } else {
-            let content = map.get(&index).unwrap().clone();
-            map.remove(&index);
-
-            if map.get(&from).is_none() {
-                map.insert(from, content);
-                map
-            } else {
-                let mut map = {
-                    if direction.eq(&Direction::None) {
-                        if index < from {
-                            Self::change_position(map, from, from - 1, Direction::Backward)
-                        } else {
-                            Self::change_position(map, from, from + 1, Direction::Forward)
-                        }
-                    } else if direction.eq(&Direction::Forward) {
-                        Self::change_position(map, from, from + 1, Direction::Forward)
-                    } else {
-                        Self::change_position(map, from, from - 1, Direction::Backward)
-                    }
-                };
-                map.insert(from, content);
-                map
-            }
-        }
     }
 
     fn pipeline_to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
@@ -181,11 +139,7 @@ impl Pipe {
             });
         }
 
-        let mut order = HashMap::new();
-
-        for (index, item) in list.iter().enumerate() {
-            order.insert(index, item.clone());
-        }
+        let mut sort_list = list.clone();
 
         let mut step_first = Vec::new();
         let mut step_last = Vec::new();
@@ -197,9 +151,15 @@ impl Pipe {
                 match value.as_array() {
                     Some(value) => {
                         let val = value.get(0).unwrap();
-                        let step = val.as_i64().unwrap() as usize;
-
-                        order = Self::change_position(order, item.id, step, Direction::None);
+                        let to = val.as_i64().unwrap() as usize;
+                        if to != item.id {
+                            sort_list.insert(to, item.clone());
+                            if item.id < to {
+                                sort_list.remove(item.id);
+                            } else {
+                                sort_list.remove(item.id + 1);
+                            }
+                        }
                     }
                     None => panic!("Unable to order modules by step {}.", item.id),
                 }
@@ -225,83 +185,106 @@ impl Pipe {
         }
 
         // First
-        for step in step_first {
-            let first = order
+        for item in step_first {
+            let index = sort_list
                 .iter()
-                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
+                .enumerate()
+                .find_map(|(i, s)| if s.id.eq(&item.id) { Some(i) } else { None })
                 .unwrap()
                 .clone();
 
-            order = Self::change_position(order, first, 0, Direction::None);
+            sort_list.remove(index);
+            sort_list.insert(0, item.clone());
         }
 
         // After
-        for (refer, step) in by_reference_after {
-            let refer_index = match order.iter().find_map(|(i, a)| {
+        for (refer, item) in by_reference_after {
+            let to = match sort_list.iter().enumerate().find_map(|(i, a)| {
                 if a.reference.eq(&refer) {
                     Some(i)
                 } else {
                     None
                 }
             }) {
-                Some(index) => *index + 1,
+                Some(index) => index + 1,
                 None => {
                     panic!("Referencia não encontrada: {}", refer.unwrap());
                 }
             };
 
-            let target_index = order
-                .iter()
-                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
-                .unwrap()
-                .clone();
+            sort_list.insert(to, item.clone());
 
-            order = Self::change_position(order, target_index, refer_index, Direction::None);
+            match sort_list.iter().enumerate().find_map(|(i, a)| {
+                if a.id.eq(&item.id) {
+                    Some(i)
+                } else {
+                    None
+                }
+            }) {
+                Some(index) => {
+                    sort_list.remove(index);
+                }
+                None => {
+                    panic!("Referencia não encontrada: {}", refer.unwrap());
+                }
+            };
         }
 
+        let last = list.len() - 1;
         // Last
-        let last_index = list.len() - 1;
-
-        for step in step_last {
-            let last = order
+        for item in step_last {
+            let index = sort_list
                 .iter()
-                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
+                .enumerate()
+                .find_map(|(i, s)| if s.id.eq(&item.id) { Some(i) } else { None })
                 .unwrap()
                 .clone();
 
-            order = Self::change_position(order, last, last_index, Direction::None);
+            sort_list.remove(index);
+            sort_list.insert(last, item.clone());
         }
 
-        // Before
-        for (refer, step) in by_reference_before {
-            let refer_index = match order.iter().find_map(|(i, a)| {
+        for (refer, item) in by_reference_before {
+            let to = match sort_list.iter().enumerate().find_map(|(i, a)| {
                 if a.reference.eq(&refer) {
                     Some(i)
                 } else {
                     None
                 }
             }) {
-                Some(index) => *index - 1,
+                Some(index) => index,
                 None => {
                     panic!("Referencia não encontrada: {}", refer.unwrap());
                 }
             };
 
-            let target_index = order
-                .iter()
-                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
-                .unwrap()
-                .clone();
+            sort_list.insert(to, item.clone());
 
-            order = Self::change_position(order, target_index, refer_index, Direction::None);
+            match sort_list.iter().enumerate().find_map(|(i, a)| {
+                if a.id.eq(&item.id) {
+                    Some(i)
+                } else {
+                    None
+                }
+            }) {
+                Some(index) => {
+                    sort_list.remove(index);
+                }
+                None => {
+                    panic!("Referencia não encontrada: {}", refer.unwrap());
+                }
+            };
         }
-        let mut order_list: Vec<_> = order.into_iter().collect();
 
-        order_list.sort_by(|x, y| x.0.cmp(&y.0));
+        println!(
+            "{:?}",
+            sort_list
+                .iter()
+                .map(|a| a.reference.clone().unwrap())
+                .collect::<Vec<_>>()
+        );
 
-        let order_list = order_list.iter().map(|a| a.1.clone()).collect::<Vec<_>>();
-
-        order_list
+        sort_list
     }
 }
 

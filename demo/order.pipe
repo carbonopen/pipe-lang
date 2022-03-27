@@ -15,15 +15,17 @@ import {
 
 pipeline {
 
+    exit exit{} :last()
+
     log a {
         level="info"
         message="a"
-    } 
+    }
 
     log b {
         level="info"
         message="b"
-    }  :before(exit)
+    } :before(exit)
 
     log c {
         level="info"
@@ -33,11 +35,14 @@ pipeline {
     log d {
         level="info"
         message="d"
-    }
+    } :step(0)
 
-    link init { } :producer() :first()
+    log e {
+        level="info"
+        message="e"
+    } :step(0)
 
-    exit exit{} :last()
+    link init {} :producer() :first()
 
 
 }
