@@ -9,5 +9,6 @@ members = [
     "modules/request",
     "modules/dispatcher",
     "modules/log",
-    "modules/link"
+    "modules/link",
+    "modules/exit"
 ]

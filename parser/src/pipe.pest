@@ -22,7 +22,7 @@ session_pipeline_content = { "{" ~ (NEWLINE | module)* ~ "}" }
 module = { ident ~ ident? ~ module_content ~ (tag)*? }
 module_content = { "{" ~ (NEWLINE | common_content | attach)* ~ "}" }
 
-tag = { ":" ~ ident ~ tag_args? }
+tag = { ":" ~ ident ~ tag_args? ~ NEWLINE? }
 tag_args = {"(" ~ ( number | boolean | null | string| string_alt | ident | array | object | ",")* ~ ")"}
 
 //Attatch

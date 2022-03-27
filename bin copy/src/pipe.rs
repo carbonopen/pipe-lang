@@ -1,12 +1,9 @@
-use pipe_core::debug;
 use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
 use std::{collections::HashMap, convert::TryFrom};
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct Step {
-    pub id: usize,
-    pub position: usize,
     pub module: String,
     pub params: Option<JsonValue>,
     pub reference: Option<String>,
@@ -66,28 +63,6 @@ pub struct Pipe {
     pub pipeline: Vec<Step>,
 }
 
-macro_rules! order_debug {
-    ($order:expr) => {
-        debug!($order
-            .clone()
-            .iter()
-            .map(|a| format!(
-                "{}:{}:{}",
-                a.position,
-                a.id,
-                a.reference.clone().unwrap_or("".to_string())
-            ))
-            .collect::<Vec<_>>());
-    };
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum Direction {
-    Forward,
-    Backward,
-    None,
-}
-
 impl Pipe {
     fn load_modules(imports: &HashMap<String, Value>) -> Vec<Module> {
         let mut modules = Vec::new();
@@ -108,48 +83,11 @@ impl Pipe {
         modules
     }
 
-    fn change_position(
-        mut map: HashMap<usize, Step>,
-        index: usize,
-        from: usize,
-        direction: Direction,
-    ) -> HashMap<usize, Step> {
-        println!("index: {}, from: {}, dir: {:?}", index, from, direction);
-
-        if index == from {
-            map
-        } else {
-            let content = map.get(&index).unwrap().clone();
-            map.remove(&index);
-
-            if map.get(&from).is_none() {
-                map.insert(from, content);
-                map
-            } else {
-                let mut map = {
-                    if direction.eq(&Direction::None) {
-                        if index < from {
-                            Self::change_position(map, from, from - 1, Direction::Backward)
-                        } else {
-                            Self::change_position(map, from, from + 1, Direction::Forward)
-                        }
-                    } else if direction.eq(&Direction::Forward) {
-                        Self::change_position(map, from, from + 1, Direction::Forward)
-                    } else {
-                        Self::change_position(map, from, from - 1, Direction::Backward)
-                    }
-                };
-                map.insert(from, content);
-                map
-            }
-        }
-    }
-
     fn pipeline_to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
         let mut list = Vec::new();
         let mut references = HashMap::new();
 
-        for (id, item) in pipeline.iter().enumerate() {
+        for item in pipeline {
             let obj = item.to_object().unwrap();
             let module = obj.get("module").unwrap().to_string().unwrap();
             let reference = match obj.get("ref").unwrap().to_string() {
@@ -189,8 +127,6 @@ impl Pipe {
             }
 
             list.push(Step {
-                id,
-                position: id,
                 module,
                 params,
                 reference,
@@ -199,84 +135,60 @@ impl Pipe {
             });
         }
 
-        let mut order = HashMap::new();
+        let mut order = list.clone();
 
         for (index, item) in list.iter().enumerate() {
-            order.insert(index, item.clone());
-        }
+            let step = match item.tags.get("step") {
+                Some(value) => value.as_i64().unwrap(),
+                None => -1,
+            };
 
-        let mut step_first = Vec::new();
-        let mut step_last = Vec::new();
-        let mut by_reference_before = Vec::new();
-        let mut by_reference_after = Vec::new();
-
-        for item in list.iter() {
-            if let Some(value) = item.tags.get("step") {
-                match value.as_array() {
-                    Some(value) => {
-                        let val = value.get(0).unwrap();
-                        let step = val.as_i64().unwrap() as usize;
-
-                        order = Self::change_position(order, item.id, step, Direction::None);
-                    }
-                    None => panic!("Unable to order modules by step {}.", item.id),
-                }
-            } else if item.tags.get("first").is_some() {
-                step_first.push(item);
+            if item.tags.get("producer").is_some() || item.tags.get("first").is_some() {
+                order.remove(index);
+                order.insert(0, item.clone());
             } else if item.tags.get("last").is_some() {
-                step_last.push(item);
+                order.remove(index);
+                order.push(item.clone());
+            } else if step.ge(&0) {
+                order.remove(index);
+                order.insert(step as usize, item.clone());
             } else if let Some(value) = item.tags.get("before") {
                 let refer = match value.as_array() {
                     Some(refer) => Some(refer.get(0).unwrap().as_str().unwrap().to_string()),
                     None => continue,
                 };
 
-                by_reference_before.push((refer, item.clone()));
+                let step = match order.iter().position(|item| item.reference.eq(&refer)) {
+                    Some(step) => {
+                        let res = step - 1;
+                        if res.lt(&0) {
+                            0
+                        } else {
+                            res
+                        }
+                    }
+                    None => panic!("Unable to order modules by reference {}.", refer.unwrap()),
+                };
+
+                order.remove(index);
+                order.insert(step, item.clone());
             } else if let Some(value) = item.tags.get("after") {
                 let refer = match value.as_array() {
                     Some(refer) => Some(refer.get(0).unwrap().as_str().unwrap().to_string()),
                     None => continue,
                 };
 
-                by_reference_after.push((refer, item.clone()));
+                let step = match order.iter().position(|item| item.reference.eq(&refer)) {
+                    Some(step) => step,
+                    None => panic!("Unable to order modules by reference {}.", refer.unwrap()),
+                };
+
+                order.remove(index);
+                order.insert(step, item.clone());
             }
         }
 
-        for step in step_first {
-            let first = order
-                .iter()
-                .filter_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
-                .next()
-                .unwrap()
-                .clone();
-
-            order = Self::change_position(order, first, 0, Direction::None);
-        }
-
-        let last_index = list.len() - 1;
-
-        for step in step_last {
-            let last = order
-                .iter()
-                .filter_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
-                .next()
-                .unwrap()
-                .clone();
-
-            order = Self::change_position(order, last, last_index, Direction::None);
-        }
-
-        let mut order_list: Vec<_> = order.into_iter().collect();
-
-        order_list.sort_by(|x, y| x.0.cmp(&y.0));
-
-        let order_list = order_list.iter().map(|a| a.1.clone()).collect::<Vec<_>>();
-
-        println!("");
-        println!("Final:");
-        order_debug!(order_list);
-
-        order_list
+        order
     }
 }
 
@@ -297,8 +209,6 @@ impl TryFrom<&Value> for Pipe {
             let obj = pipeline.to_array().expect("Could not load pipeline");
             Self::pipeline_to_steps(&obj)
         };
-        // order_debug!(pipeline);
-
         let vars = Default::default();
         let config = Default::default();
 

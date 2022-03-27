@@ -100,8 +100,14 @@ pub struct Params<'a> {
 impl<'a> Params<'a> {
     pub fn set_request(&mut self, request: &Request) -> Result<(), Error> {
         let payload = match request.payload.clone() {
-            Ok(payload) => payload.unwrap(),
-            Err(err) => err.unwrap(),
+            Ok(payload) => match payload {
+                Some(payload) => payload,
+                None => Value::Null,
+            },
+            Err(err) => match err {
+                Some(payload) => payload,
+                None => Value::Null,
+            },
         };
         let steps = match request.steps.clone() {
             Some(steps) => steps,
@@ -172,7 +178,10 @@ impl<'a> Params<'a> {
                 Ok(value) => Ok(value),
                 Err(err) => return Err(Error::from(err)),
             },
-            None => Err(Error::from(ParamError::NotFoundParam)),
+            None => match self.default.get(name) {
+                Some(value) => Ok(value.clone()),
+                None => Err(Error::from(ParamError::NotFoundParam)),
+            },
         }
     }
 

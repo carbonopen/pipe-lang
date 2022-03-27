@@ -33,6 +33,7 @@ pub fn runtime(value: Value) {
     let mut id_reference = HashMap::new();
 
     for step in pipe.pipeline {
+        log::trace!("Load step: {:?}", step);
         let response = tx_control.clone();
         let request = tx_senders.clone();
         let module_name = step.module;

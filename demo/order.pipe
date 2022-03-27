@@ -8,64 +8,38 @@ import {
             "type": "stdout"
         }
     )
-    bin "target/release/libdispatcher.so" (
-        name="dispatcher"
+    bin "target/release/libexit.so" (
+        name="exit"
     )
 }
 
 pipeline {
-    link my {
-        | a
-    }
-
-    log b {
-        level="info"
-        message=`2`
-    } :after(a)
 
     log a {
         level="info"
-        message=`1`
-    }
+        message="a"
+    } 
 
-    log d {
+    log b {
         level="info"
-        message=`4`
-    } :before(e)
+        message="b"
+    } 
 
     log c {
         level="info"
-        message=`3`
+        message="c"
+    } :after(init)
+
+    log d {
+        level="info"
+        message="d"
     }
 
-    log e {
-        level="info"
-        message=`5`
-    }
+    link init { } :producer() :first()
 
-    dispatcher init {
-        number_of_dispatch=10
-        spawn_rate=1
-        spawn_interval=100000
-
-        | my
-    } :producer()
+    exit exit{} :last()
 
 
-    log f {
-        level="info"
-        message=`6`
-    }
-
-    log h {
-        level="info"
-        message=`8`
-    } :last
-
-    log g {
-        level="info"
-        message=`7`
-    }
 }
 
 

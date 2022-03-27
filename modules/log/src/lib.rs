@@ -26,12 +26,12 @@ struct Output {
 impl Output {
     pub fn new(options: Map<String, Value>) -> Self {
         let output_type = {
-            let ottype = match options.get("type") {
+            let out_type = match options.get("type") {
                 Some(value) => value.as_str().unwrap().to_string(),
                 None => "stdout".to_string(),
             };
 
-            if ottype.eq("stdout") {
+            if out_type.eq("stdout") {
                 OutputType::Stdout
             } else {
                 OutputType::Stdout
@@ -48,6 +48,9 @@ impl Output {
 }
 
 pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
+    let mut default_config = Map::new();
+    default_config.insert("type".to_string(), Value::String("stdout".to_string()));
+
     match config.params {
         Some(params_raw) => {
             let mut params = Params::try_from(&params_raw).unwrap();
@@ -56,13 +59,13 @@ pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                 None => "info".to_string(),
             };
 
-            let options = config
-                .module_params
-                .get("output")
-                .unwrap()
-                .as_object()
-                .unwrap()
-                .clone();
+            let options = match config.module_params.get("output") {
+                Some(value) => match value.as_object() {
+                    Some(value) => value.clone(),
+                    None => panic!("Error loading module settings."),
+                },
+                None => default_config,
+            };
 
             let output = Output::new(options);
 
