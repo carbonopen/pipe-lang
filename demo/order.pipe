@@ -23,7 +23,7 @@ pipeline {
     log b {
         level="info"
         message="b"
-    } 
+    }  :before(exit)
 
     log c {
         level="info"

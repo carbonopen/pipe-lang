@@ -1,4 +1,3 @@
-use pipe_core::debug;
 use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
 use std::{collections::HashMap, convert::TryFrom};
@@ -66,21 +65,6 @@ pub struct Pipe {
     pub pipeline: Vec<Step>,
 }
 
-macro_rules! order_debug {
-    ($order:expr) => {
-        debug!($order
-            .clone()
-            .iter()
-            .map(|a| format!(
-                "{}:{}:{}",
-                a.position,
-                a.id,
-                a.reference.clone().unwrap_or("".to_string())
-            ))
-            .collect::<Vec<_>>());
-    };
-}
-
 #[derive(Debug, PartialEq, Eq)]
 enum Direction {
     Forward,
@@ -114,8 +98,6 @@ impl Pipe {
         from: usize,
         direction: Direction,
     ) -> HashMap<usize, Step> {
-        println!("index: {}, from: {}, dir: {:?}", index, from, direction);
-
         if index == from {
             map
         } else {
@@ -242,39 +224,82 @@ impl Pipe {
             }
         }
 
+        // First
         for step in step_first {
             let first = order
                 .iter()
-                .filter_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
-                .next()
+                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
                 .unwrap()
                 .clone();
 
             order = Self::change_position(order, first, 0, Direction::None);
         }
 
+        // After
+        for (refer, step) in by_reference_after {
+            let refer_index = match order.iter().find_map(|(i, a)| {
+                if a.reference.eq(&refer) {
+                    Some(i)
+                } else {
+                    None
+                }
+            }) {
+                Some(index) => *index + 1,
+                None => {
+                    panic!("Referencia não encontrada: {}", refer.unwrap());
+                }
+            };
+
+            let target_index = order
+                .iter()
+                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
+                .unwrap()
+                .clone();
+
+            order = Self::change_position(order, target_index, refer_index, Direction::None);
+        }
+
+        // Last
         let last_index = list.len() - 1;
 
         for step in step_last {
             let last = order
                 .iter()
-                .filter_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
-                .next()
+                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
                 .unwrap()
                 .clone();
 
             order = Self::change_position(order, last, last_index, Direction::None);
         }
 
+        // Before
+        for (refer, step) in by_reference_before {
+            let refer_index = match order.iter().find_map(|(i, a)| {
+                if a.reference.eq(&refer) {
+                    Some(i)
+                } else {
+                    None
+                }
+            }) {
+                Some(index) => *index - 1,
+                None => {
+                    panic!("Referencia não encontrada: {}", refer.unwrap());
+                }
+            };
+
+            let target_index = order
+                .iter()
+                .find_map(|(i, a)| if a.id.eq(&step.id) { Some(i) } else { None })
+                .unwrap()
+                .clone();
+
+            order = Self::change_position(order, target_index, refer_index, Direction::None);
+        }
         let mut order_list: Vec<_> = order.into_iter().collect();
 
         order_list.sort_by(|x, y| x.0.cmp(&y.0));
 
         let order_list = order_list.iter().map(|a| a.1.clone()).collect::<Vec<_>>();
-
-        println!("");
-        println!("Final:");
-        order_debug!(order_list);
 
         order_list
     }
@@ -297,7 +322,6 @@ impl TryFrom<&Value> for Pipe {
             let obj = pipeline.to_array().expect("Could not load pipeline");
             Self::pipeline_to_steps(&obj)
         };
-        // order_debug!(pipeline);
 
         let vars = Default::default();
         let config = Default::default();
