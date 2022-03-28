@@ -146,7 +146,7 @@ impl Pipe {
 
     fn pipeline_to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
         let list = Self::to_steps(pipeline);
-        let sort = pre_parse::sort::Sort::parse(list);
+        let sort = pre_parse::Sort::parse(list);
 
         sort
     }

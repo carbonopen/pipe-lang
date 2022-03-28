@@ -1,6 +1,8 @@
 use crate::pipe::Step;
 
-pub mod sort;
+mod sort;
+
+pub use sort::Sort;
 
 pub trait PreParse {
     fn parse(list: Vec<Step>) -> Vec<Step> {
