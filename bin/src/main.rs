@@ -1,4 +1,5 @@
 mod pipe;
+pub mod pre_parse;
 mod runtime;
 mod to_file;
 use clap::Parser;
