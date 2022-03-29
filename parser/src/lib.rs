@@ -296,6 +296,7 @@ impl Pipe {
                     None => Value::Object(map!()),
                 }
             }
+            Rule::param_type => Value::String(pair.as_span().as_str().to_string()),
             Rule::common_content => {
                 let mut map = map!();
 
@@ -305,9 +306,40 @@ impl Pipe {
                             let value = Self::parse(pair);
                             map.insert("attach".to_string(), value);
                         }
-                        Rule::param => {
-                            let value = Self::make_param(pair);
-                            map.insert(value.0, value.1);
+                        Rule::param_default => {
+                            let mut inner = pair.into_inner();
+                            let key = inner.next().unwrap().as_str().to_string();
+                            let value = Self::parse(inner.next().unwrap());
+                            map.insert(key, value);
+                        }
+                        Rule::param_typed => {
+                            let mut inner = pair.into_inner();
+                            let key = inner.next().unwrap().as_str().to_string();
+                            let value = Self::parse(inner.next().unwrap());
+                            let mut local = map!();
+                            local.insert(
+                                "___PIPE___type".to_string(),
+                                Value::String("converter".to_string()),
+                            );
+                            local.insert("___PIPE___value".to_string(), value);
+
+                            map.insert(key, Value::Object(local));
+                        }
+                        Rule::param_typed_with_value => {
+                            let mut inner = pair.into_inner();
+                            debug!(inner);
+                            let key = inner.next().unwrap().as_str().to_string();
+                            let value = Self::parse(inner.next().unwrap());
+                            let default = Self::parse(inner.next().unwrap());
+                            let mut local = map!();
+                            local.insert(
+                                "___PIPE___type".to_string(),
+                                Value::String("converter".to_string()),
+                            );
+                            local.insert("___PIPE___value".to_string(), value);
+                            local.insert("___PIPE___default".to_string(), default);
+
+                            map.insert(key, Value::Object(local));
                         }
                         Rule::param_macro => {
                             let (name, value) = Self::make_param_macro(pair);
@@ -426,14 +458,6 @@ impl Pipe {
             Rule::null => Value::Null,
             _ => Value::Undefined,
         }
-    }
-
-    fn make_param(pair: Pair<Rule>) -> (String, Value) {
-        let mut inner = pair.into_inner();
-        let key = inner.next().unwrap().as_str().to_string();
-        let value = Self::parse(inner.next().unwrap());
-
-        (key, value)
     }
 
     fn make_param_macro(pair: Pair<Rule>) -> (String, Value) {

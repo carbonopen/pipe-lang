@@ -22,7 +22,7 @@ session_pipeline_content = { "{" ~ (NEWLINE | module)* ~ "}" }
 module = { ident ~ ident? ~ module_content ~ (tag)*? }
 module_content = { "{" ~ (NEWLINE | common_content | attach)* ~ "}" }
 
-tag = { ":" ~ ident ~ tag_args? ~ NEWLINE? }
+tag = { ":" ~ ident ~ tag_args? }
 tag_args = {"(" ~ ( number | boolean | null | string| string_alt | ident | array | object | ",")* ~ ")"}
 
 //Attatch
@@ -35,10 +35,17 @@ param_macro_content = { "(" ~ common_content* ~ ")" }
 common_content = { (NEWLINE | param | param_macro| attach )+ }
 
 // Param
-param = { ident ~ "=" ~ value }
+// param = { ident ~ "=" ~ value }
+
+param_type = !{ UPPERCASE_LETTER ~ ident? }
+
+param = _{ param_typed_with_value | param_default | param_typed  }
+param_typed_with_value = { ident ~ ":" ~ param_type ~ "=" ~ value }
+param_default = { ident ~ "=" ~ value }
+param_typed = { ident ~ ":" ~ param_type }
 
 // Ident
-char = { ASCII_ALPHANUMERIC | "." | "_" }
+char = { ASCII_ALPHANUMERIC | "_" }
 ident = @{ char+ }
 
 // Value

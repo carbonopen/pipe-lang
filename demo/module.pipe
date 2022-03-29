@@ -1,0 +1,58 @@
+import {
+    bin "target/release/liblink.so" (
+        name="link"
+    )
+    bin "target/release/liblog.so" (
+        name="log"
+        output={
+            "type": "stdout"
+        }
+    )
+    bin "target/release/libexit.so" (
+        name="exit"
+    )
+}
+
+vars {
+    a: String
+    b: String = "ok"
+    c = 1
+    d = true
+    e = [1,2,3]
+}
+
+pipeline {
+
+    exit exit{} :last()
+
+    log a {
+        level="info"
+        message=${a}
+    }
+
+    log b {
+        level="info"
+        message=${b}
+    } :before(exit)
+
+    log c {
+        level="info"
+        message:Number = ${c}
+    } :after(init)
+
+    log d {
+        level="info"
+        message=${d}
+    } :step(0)
+
+    log e {
+        level="info"
+        message=${e}
+    } :step(0)
+
+    link init {} :producer() :first()
+
+
+}
+
+
