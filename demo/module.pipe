@@ -12,6 +12,8 @@ import {
         name="exit"
     )
 }
+// TODO: Criar conversores
+// TODO: Criar import de modules pipe
 
 vars {
     a: String
@@ -22,7 +24,6 @@ vars {
 }
 
 pipeline {
-
     exit exit{} :last()
 
     log a {
@@ -51,8 +52,6 @@ pipeline {
     } :step(0)
 
     link init {} :producer() :first()
-
-
 }
 
 
