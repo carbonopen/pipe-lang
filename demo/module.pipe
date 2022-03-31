@@ -13,7 +13,7 @@ import {
     )
 }
 // TODO: Criar conversores
-// TODO: Criar import de modules pipe
+// TODO: Criar import de modules
 
 vars {
     a: String

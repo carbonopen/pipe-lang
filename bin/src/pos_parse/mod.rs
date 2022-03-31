@@ -4,7 +4,7 @@ mod sort;
 
 pub use sort::Sort;
 
-pub trait PreParse {
+pub trait PosParse {
     fn parse(list: Vec<Step>) -> Vec<Step> {
         list
     }

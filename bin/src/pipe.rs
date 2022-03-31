@@ -1,5 +1,5 @@
-use crate::pre_parse;
-use crate::pre_parse::PreParse;
+use crate::pos_parse;
+use crate::pos_parse::PosParse;
 use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
 use std::{collections::HashMap, convert::TryFrom};
@@ -146,7 +146,7 @@ impl Pipe {
 
     fn pipeline_to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
         let list = Self::to_steps(pipeline);
-        let sort = pre_parse::Sort::parse(list);
+        let sort = pos_parse::Sort::parse(list);
 
         sort
     }

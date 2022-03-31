@@ -1,10 +1,10 @@
 use crate::pipe::Step;
 
-use super::PreParse;
+use super::PosParse;
 
 pub struct Sort {}
 
-impl PreParse for Sort {
+impl PosParse for Sort {
     fn parse(list: Vec<Step>) -> Vec<Step> {
         let mut sort_list = list.clone();
         let mut step_first = Vec::new();

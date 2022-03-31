@@ -61,7 +61,7 @@ impl Error {
     }
 }
 
-// TODO: criar exportação de .pipe com pre_parse realizado.
+// TODO: criar exportação de .pipe com pos_parse realizado.
 impl Pipe {
     pub fn from_path(path: &str) -> Result<Value, Error> {
         let unparsed_file = match fs::read_to_string(path) {
@@ -73,12 +73,12 @@ impl Pipe {
     }
 
     pub fn from_str(unparsed_file: &str) -> Result<Value, Error> {
-        let pre_parse = Self::pre_parse(unparsed_file.to_string());
-        Self::from_pre_parsed_str(&pre_parse)
+        let pos_parse = Self::pos_parse(unparsed_file.to_string());
+        Self::from_pos_parsed_str(&pos_parse)
     }
 
-    pub fn from_pre_parsed_str(pre_parse_file: &str) -> Result<Value, Error> {
-        match PipeParser::parse(Rule::pipe, pre_parse_file) {
+    pub fn from_pos_parsed_str(pos_parse_file: &str) -> Result<Value, Error> {
+        match PipeParser::parse(Rule::pipe, pos_parse_file) {
             Ok(mut pairs) => match pairs.next() {
                 Some(pair) => Ok(Self::parse(pair)),
                 None => Ok(Value::Undefined),
@@ -87,7 +87,7 @@ impl Pipe {
         }
     }
 
-    pub fn pre_parse(content: String) -> String {
+    pub fn pos_parse(content: String) -> String {
         Self::parse_embedded(content)
         //TODO:parse_module_run
     }
