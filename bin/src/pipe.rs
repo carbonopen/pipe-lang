@@ -13,6 +13,7 @@ pub struct Step {
     pub reference: Option<String>,
     pub tags: HashMap<String, JsonValue>,
     pub attach: Option<String>,
+    pub vars: HashMap<String, JsonValue>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -87,9 +88,67 @@ impl Pipe {
         modules
     }
 
-    fn to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
+    fn to_steps(pipeline: &Vec<Value>, vars: Option<Value>) -> Vec<Step> {
         let mut list = Vec::new();
         let mut references = HashMap::new();
+        let vars = match vars {
+            Some(value) => {
+                let vars = value.to_object().unwrap();
+                let mut map = HashMap::new();
+
+                for (key, value) in vars {
+                    match value {
+                        Value::Object(value) => match value.get("___PIPE___type") {
+                            Some(var_type) => match var_type.to_string() {
+                                Ok(var_type) => {
+                                    if var_type.eq("converter") {
+                                        let var_type = value
+                                            .get("___PIPE___value")
+                                            .unwrap()
+                                            .to_string()
+                                            .unwrap();
+
+                                        let var_value = match value.get("___PIPE___default") {
+                                            Some(var_default) => var_default.clone(),
+                                            None => {
+                                                if var_type.eq("String") {
+                                                    Value::String(String::default())
+                                                } else if var_type.eq("Number") {
+                                                    Value::Number("0".to_string())
+                                                } else if var_type.eq("Boolean") {
+                                                    Value::Boolean(false)
+                                                } else if var_type.eq("Array") {
+                                                    Value::Array(vec![Value::Empty])
+                                                } else if var_type.eq("Object") {
+                                                    Value::Object(HashMap::default())
+                                                } else {
+                                                    Value::Undefined
+                                                }
+                                            }
+                                        };
+
+                                        map.insert(key, var_value);
+                                    } else {
+                                        map.insert(key, Value::Object(value));
+                                    }
+                                }
+                                Err(_) => panic!("Could not convert ___PIPE___type."),
+                            },
+                            None => {
+                                map.insert(key, Value::Object(value));
+                            }
+                        },
+                        _ => {
+                            map.insert(key, value);
+                        }
+                    };
+                }
+
+                let json = Value::Object(map).as_json();
+                serde_json::from_str(&json).unwrap()
+            }
+            None => HashMap::default(),
+        };
 
         for (id, item) in pipeline.iter().enumerate() {
             let obj = item.to_object().unwrap();
@@ -138,14 +197,15 @@ impl Pipe {
                 reference,
                 tags,
                 attach,
+                vars: vars.clone(),
             });
         }
 
         list
     }
 
-    fn pipeline_to_steps(pipeline: &Vec<Value>) -> Vec<Step> {
-        let list = Self::to_steps(pipeline);
+    fn pipeline_to_steps(pipeline: &Vec<Value>, vars: Option<Value>) -> Vec<Step> {
+        let list = Self::to_steps(pipeline, vars);
         let sort = pos_parse::Sort::parse(list);
 
         sort
@@ -165,9 +225,13 @@ impl TryFrom<&Value> for Pipe {
             None => None,
         };
         let pipeline = {
+            let vars = match pipe_obj.get("vars") {
+                Some(vars) => Some(vars.clone()),
+                None => None,
+            };
             let pipeline = pipe_obj.get("pipeline").expect("No pipeline present.");
             let obj = pipeline.to_array().expect("Could not load pipeline");
-            Self::pipeline_to_steps(&obj)
+            Self::pipeline_to_steps(&obj, vars)
         };
 
         let vars = Default::default();

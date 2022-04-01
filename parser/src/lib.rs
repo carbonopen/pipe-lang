@@ -327,7 +327,6 @@ impl Pipe {
                         }
                         Rule::param_typed_with_value => {
                             let mut inner = pair.into_inner();
-                            debug!(inner);
                             let key = inner.next().unwrap().as_str().to_string();
                             let value = Self::parse(inner.next().unwrap());
                             let default = Self::parse(inner.next().unwrap());

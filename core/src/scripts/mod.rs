@@ -98,6 +98,16 @@ pub struct Params<'a> {
 }
 
 impl<'a> Params<'a> {
+    pub fn set_vars(&mut self, vars: HashMap<String, Value>) -> Result<(), Error> {
+        match to_dynamic(vars) {
+            Ok(value) => {
+                self.scope.push_dynamic("vars", value);
+                Ok(())
+            }
+            Err(err) => Err(Error::from(err)),
+        }
+    }
+
     pub fn set_request(&mut self, request: &Request) -> Result<(), Error> {
         let payload = match request.payload.clone() {
             Ok(payload) => match payload {
@@ -228,7 +238,7 @@ impl<'a> TryFrom<&Value> for Params<'a> {
                                 let script_escape_quotes = re_quotes.replace_all(&script, r#"""#);
 
                                 let handler = format!(
-                                    "fn handler(payload, steps, origin, trace_id){{{}}};  to_string(handler(payload, steps, origin, trace_id))",
+                                    "fn handler(payload, steps, origin, trace_id, vars){{{}}};  to_string(handler(payload, steps, origin, trace_id, vars))",
                                     script_escape_quotes
                                 );
 
@@ -257,6 +267,17 @@ impl<'a> TryFrom<&Value> for Params<'a> {
     }
 }
 
+impl<'a> Params<'a> {
+    pub fn try_new(target: &Value, vars: HashMap<String, Value>) -> Result<Self, Error> {
+        match Self::try_from(target) {
+            Ok(mut params) => match params.set_vars(vars) {
+                Ok(_) => Ok(params),
+                Err(err) => Err(Error::from(err)),
+            },
+            Err(err) => Err(Error::from(err)),
+        }
+    }
+}
 #[cfg(test)]
 mod test {
     use crate::modules::Request;

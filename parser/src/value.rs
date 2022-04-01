@@ -104,6 +104,7 @@ pub enum Value {
     Boolean(bool),
     Null,
     Undefined,
+    Empty,
 }
 
 #[cfg(feature = "comparators")]
@@ -177,6 +178,7 @@ impl Value {
             Self::String(_) => Ok(true),
             Self::Number(_) => Ok(true),
             Self::Interpolation(_) => Ok(true),
+            Self::Empty => Ok(false),
         }
     }
 
@@ -193,6 +195,7 @@ impl Value {
             Self::Boolean(value) => Ok(format!("{}", value)),
             Self::Null => Ok("null".to_string()),
             Self::Undefined => Ok("undefined".to_string()),
+            Self::Empty => Ok("".to_string()),
             _ => Err(()),
         }
     }
@@ -321,8 +324,8 @@ impl Value {
             }
             Value::Number(n) => format!("{}", n),
             Value::Boolean(b) => format!("{}", b),
-            Value::Null => format!("null"),
-            Value::Undefined => format!("undefined"),
+            Value::Null => "null".to_string(),
+            Value::Undefined => "undefined".to_string(),
             Value::Interpolation(script) => {
                 if interpolation {
                     let mut map = HashMap::new();
@@ -339,6 +342,7 @@ impl Value {
                     format!("\"{}\"", script.raw)
                 }
             }
+            Value::Empty => "".to_string(),
         }
     }
 }

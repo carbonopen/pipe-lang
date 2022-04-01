@@ -235,6 +235,7 @@ mod tests {
             default_attach: None,
             tags: Default::default(),
             module_params: Default::default(),
+            vars: Default::default(),
         };
 
         create_server!(10011u16, "other");

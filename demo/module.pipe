@@ -17,8 +17,8 @@ import {
 
 vars {
     a: String
-    b: String = "ok"
-    c = 1
+    b: Array = []
+    c: Number = 2
     d = true
     e = [1,2,3]
 }
@@ -28,27 +28,27 @@ pipeline {
 
     log a {
         level="info"
-        message=${a}
+        message=${vars.a}
     }
 
     log b {
         level="info"
-        message=${b}
+        message=${vars.b}
     } :before(exit)
 
     log c {
         level="info"
-        message:Number = ${c}
+        message = ${vars.c}
     } :after(init)
 
     log d {
         level="info"
-        message=${d}
+        message=${vars.d}
     } :step(0)
 
     log e {
         level="info"
-        message=${e}
+        message=${vars.e}
     } :step(0)
 
     link init {} :producer() :first()

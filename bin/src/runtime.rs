@@ -69,6 +69,7 @@ pub fn runtime(value: Value) {
             let module_id = module_id.clone();
 
             let tags = step.tags.clone();
+            let vars = step.vars.clone();
 
             thread::spawn(move || {
                 let lib = match Library::new(filename.clone()) {
@@ -93,6 +94,7 @@ pub fn runtime(value: Value) {
                         default_attach,
                         tags,
                         module_params: current_module.params.clone(),
+                        vars,
                     },
                 );
             });

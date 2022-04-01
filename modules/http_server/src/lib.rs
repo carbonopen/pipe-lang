@@ -286,6 +286,7 @@ mod tests {
                 default_attach: None,
                 tags: Default::default(),
                 module_params: Default::default(),
+                vars: Default::default(),
             };
 
             run_module_raw!(crate::http_server, config, tx, rx);
@@ -438,6 +439,7 @@ mod tests {
             default_attach: None,
             tags: Default::default(),
             module_params: Default::default(),
+            vars: Default::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);
@@ -495,6 +497,7 @@ mod tests {
             default_attach: None,
             tags: Default::default(),
             module_params: Default::default(),
+            vars: Default::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);
@@ -547,6 +550,7 @@ mod tests {
             default_attach: None,
             tags: Default::default(),
             module_params: Default::default(),
+            vars: Default::default(),
         };
 
         run_module_raw!(crate::http_server, config, tx, rx);

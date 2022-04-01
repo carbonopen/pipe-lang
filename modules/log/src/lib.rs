@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate pipe_core;
 
-use std::convert::TryFrom;
-
 use pipe_core::{
     modules::{Config, Listener, Return},
     scripts::Params,
@@ -31,6 +29,7 @@ impl Output {
                 None => "stdout".to_string(),
             };
 
+            // TODO: add more output
             if out_type.eq("stdout") {
                 OutputType::Stdout
             } else {
@@ -53,7 +52,8 @@ pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 
     match config.params {
         Some(params_raw) => {
-            let mut params = Params::try_from(&params_raw).unwrap();
+            let mut params = Params::try_new(&params_raw, config.vars).unwrap();
+
             let level = match params_raw.as_object().unwrap().get("level") {
                 Some(value) => value.as_str().unwrap().to_string(),
                 None => "info".to_string(),
