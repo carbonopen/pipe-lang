@@ -12,10 +12,8 @@ import {
         name="exit"
     )
 }
-// TODO: Criar conversores
-// TODO: Criar import de modules
 
-vars {
+args {
     a: String
     b: Array = []
     c: Number = 2
@@ -28,27 +26,27 @@ pipeline {
 
     log a {
         level="info"
-        message=${vars.a}
+        message=${args.a}
     }
 
     log b {
         level="info"
-        message=${vars.b}
+        message=${args.b}
     } :before(exit)
 
     log c {
         level="info"
-        message = ${vars.c}
+        message = ${args.c}
     } :after(init)
 
     log d {
         level="info"
-        message=${vars.d}
+        message=${args.d}
     } :step(0)
 
     log e {
         level="info"
-        message=${vars.e}
+        message=${args.e}
     } :step(0)
 
     link init {} :producer() :first()

@@ -42,7 +42,7 @@
             }
         }
     ],
-    "vars": {
+    "args": {
         "test": true
     }
 }

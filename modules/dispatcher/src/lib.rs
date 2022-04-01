@@ -107,7 +107,7 @@ mod tests {
             default_attach: None,
             tags: Default::default(),
             module_params: Default::default(),
-            vars: Default::default(),
+            args: Default::default(),
         };
 
         run_module_raw!(crate::dispatcher, config, tx, rx);

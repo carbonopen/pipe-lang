@@ -13,7 +13,7 @@ pub struct Step {
     pub reference: Option<String>,
     pub tags: HashMap<String, JsonValue>,
     pub attach: Option<String>,
-    pub vars: HashMap<String, JsonValue>,
+    pub args: HashMap<String, JsonValue>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -63,7 +63,7 @@ impl TryFrom<&Value> for Module {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Pipe {
     pub config: Option<HashMap<String, Value>>,
-    pub vars: Option<HashMap<String, Value>>,
+    pub args: Option<HashMap<String, Value>>,
     pub modules: Option<Vec<Module>>,
     pub pipeline: Vec<Step>,
 }
@@ -88,15 +88,15 @@ impl Pipe {
         modules
     }
 
-    fn to_steps(pipeline: &Vec<Value>, vars: Option<Value>) -> Vec<Step> {
+    fn to_steps(pipeline: &Vec<Value>, args: Option<Value>) -> Vec<Step> {
         let mut list = Vec::new();
         let mut references = HashMap::new();
-        let vars = match vars {
+        let args = match args {
             Some(value) => {
-                let vars = value.to_object().unwrap();
+                let args = value.to_object().unwrap();
                 let mut map = HashMap::new();
 
-                for (key, value) in vars {
+                for (key, value) in args {
                     match value {
                         Value::Object(value) => match value.get("___PIPE___type") {
                             Some(var_type) => match var_type.to_string() {
@@ -197,15 +197,15 @@ impl Pipe {
                 reference,
                 tags,
                 attach,
-                vars: vars.clone(),
+                args: args.clone(),
             });
         }
 
         list
     }
 
-    fn pipeline_to_steps(pipeline: &Vec<Value>, vars: Option<Value>) -> Vec<Step> {
-        let list = Self::to_steps(pipeline, vars);
+    fn pipeline_to_steps(pipeline: &Vec<Value>, args: Option<Value>) -> Vec<Step> {
+        let list = Self::to_steps(pipeline, args);
         let sort = pos_parse::Sort::parse(list);
 
         sort
@@ -225,23 +225,23 @@ impl TryFrom<&Value> for Pipe {
             None => None,
         };
         let pipeline = {
-            let vars = match pipe_obj.get("vars") {
-                Some(vars) => Some(vars.clone()),
+            let args = match pipe_obj.get("args") {
+                Some(args) => Some(args.clone()),
                 None => None,
             };
             let pipeline = pipe_obj.get("pipeline").expect("No pipeline present.");
             let obj = pipeline.to_array().expect("Could not load pipeline");
-            Self::pipeline_to_steps(&obj, vars)
+            Self::pipeline_to_steps(&obj, args)
         };
 
-        let vars = Default::default();
+        let args = Default::default();
         let config = Default::default();
 
         Ok(Self {
             config,
             modules,
             pipeline,
-            vars,
+            args,
         })
     }
 }

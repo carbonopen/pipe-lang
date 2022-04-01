@@ -19,7 +19,7 @@ pub struct Config {
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
     pub module_params: HashMap<String, Value>,
-    pub vars: HashMap<String, Value>
+    pub args: HashMap<String, Value>,
 }
 
 impl Config {

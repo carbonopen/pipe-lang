@@ -90,7 +90,7 @@ mod tests {
             default_attach: None,
             tags: Default::default(),
             module_params: Default::default(),
-            vars: Default::default(),
+            args: Default::default(),
         };
 
         let payload = Ok(Some(json!({
@@ -127,7 +127,7 @@ mod tests {
             default_attach: None,
             tags: Default::default(),
             module_params: Default::default(),
-            vars: Default::default(),
+            args: Default::default(),
         };
 
         let payload = Ok(Some(json!({

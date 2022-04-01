@@ -52,7 +52,7 @@ pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 
     match config.params {
         Some(params_raw) => {
-            let mut params = Params::try_new(&params_raw, config.vars).unwrap();
+            let mut params = Params::try_new(&params_raw, config.args).unwrap();
 
             let level = match params_raw.as_object().unwrap().get("level") {
                 Some(value) => value.as_str().unwrap().to_string(),
