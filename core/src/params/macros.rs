@@ -13,11 +13,23 @@ macro_rules! render {
 }
 
 #[macro_export(local_inner_macros)]
-macro_rules! param_test {
+macro_rules! pipe_param_script {
     ($value: expr) => {
         $crate::serde_json::json!({
             "___PIPE___type": "script",
             "___PIPE___list": $value
+        })
+    };
+}
+
+
+#[macro_export(local_inner_macros)]
+macro_rules! pipe_param_convert {
+    ($value: expr, $default: expr) => {
+        $crate::serde_json::json!({
+            "___PIPE___type": "converter",
+            "___PIPE___default": $default,
+            "___PIPE___value": $value,
         })
     };
 }

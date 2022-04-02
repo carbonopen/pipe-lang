@@ -1,11 +1,9 @@
 #[macro_use]
 extern crate pipe_core;
 
-use std::convert::TryFrom;
-
 use pipe_core::{
     modules::{Config, Listener, Return},
-    scripts::Params,
+    params::Params,
     serde_json::Value,
 };
 
@@ -25,7 +23,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     let switch_default_attach = config.default_attach.clone();
 
     if let Some(params_raw) = config.params {
-        let mut params = Params::try_from(&params_raw).unwrap();
+        let mut params = Params::builder(&params_raw, config.args).unwrap();
 
         let cases = match params.default.get("case") {
             Some(case) => match case.as_array() {
@@ -106,7 +104,6 @@ create_module!(switch);
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use pipe_core::{
         modules::*,
@@ -128,7 +125,7 @@ mod tests {
                         "attach": "bar",
                     }
                 ],
-                "target": param_test!(["payload.num"])
+                "target": pipe_param_script!(["payload.num"])
             })),
             producer: false,
             default_attach: None,
@@ -158,7 +155,7 @@ mod tests {
                         "attach": "bar",
                     }
                 ],
-                "target": param_test!(["payload.num"]),
+                "target": pipe_param_script!(["payload.num"]),
                 "attach": ""
             })),
             producer: false,

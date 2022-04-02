@@ -9,7 +9,7 @@ pub mod modules;
 pub extern crate log;
 
 #[cfg(feature = "scripts")]
-pub mod scripts;
+pub mod params;
 
 #[macro_export]
 macro_rules! debug {

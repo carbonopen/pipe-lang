@@ -1,0 +1,87 @@
+import {
+    bin "target/release/liblink.so" (
+        name="link"
+    )
+    bin "target/release/liblog.so" (
+        name="log"
+        output={
+            "type": "stdout"
+        }
+    )
+    bin "target/release/libexit.so" (
+        name="exit"
+    )
+    bin "target/release/libswitch.so" (
+        name="switch"
+    )
+
+    bin "target/release/libpayload.so" (
+        name="payload"
+    )
+}
+
+args {
+    a: String = "test"
+    b: Array = [1,2,3]
+    c: Number = 2
+    d = "true"
+    e: Object = { "test": true }
+}
+
+pipeline {
+    link init {} :producer()
+
+    log a {
+        level="info"
+        message=${args.a}
+    }
+
+    log b {
+        level="info"
+        message=${args.b}
+    }
+
+    payload {
+        c: String = ${args.c}
+    }
+
+    switch {
+        target = ${ type_of(payload.c) == "string" }
+
+        case false (
+            | not_string
+        )
+
+        case true (
+            | is_string
+        )
+    }
+
+    log is_string {
+        level="info"
+        message="Arg C is string"
+    }
+
+    link {
+        | d
+    }
+
+    log not_string {
+        level="info"
+        message="Arg C not a string"
+    }
+
+    log d {
+        level="info"
+        message: Boolean =${args.d}
+    }
+
+    log e {
+        level="info"
+        message=${args.e}
+    }
+
+    exit exit{}
+}
+
+

@@ -191,7 +191,7 @@ mod tests {
     use actix_web::{rt::System, web, App, HttpRequest, HttpResponse, HttpServer};
     use pipe_core::modules::*;
     use reqwest::StatusCode;
-    use std::{collections::HashMap, thread};
+    use std::thread;
     use tokio::runtime::Runtime;
 
     macro_rules! create_server {

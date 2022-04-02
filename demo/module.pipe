@@ -14,11 +14,11 @@ import {
 }
 
 args {
-    a: String
-    b: Array = []
+    a: String = "test"
+    b: Array = [1,2,3]
     c: Number = 2
-    d = true
-    e = [1,2,3]
+    d: Boolean = true
+    e: Object = { "test": true }
 }
 
 pipeline {
@@ -36,7 +36,7 @@ pipeline {
 
     log c {
         level="info"
-        message = ${args.c}
+        message: String = ${args.c}
     } :after(init)
 
     log d {

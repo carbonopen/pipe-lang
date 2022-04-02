@@ -1,18 +1,16 @@
 #[macro_use]
 extern crate pipe_core;
 
-use std::convert::TryFrom;
-
 use pipe_core::{
     modules::{Config, Listener, Request, Return, TraceId},
-    scripts::Params,
+    params::Params,
     serde_json::Value,
 };
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     match config.params {
         Some(params_raw) => {
-            let mut params = Params::try_from(&params_raw).unwrap();
+            let mut params = Params::builder(&params_raw, config.args).unwrap();
 
             if config.producer {
                 let mut trace = TraceId::new();
@@ -67,7 +65,6 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 create_module!(payload);
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
 
     use super::*;
     use pipe_core::serde_json::json;
@@ -77,7 +74,7 @@ mod tests {
         let config = Config {
             reference: "test".parse().unwrap(),
             params: Some(json!({
-                "body" : param_test!([
+                "body" : pipe_param_script!([
                     r#""{\"value\": ""#,
                     "(payload.number)",
                     r#"", \"type\": \"default\"}""#
@@ -114,7 +111,7 @@ mod tests {
         let config = Config {
             reference: "test".parse().unwrap(),
             params: Some(json!({
-                "body" : param_test!([
+                "body" : pipe_param_script!([
                     r#""{\"value\": ""#,
                     "(\"\\\"\" + payload.number + \"\\\"\")",
                     r#"", \"type\": \"default\"}""#
