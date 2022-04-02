@@ -10,5 +10,6 @@ members = [
     "modules/dispatcher",
     "modules/log",
     "modules/link",
-    "modules/exit"
+    "modules/exit",
+    "modules/print"
 ]

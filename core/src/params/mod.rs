@@ -63,6 +63,12 @@ impl Display for Error {
     }
 }
 
+impl Error {
+    pub fn get_error(&self) -> Option<Value> {
+        Some(Value::String(format!("{}", self)))
+    }
+}
+
 impl From<SerdeJsonError> for Error {
     fn from(error: SerdeJsonError) -> Self {
         Self {

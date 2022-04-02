@@ -1,0 +1,12 @@
+import {
+   mod "my_name" ()
+}
+
+pipeline {
+    my_name {
+        first_name="Philippe"
+        first_name="Assis"
+    }
+}
+
+

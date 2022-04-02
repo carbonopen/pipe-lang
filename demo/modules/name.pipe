@@ -1,0 +1,33 @@
+import {
+    bin "target/release/libprint.so" (
+        name="print"
+    )
+     bin "target/release/liblink.so" (
+        name="link"
+    )
+}
+
+args {
+    first_name: String
+    last_name: String
+}
+
+pipeline {
+    print {
+        text="Your"
+    }
+
+    print {
+        text="name"
+    }
+
+    print {
+        text="is"
+    }
+
+    print {
+        text=${ args.first_name + " " + args.last_name}
+    }
+}
+
+
