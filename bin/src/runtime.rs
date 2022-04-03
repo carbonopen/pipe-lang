@@ -48,7 +48,7 @@ pub fn runtime(value: Value) {
         let current_module = modules.get(&module_name).unwrap().clone();
 
         let filename = {
-            let name = current_module.bin.to_string();
+            let name = current_module.path.to_string();
 
             if cfg!(unix) && !name.contains(".so") {
                 format!("{}.so", name)

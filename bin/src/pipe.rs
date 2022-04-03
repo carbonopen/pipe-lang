@@ -25,38 +25,36 @@ pub struct Payload {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Module {
     pub name: String,
-    pub bin: String,
+    pub path: String,
     pub params: HashMap<String, JsonValue>,
 }
 
-impl TryFrom<&Value> for Module {
-    type Error = ();
+impl Module {
+    fn new(value: &Value) -> Self {
+        let mut params = value.to_object().unwrap();
+        let path = params.remove("bin").unwrap().to_string().unwrap();
+        params.insert("path".to_string(), Value::String(path.clone()));
 
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
-        let params = value.to_object().unwrap();
-        let bin = params.get("bin").unwrap();
-
-        let (bin, name) = if bin.is_array() {
-            let array = bin.to_array().unwrap();
-            let mut array_item = array.iter();
-
-            (
-                array_item.next().unwrap().to_string().unwrap(),
-                array_item.next().unwrap().to_string().unwrap(),
-            )
-        } else if bin.is_string() {
-            (
-                bin.to_string().unwrap(),
-                params.get("name").unwrap().to_string().unwrap(),
-            )
-        } else {
-            return Err(());
+        let name = match params.get("name") {
+            Some(name) => name.to_string().unwrap(),
+            None => {
+                let name = path
+                    .split("/")
+                    .last()
+                    .unwrap()
+                    .split(".")
+                    .next()
+                    .unwrap()
+                    .to_string();
+                params.insert("name".to_string(), Value::String(name.clone()));
+                name
+            }
         };
 
         let val_json = value.as_json();
         let params = serde_json::from_str(&val_json).unwrap();
 
-        Ok(Self { name, bin, params })
+        Self { name, path, params }
     }
 }
 
@@ -78,10 +76,7 @@ impl Pipe {
                     .to_array()
                     .unwrap()
                     .iter()
-                    .for_each(|item| match Module::try_from(item) {
-                        Ok(module) => modules.push(module),
-                        Err(_) => (),
-                    });
+                    .for_each(|item| modules.push(Module::new(item)));
             }
         }
 
