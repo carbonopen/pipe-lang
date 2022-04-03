@@ -23,13 +23,13 @@ pub struct Payload {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Module {
+pub struct Bin {
     pub name: String,
     pub path: String,
     pub params: HashMap<String, JsonValue>,
 }
 
-impl Module {
+impl Bin {
     fn new(value: &Value) -> Self {
         let mut params = value.to_object().unwrap();
         let path = params.remove("bin").unwrap().to_string().unwrap();
@@ -62,12 +62,12 @@ impl Module {
 pub struct Pipe {
     pub config: Option<HashMap<String, Value>>,
     pub args: Option<HashMap<String, Value>>,
-    pub modules: Option<Vec<Module>>,
+    pub modules: Option<Vec<Bin>>,
     pub pipeline: Vec<Step>,
 }
 
 impl Pipe {
-    fn load_modules(imports: &HashMap<String, Value>) -> Vec<Module> {
+    fn load_modules(imports: &HashMap<String, Value>) -> Vec<Bin> {
         let mut modules = Vec::new();
 
         for (import_type, value) in imports {
@@ -76,7 +76,7 @@ impl Pipe {
                     .to_array()
                     .unwrap()
                     .iter()
-                    .for_each(|item| modules.push(Module::new(item)));
+                    .for_each(|item| modules.push(Bin::new(item)));
             }
         }
 
