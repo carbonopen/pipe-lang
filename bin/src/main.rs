@@ -6,7 +6,7 @@ use clap::Parser;
 use env_logger::{Builder, Env, Target};
 use pipe_core::log;
 use pipe_parser::Pipe;
-
+use runtime::Runtime;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -26,11 +26,14 @@ fn main() {
 
     let args = Args::parse();
 
-    match Pipe::from_path(&args.path) {
-        Ok(pipe) => match args.to_json {
-            Some(path) => to_file::to_json(&pipe, &path),
-            None => runtime::runtime(pipe),
+    match args.to_json {
+        Some(path) => match Pipe::from_path(&args.path) {
+            Ok(pipe) => to_file::to_json(&pipe, &path),
+            Err(err) => log::error!("{:?}: {}", err, &args.path),
         },
-        Err(err) => log::error!("{:?}: {}", err, &args.path),
-    };
+        None => match Runtime::builder(&args.path) {
+            Ok(run) => run.start(),
+            Err(err) => log::error!("{:?}: {}", err, &args.path),
+        },
+    }
 }

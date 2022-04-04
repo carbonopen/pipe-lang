@@ -2,7 +2,7 @@ use crate::pos_parse;
 use crate::pos_parse::PosParse;
 use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
-use std::{collections::HashMap, convert::TryFrom};
+use std::collections::HashMap;
 
 #[derive(Default, Debug, PartialEq, Clone)]
 pub struct Step {
@@ -23,16 +23,36 @@ pub struct Payload {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum ModuleType {
+    Bin,
+    Pipeline,
+}
+
+impl ModuleType {
+    pub fn get_name<'a>(&self) -> &'a str {
+        match self {
+            ModuleType::Bin => "bin",
+            ModuleType::Pipeline => "mod",
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct Module {
     pub name: String,
     pub path: String,
     pub params: HashMap<String, JsonValue>,
+    pub module_type: ModuleType,
 }
 
 impl Module {
-    fn new(value: &Value) -> Self {
+    fn new(value: &Value, module_type: ModuleType) -> Self {
         let mut params = value.to_object().unwrap();
-        let path = params.remove("bin").unwrap().to_string().unwrap();
+        let path = params
+            .remove(module_type.get_name())
+            .unwrap()
+            .to_string()
+            .unwrap();
         params.insert("path".to_string(), Value::String(path.clone()));
 
         let name = match params.get("name") {
@@ -54,7 +74,12 @@ impl Module {
         let val_json = value.as_json();
         let params = serde_json::from_str(&val_json).unwrap();
 
-        Self { name, path, params }
+        Self {
+            name,
+            path,
+            params,
+            module_type,
+        }
     }
 }
 
@@ -76,7 +101,13 @@ impl Pipe {
                     .to_array()
                     .unwrap()
                     .iter()
-                    .for_each(|item| modules.push(Module::new(item)));
+                    .for_each(|item| modules.push(Module::new(item, ModuleType::Bin)));
+            } else if import_type.eq("mod") {
+                value
+                    .to_array()
+                    .unwrap()
+                    .iter()
+                    .for_each(|item| modules.push(Module::new(item, ModuleType::Pipeline)));
             }
         }
 
@@ -207,10 +238,8 @@ impl Pipe {
     }
 }
 
-impl TryFrom<&Value> for Pipe {
-    type Error = ();
-
-    fn try_from(value: &Value) -> Result<Self, Self::Error> {
+impl Pipe {
+    pub fn new(value: &Value) -> Self {
         let pipe_obj = value.to_object().expect("Error trying to capture code.");
         let modules = match pipe_obj.get("import") {
             Some(value) => match value.to_object() {
@@ -232,11 +261,11 @@ impl TryFrom<&Value> for Pipe {
         let args = Default::default();
         let config = Default::default();
 
-        Ok(Self {
+        Self {
             config,
             modules,
             pipeline,
             args,
-        })
+        }
     }
 }

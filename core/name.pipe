@@ -5,7 +5,6 @@ import {
      bin "target/release/liblink.so" (
         name="link"
     )
-    mod "../helpers/concat" ()
 }
 
 args {
@@ -26,9 +25,8 @@ pipeline {
         text="is"
     }
 
-    concat {
-        item1=${args.first_name}
-        item2=${args.last_name}
+    print {
+        text=${ args.first_name + " " + args.last_name}
     }
 }
 

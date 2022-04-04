@@ -1,0 +1,18 @@
+import {
+    bin "target/release/libprint.so" (
+        name="print"
+    )
+}
+
+args {
+    item1: String
+    item2: String
+}
+
+pipeline {
+    print {
+        text=${ args.item1 + " " + args.item2}
+    }
+}
+
+

@@ -1,5 +1,5 @@
 import {
-   mod "libs/my_name" ()
+   mod "libs/name" ()
 }
 
 pipeline {
