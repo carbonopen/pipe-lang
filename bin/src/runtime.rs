@@ -39,63 +39,21 @@ impl Reference {
     }
 }
 
+#[derive(Debug)]
 struct ModuleInner {
     name: String,
-    bin: Option<Box<dyn Module>>,
     module_type: ModuleType,
-    aliases: HashMap<String, Vec<String>>,
 }
 
-impl Debug for ModuleInner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ModuleInner")
-            .field("name", &self.name)
-            .field("module_type", &self.module_type)
-            .field("aliases", &self.aliases)
-            .finish()
-    }
-}
-
-impl ModuleInner {
-    pub(crate) fn new(
-        name: String,
-        module_type: ModuleType,
-        bin: Option<Box<dyn Module>>,
-        alias: Option<(String, String)>,
-    ) -> Self {
-        let aliases = if let Some(alias) = alias {
-            let mut aliases = HashMap::new();
-            aliases.insert(alias.0, vec![alias.1]);
-            aliases
-        } else {
-            HashMap::default()
-        };
-
-        Self {
-            name,
-            bin,
-            module_type,
-            aliases,
-        }
-    }
-
-    pub(crate) fn add_alias(&mut self, owner: String, alias: String) {
-        match self.aliases.get_mut(&owner) {
-            Some(aliases) => {
-                aliases.push(alias);
-            }
-            None => {
-                self.aliases.insert(owner, vec![alias]);
-            }
-        }
-    }
-}
-
-type Modules = HashMap<String, ModuleInner>;
+type Alias = HashMap<String, ModuleInner>;
 type Pipelines = HashMap<String, Pipeline>;
+type Aliases = HashMap<String, Alias>;
+type Bins = HashMap<String, Box<dyn Module>>;
+
 pub struct Runtime {
     pipelines: Pipelines,
-    modules: Modules,
+    bins: Bins,
+    alias: Aliases,
     main: String,
 }
 
@@ -103,30 +61,33 @@ impl Debug for Runtime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Runtime")
             .field("pipelines", &self.pipelines)
-            .field("modules", &self.modules)
             .field("main", &self.main)
+            .field("alias", &self.alias)
             .finish()
     }
 }
 
 impl Runtime {
     pub fn builder(main: &str) -> Result<Self, ()> {
-        let (modules, pipelines, main) = match Self::extract(main) {
+        let (pipelines, main, bins, alias) = match Self::extract(main) {
             Ok(value) => value,
             Err(_) => return Err(()),
         };
 
         Ok(Self {
             pipelines,
-            modules,
+            bins,
+            alias,
             main,
         })
     }
 
-    fn extract(target: &str) -> Result<(Modules, Pipelines, String), PipeParseError> {
+    fn extract(target: &str) -> Result<(Pipelines, String, Bins, Aliases), PipeParseError> {
         let mut targets = vec![target.to_string()];
-        let mut modules: HashMap<String, ModuleInner> = HashMap::new();
-        let mut pipelines = HashMap::new();
+        let mut aliases: Aliases = HashMap::new();
+        let mut pipelines: Pipelines = HashMap::new();
+        let mut bins: Bins = HashMap::new();
+
         let main = PathBuf::from_str(target)
             .unwrap()
             .canonicalize()
@@ -156,10 +117,7 @@ impl Runtime {
             pipelines.insert(target_string.clone(), Pipeline::new(pipe.clone()));
 
             for module in pipe.modules.unwrap().iter() {
-                let dir = format!("{}/{}", path_base, module.path);
-                println!("{:?}", dir);
-                println!("");
-                let module_key = PathBuf::from_str(&dir)
+                let module_key = PathBuf::from_str(&format!("{}/{}", path_base, module.path))
                     .unwrap()
                     .canonicalize()
                     .unwrap()
@@ -168,41 +126,61 @@ impl Runtime {
                     .to_string();
 
                 if module.module_type.eq(&ModuleType::Bin) {
-                    let lib = match Library::new(module_key.clone()) {
-                        Ok(lib) => lib,
-                        Err(err) => panic!("Error: {}; Filename: {}", err, module_key.clone()),
-                    };
-                    let bin = unsafe {
-                        let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
-                            lib.get(b"_Module").unwrap();
-                        let boxed_raw = constructor();
-                        Box::from_raw(boxed_raw)
-                    };
+                    if bins.get(&module_key).is_none() {
+                        let lib = match Library::new(module_key.clone()) {
+                            Ok(lib) => lib,
+                            Err(err) => panic!("Error: {}; Filename: {}", err, module_key.clone()),
+                        };
+                        let bin = unsafe {
+                            let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
+                                lib.get(b"_Module").unwrap();
+                            let boxed_raw = constructor();
+                            Box::from_raw(boxed_raw)
+                        };
 
-                    match modules.get_mut(&module_key) {
-                        Some(module_inner) => {
-                            module_inner.add_alias(target_string.clone(), module.name.clone());
+                        bins.insert(module_key.clone(), bin);
+                    }
+
+                    match aliases.get_mut(&target_string) {
+                        Some(group) => {
+                            group.insert(
+                                module.name.clone(),
+                                ModuleInner {
+                                    name: module_key.clone(),
+                                    module_type: module.module_type.clone(),
+                                },
+                            );
                         }
                         None => {
-                            let inner = ModuleInner::new(
-                                module_key.clone(),
-                                module.module_type.clone(),
-                                Some(bin),
-                                Some((target_string.clone(), module.name.clone())),
-                            );
+                            aliases.insert(target_string.clone(), {
+                                let mut group: Alias = HashMap::new();
 
-                            modules.insert(module_key.clone(), inner);
+                                group.insert(
+                                    module.name.clone(),
+                                    ModuleInner {
+                                        name: module_key.clone(),
+                                        module_type: module.module_type.clone(),
+                                    },
+                                );
+
+                                group
+                            });
                         }
                     }
                 } else if module.module_type.eq(&ModuleType::Pipeline) {
-                    let inner = ModuleInner::new(
-                        module_key.clone(),
-                        module.module_type.clone(),
-                        None,
-                        Some((target_string.clone(), module.name.clone())),
-                    );
+                    aliases.insert(target_string.clone(), {
+                        let mut group: Alias = HashMap::new();
 
-                    modules.insert(module_key.clone(), inner);
+                        group.insert(
+                            module.name.clone(),
+                            ModuleInner {
+                                name: module_key.clone(),
+                                module_type: module.module_type.clone(),
+                            },
+                        );
+
+                        group
+                    });
 
                     if pipelines.get(&module_key).is_none() {
                         let new_target = format!("{}/{}", path_base, module.path);
@@ -218,7 +196,7 @@ impl Runtime {
             }
         }
 
-        Ok((modules, pipelines, main))
+        Ok((pipelines, main, bins, aliases))
     }
 
     fn get_main(&self) -> &Pipeline {
