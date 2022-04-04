@@ -1,8 +1,8 @@
 import {
-    bin "target/release/libprint.so" (
+    bin "../../../target/release/libprint.so" (
         name="print"
     )
-     bin "target/release/liblink.so" (
+     bin "../../../target/release/liblink.so" (
         name="link"
     )
     mod "../helpers/concat" ()

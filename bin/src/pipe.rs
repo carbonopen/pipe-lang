@@ -48,11 +48,16 @@ pub struct Module {
 impl Module {
     fn new(value: &Value, module_type: ModuleType) -> Self {
         let mut params = value.to_object().unwrap();
-        let path = params
+        let mut path = params
             .remove(module_type.get_name())
             .unwrap()
             .to_string()
             .unwrap();
+
+        if module_type.eq(&ModuleType::Pipeline) {
+            path += ".pipe";
+        }
+
         params.insert("path".to_string(), Value::String(path.clone()));
 
         let name = match params.get("name") {

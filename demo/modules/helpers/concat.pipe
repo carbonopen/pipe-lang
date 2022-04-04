@@ -1,6 +1,6 @@
 import {
-    bin "target/release/libprint.so" (
-        name="print"
+    bin "../../../target/release/libprint.so" (
+        name="echo"
     )
 }
 
@@ -10,7 +10,7 @@ args {
 }
 
 pipeline {
-    print {
+    echo {
         text=${ args.item1 + " " + args.item2}
     }
 }
