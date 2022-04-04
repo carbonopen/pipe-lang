@@ -1,7 +1,7 @@
 use libloading::{Library, Symbol};
 use pipe_core::{
     log,
-    modules::{Config, History, Module, ModuleContact, Request, Response, ID},
+    modules::{History, Module, ModuleContact, Request, Response, ID},
 };
 use pipe_parser::{Error as PipeParseError, Pipe as PipeParse};
 use std::{
@@ -50,21 +50,12 @@ type Pipelines = HashMap<String, Pipeline>;
 type Aliases = HashMap<String, Alias>;
 type Bins = HashMap<String, Box<dyn Module>>;
 
+#[derive(Debug)]
 pub struct Runtime {
     pipelines: Pipelines,
     bins: Bins,
     alias: Aliases,
     main: String,
-}
-
-impl Debug for Runtime {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Runtime")
-            .field("pipelines", &self.pipelines)
-            .field("main", &self.main)
-            .field("alias", &self.alias)
-            .finish()
-    }
 }
 
 impl Runtime {
@@ -117,6 +108,8 @@ impl Runtime {
             pipelines.insert(target_string.clone(), Pipeline::new(pipe.clone()));
 
             for module in pipe.modules.unwrap().iter() {
+                println!("---> {:?}", module);
+
                 let module_key = PathBuf::from_str(&format!("{}/{}", path_base, module.path))
                     .unwrap()
                     .canonicalize()
@@ -124,6 +117,33 @@ impl Runtime {
                     .to_str()
                     .unwrap()
                     .to_string();
+
+                match aliases.get_mut(&target_string) {
+                    Some(group) => {
+                        group.insert(
+                            module.name.clone(),
+                            ModuleInner {
+                                name: module_key.clone(),
+                                module_type: module.module_type.clone(),
+                            },
+                        );
+                    }
+                    None => {
+                        aliases.insert(target_string.clone(), {
+                            let mut group: Alias = HashMap::new();
+
+                            group.insert(
+                                module.name.clone(),
+                                ModuleInner {
+                                    name: module_key.clone(),
+                                    module_type: module.module_type.clone(),
+                                },
+                            );
+
+                            group
+                        });
+                    }
+                }
 
                 if module.module_type.eq(&ModuleType::Bin) {
                     if bins.get(&module_key).is_none() {
@@ -140,48 +160,7 @@ impl Runtime {
 
                         bins.insert(module_key.clone(), bin);
                     }
-
-                    match aliases.get_mut(&target_string) {
-                        Some(group) => {
-                            group.insert(
-                                module.name.clone(),
-                                ModuleInner {
-                                    name: module_key.clone(),
-                                    module_type: module.module_type.clone(),
-                                },
-                            );
-                        }
-                        None => {
-                            aliases.insert(target_string.clone(), {
-                                let mut group: Alias = HashMap::new();
-
-                                group.insert(
-                                    module.name.clone(),
-                                    ModuleInner {
-                                        name: module_key.clone(),
-                                        module_type: module.module_type.clone(),
-                                    },
-                                );
-
-                                group
-                            });
-                        }
-                    }
                 } else if module.module_type.eq(&ModuleType::Pipeline) {
-                    aliases.insert(target_string.clone(), {
-                        let mut group: Alias = HashMap::new();
-
-                        group.insert(
-                            module.name.clone(),
-                            ModuleInner {
-                                name: module_key.clone(),
-                                module_type: module.module_type.clone(),
-                            },
-                        );
-
-                        group
-                    });
-
                     if pipelines.get(&module_key).is_none() {
                         let new_target = format!("{}/{}", path_base, module.path);
                         targets.push(new_target)
@@ -189,11 +168,9 @@ impl Runtime {
                 }
             }
 
-            targets.remove(index);
+            println!("");
 
-            if targets.len() == 0 {
-                break;
-            }
+            targets.remove(index);
         }
 
         Ok((pipelines, main, bins, aliases))
@@ -205,7 +182,7 @@ impl Runtime {
 
     pub fn start(&self) {
         println!("START");
-        println!("{:#?}", self);
+        println!("{:#?}", self.alias);
     }
 }
 
