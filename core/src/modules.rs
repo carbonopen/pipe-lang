@@ -86,7 +86,7 @@ impl History {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Request {
     pub origin: ID,
@@ -137,7 +137,7 @@ pub struct Return {
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct ModuleContact {
+pub struct ModuleSender {
     pub tx: Sender<Request>,
     pub id: ID,
 }
@@ -151,24 +151,44 @@ pub struct ResponseComplete {
 
 pub type ID = u32;
 
+pub trait ModuleClone {
+    fn clone_box(&self) -> Box<dyn Module>;
+}
+
+impl<T> ModuleClone for T
+where
+    T: 'static + Module + Clone,
+{
+    fn clone_box(&self) -> Box<dyn Module> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn Module> {
+    fn clone(&self) -> Box<dyn Module> {
+        self.clone_box()
+    }
+}
+
 #[allow(dead_code)]
-pub trait Module: Any + Send {
-    fn requests(&self, id: ID, request: Sender<ModuleContact>) -> Listener {
+pub trait Module: Any + Send + ModuleClone {
+    fn requests(&self, id: ID, request: Sender<ModuleSender>) -> Listener {
         let (tx_req, rx_req): (Sender<Request>, Listener) = channel();
-        request.send(ModuleContact { tx: tx_req, id }).unwrap();
+        request.send(ModuleSender { tx: tx_req, id }).unwrap();
         rx_req
     }
+
     fn start(
         &self,
         _id: ID,
-        _request: Sender<ModuleContact>,
+        _request: Sender<ModuleSender>,
         _response: Sender<Response>,
         _config: Config,
     ) {
     }
 }
 
-impl Debug for Module {
+impl Debug for dyn Module {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Module").finish()
     }
@@ -222,14 +242,14 @@ macro_rules! declare_module {
 #[macro_export]
 macro_rules! create_module_raw {
     ($handler:ident) => {
-        #[derive(Debug, Default)]
+        #[derive(Debug, Default, Clone)]
         pub struct Custom {}
 
         impl $crate::modules::Module for Custom {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleContact>,
+                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {
@@ -251,7 +271,7 @@ macro_rules! create_module_producer {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleContact>,
+                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {
@@ -281,14 +301,14 @@ macro_rules! create_module_producer {
 #[macro_export]
 macro_rules! create_module {
     ($handler:ident) => {
-        #[derive(Debug, Default)]
+        #[derive(Debug, Default, Clone)]
         pub struct Custom {}
 
         impl $crate::modules::Module for Custom {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleContact>,
+                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {
@@ -322,7 +342,7 @@ macro_rules! create_module_listener {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleContact>,
+                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {
