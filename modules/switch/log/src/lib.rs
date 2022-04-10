@@ -59,7 +59,7 @@ pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                 None => "info".to_string(),
             };
 
-            let options = match config.module_params.get("output") {
+            let options = match config.module_setup_params.get("output") {
                 Some(value) => match value.as_object() {
                     Some(value) => value.clone(),
                     None => panic!("Error loading module settings."),

@@ -18,7 +18,7 @@ pub struct Config {
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
-    pub module_params: HashMap<String, Value>,
+    pub module_setup_params: HashMap<String, Value>,
     pub args: HashMap<String, Value>,
 }
 

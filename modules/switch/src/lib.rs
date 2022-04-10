@@ -130,7 +130,7 @@ mod tests {
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_params: Default::default(),
+            module_setup_params: Default::default(),
             args: Default::default(),
         };
         let payload = Ok(Some(json!({
@@ -161,7 +161,7 @@ mod tests {
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_params: Default::default(),
+            module_setup_params: Default::default(),
             args: Default::default(),
         };
         let payload = Ok(Some(Value::default()));

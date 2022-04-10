@@ -14,11 +14,17 @@ use std::{sync::mpsc, thread};
 
 use crate::pipe::{ModuleType, Pipe};
 use crate::pipeline::Pipeline;
+
 #[derive(Debug, Clone)]
 pub struct ModuleInner {
     pub name: String,
     pub module_type: ModuleType,
 }
+
+type Alias = HashMap<String, ModuleInner>;
+type Pipelines = HashMap<String, Pipeline>;
+type Aliases = HashMap<String, Alias>;
+type Bins = HashMap<String, String>;
 
 #[derive(Debug, Clone)]
 pub struct Modules {
@@ -36,11 +42,6 @@ impl Modules {
     }
 }
 
-type Alias = HashMap<String, ModuleInner>;
-type Pipelines = HashMap<String, Pipeline>;
-type Aliases = HashMap<String, Alias>;
-type Bins = HashMap<String, String>;
-
 #[derive(Debug)]
 pub struct PipelineResponse {
     pub payload: Result<Option<Value>, Option<Value>>,
@@ -50,7 +51,7 @@ pub struct PipelineResponse {
 }
 
 #[derive(Debug, Clone)]
-pub struct PipelineSender {
+pub struct PipelineSetup {
     pub tx: Sender<Request>,
     pub id: u32,
 }
@@ -169,19 +170,16 @@ impl Runtime {
     }
 
     pub fn start(&self) {
-        debug!("START");
-
-        let (sender_pipeline, receiver_pipeline): (
-            Sender<PipelineSender>,
-            Receiver<PipelineSender>,
-        ) = mpsc::channel();
+        let (sender_pipeline, receiver_pipeline): (Sender<PipelineSetup>, Receiver<PipelineSetup>) =
+            mpsc::channel();
         let (sender_control, receiver_control): (
             Sender<PipelineResponse>,
             Receiver<PipelineResponse>,
         ) = mpsc::channel();
 
         let pipes = self.pipelines.clone();
-        let modules = unsafe { self.modules.clone() };
+        let modules = self.modules.clone();
+
         for key in self.pipelines_keys.iter() {
             let pipeline = pipes.get(key).unwrap().clone();
             let modules = modules.clone();
@@ -198,6 +196,7 @@ impl Runtime {
 
         let mut pipeline_senders = HashMap::new();
         let mut pipelines_done = self.pipelines_keys.len() - 1;
+
         for pipeline_sender in receiver_pipeline {
             pipeline_senders.insert(pipeline_sender.id, pipeline_sender.tx);
 
@@ -220,17 +219,5 @@ impl Runtime {
                 Err(err) => panic!("{:?}", err),
             }
         }
-
-        debug!("END");
-
-        // println!("done");
-
-        // for sender in self.receiver {
-        //     senders.insert(sender.id, sender.tx);
-        // }
-
-        // println!("{:?}", senders);
-
-        // for response in self.receiver_control {}
     }
 }

@@ -106,7 +106,7 @@ mod tests {
             producer: true,
             default_attach: None,
             tags: Default::default(),
-            module_params: Default::default(),
+            module_setup_params: Default::default(),
             args: Default::default(),
         };
 

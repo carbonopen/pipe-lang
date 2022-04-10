@@ -3,7 +3,7 @@ import {
 }
 
 pipeline {
-    my_name {
+    name {
         first_name="Philippe"
         first_name="Assis"
     }

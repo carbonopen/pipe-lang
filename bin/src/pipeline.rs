@@ -13,8 +13,8 @@ use std::{
 use std::{sync::mpsc, thread};
 
 use crate::{
-    pipe::Pipe,
-    runtime::{Modules, PipelineResponse, PipelineSender},
+    pipe::{ModuleType, Pipe},
+    runtime::{Modules, PipelineResponse, PipelineSetup},
 };
 
 #[derive(Default, Clone)]
@@ -53,14 +53,17 @@ impl Pipeline {
     pub fn start(
         &self,
         modules: Modules,
-        sender_module_global: Sender<PipelineSender>,
-        _sender_response_global: Sender<PipelineResponse>,
+        sender_setup_runtime: Sender<PipelineSetup>,
+        sender_response_runtime: Sender<PipelineResponse>,
     ) -> Result<(), ()> {
-        let (sender_local, _receiver_local): (Sender<Request>, Receiver<Request>) = mpsc::channel();
+        let (sender_request_runtime, receiver_response_runtime): (
+            Sender<Request>,
+            Receiver<Request>,
+        ) = mpsc::channel();
 
-        if sender_module_global
-            .send(PipelineSender {
-                tx: sender_local.clone(),
+        if sender_setup_runtime
+            .send(PipelineSetup {
+                tx: sender_request_runtime.clone(),
                 id: self.id,
             })
             .is_err()
@@ -86,11 +89,30 @@ impl Pipeline {
             None => HashMap::default(),
         };
 
+        let mut pipelines = HashMap::new();
+
         for step in self.pipe.pipeline.iter() {
             let step = step.clone();
+            let module_name = step.module;
+
+            let current_module = match module_by_name.get(&module_name) {
+                Some(a) => a,
+                None => {
+                    log::error!(r#"Module ¨"{}" not load in "{}""#, module_name, self.key);
+                    continue;
+                }
+            };
+            let module_inner = modules.get(&self.key, &current_module.name);
+
+            if module_inner.module_type.eq(&ModuleType::Pipeline) {
+                pipelines.insert(module_name, ());
+                continue;
+            }
+
+            let module_setup_params = current_module.params.clone();
+
             let response = tx_control.clone();
             let request = tx_senders.clone();
-            let module_name = step.module;
             let reference = match step.reference {
                 Some(reference) => reference,
                 None => format!("step-{}", &module_id),
@@ -101,9 +123,7 @@ impl Pipeline {
             let params = step.params;
             let producer = step.tags.get("producer").is_some();
             let default_attach = step.attach;
-            let current_module = module_by_name.get(&module_name).unwrap().clone();
-            let modules = modules.clone();
-            let module_inner = modules.get(&self.key, &current_module.name);
+            let bin_key = modules.get_bin_key(&module_inner.name);
 
             log::trace!(
                 "Starting step {}, module_id: {}.",
@@ -111,50 +131,43 @@ impl Pipeline {
                 module_id
             );
 
-            {
-                let module_id = module_id.clone();
+            let id = module_id.clone();
+            let tags = step.tags.clone();
+            let args = step.args.clone();
+            let reference = reference.clone();
 
-                let tags = step.tags.clone();
-                let args = step.args.clone();
-                let reference = reference.clone();
-                let module_params = current_module.params.clone();
+            thread::spawn(move || {
+                let lib = match Library::new(bin_key.clone()) {
+                    Ok(lib) => lib,
+                    Err(err) => panic!("Error: {}; Filename: {}", err, bin_key),
+                };
+                let bin = unsafe {
+                    let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
+                        lib.get(b"_Module").unwrap();
+                    let boxed_raw = constructor();
+                    Box::from_raw(boxed_raw)
+                };
 
-                thread::spawn(move || {
-                    let bin = modules.get_bin_key(&module_inner.name);
-
-                    let lib = match Library::new(bin.clone()) {
-                        Ok(lib) => lib,
-                        Err(err) => panic!("Error: {}; Filename: {}", err, bin),
-                    };
-                    let bin = unsafe {
-                        let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
-                            lib.get(b"_Module").unwrap();
-                        let boxed_raw = constructor();
-                        Box::from_raw(boxed_raw)
-                    };
-
-                    bin.start(
-                        module_id,
-                        request,
-                        response,
-                        Config {
-                            reference,
-                            params,
-                            producer,
-                            default_attach,
-                            tags,
-                            module_params,
-                            args,
-                        },
-                    );
-                });
-            }
+                bin.start(
+                    id,
+                    request,
+                    response,
+                    Config {
+                        reference,
+                        params,
+                        producer,
+                        default_attach,
+                        tags,
+                        module_setup_params,
+                        args,
+                    },
+                );
+            });
 
             module_id = module_id + 1;
         }
 
         let mut senders = HashMap::new();
-        debug!("INIT pos");
 
         for sender in rx_senders {
             senders.insert(sender.id, sender.tx);
@@ -162,7 +175,6 @@ impl Pipeline {
                 break;
             }
         }
-        debug!("INIT ssss");
 
         let history = Arc::new(Mutex::new(History::new()));
 
