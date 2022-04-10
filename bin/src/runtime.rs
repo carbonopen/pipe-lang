@@ -1,11 +1,10 @@
-use libloading::{Library, Symbol};
 use pipe_core::{
     debug,
-    modules::{Module, Request, ID},
+    modules::{Request, ID},
 };
 use pipe_parser::Pipe as PipeParse;
 use serde_json::Value;
-use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use std::{collections::HashMap, fmt::Debug};
 use std::{
     path::PathBuf,
     str::FromStr,
@@ -32,7 +31,7 @@ impl Modules {
         self.aliases.get(owner).unwrap().get(alias).unwrap().clone()
     }
 
-    pub(crate) fn get_bin(&self, key: &str) -> Bin {
+    pub(crate) fn get_bin_key(&self, key: &str) -> String {
         self.bins.get(key).unwrap().clone()
     }
 }
@@ -40,29 +39,7 @@ impl Modules {
 type Alias = HashMap<String, ModuleInner>;
 type Pipelines = HashMap<String, Pipeline>;
 type Aliases = HashMap<String, Alias>;
-type Bins = HashMap<String, Bin>;
-
-#[derive(Debug, Clone)]
-pub struct Bin {
-    pub key: String,
-}
-
-impl Bin {
-    pub fn extract(&self) -> Box<dyn Module> {
-        let lib = match Library::new(self.key.clone()) {
-            Ok(lib) => lib,
-            Err(err) => panic!("Error: {}; Filename: {}", err, self.key.clone()),
-        };
-        let bin = unsafe {
-            let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
-                lib.get(b"_Module").unwrap();
-            let boxed_raw = constructor();
-            Box::from_raw(boxed_raw)
-        };
-
-        bin
-    }
-}
+type Bins = HashMap<String, String>;
 
 #[derive(Debug)]
 pub struct PipelineResponse {
@@ -166,12 +143,7 @@ impl Runtime {
 
                 if module.module_type.eq(&ModuleType::Bin) {
                     if bins.get(&module_key).is_none() {
-                        bins.insert(
-                            module_key.clone(),
-                            Bin {
-                                key: module_key.clone(),
-                            },
-                        );
+                        bins.insert(module_key.clone(), module_key.clone());
                     }
                 } else if module.module_type.eq(&ModuleType::Pipeline) {
                     if pipelines.get(&module_key).is_none() {

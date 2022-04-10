@@ -1,7 +1,7 @@
 use libloading::{Library, Symbol};
 use pipe_core::{
     debug, log,
-    modules::{BinSender, Config, History, Request, Response, ID, Module},
+    modules::{BinSender, Config, History, Module, Request, Response, ID},
 };
 
 use std::sync::mpsc::{Receiver, Sender};
@@ -120,11 +120,11 @@ impl Pipeline {
                 let module_params = current_module.params.clone();
 
                 thread::spawn(move || {
-                    let bin = modules.get_bin(&module_inner.name);
+                    let bin = modules.get_bin_key(&module_inner.name);
 
-                    let lib = match Library::new(bin.key.clone()) {
+                    let lib = match Library::new(bin.clone()) {
                         Ok(lib) => lib,
-                        Err(err) => panic!("Error: {}; Filename: {}", err, bin.key.clone()),
+                        Err(err) => panic!("Error: {}; Filename: {}", err, bin),
                     };
                     let bin = unsafe {
                         let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
