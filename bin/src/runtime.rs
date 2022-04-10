@@ -44,7 +44,7 @@ type Bins = HashMap<String, Bin>;
 
 #[derive(Debug, Clone)]
 pub struct Bin {
-    key: String,
+    pub key: String,
 }
 
 impl Bin {

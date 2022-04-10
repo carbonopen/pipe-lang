@@ -1,6 +1,7 @@
+use libloading::{Library, Symbol};
 use pipe_core::{
     debug, log,
-    modules::{BinSender, Config, History, Request, Response, ID},
+    modules::{BinSender, Config, History, Request, Response, ID, Module},
 };
 
 use std::sync::mpsc::{Receiver, Sender};
@@ -119,7 +120,18 @@ impl Pipeline {
                 let module_params = current_module.params.clone();
 
                 thread::spawn(move || {
-                    let bin = modules.get_bin(&module_inner.name).extract();
+                    let bin = modules.get_bin(&module_inner.name);
+
+                    let lib = match Library::new(bin.key.clone()) {
+                        Ok(lib) => lib,
+                        Err(err) => panic!("Error: {}; Filename: {}", err, bin.key.clone()),
+                    };
+                    let bin = unsafe {
+                        let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
+                            lib.get(b"_Module").unwrap();
+                        let boxed_raw = constructor();
+                        Box::from_raw(boxed_raw)
+                    };
 
                     bin.start(
                         module_id,
