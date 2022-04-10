@@ -1,4 +1,5 @@
 mod pipe;
+mod pipeline;
 pub mod pos_parse;
 mod runtime;
 mod to_file;

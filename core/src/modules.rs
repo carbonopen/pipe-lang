@@ -137,7 +137,7 @@ pub struct Return {
 
 #[derive(Debug)]
 #[allow(dead_code)]
-pub struct ModuleSender {
+pub struct BinSender {
     pub tx: Sender<Request>,
     pub id: ID,
 }
@@ -151,37 +151,18 @@ pub struct ResponseComplete {
 
 pub type ID = u32;
 
-pub trait ModuleClone {
-    fn clone_box(&self) -> Box<dyn Module>;
-}
-
-impl<T> ModuleClone for T
-where
-    T: 'static + Module + Clone,
-{
-    fn clone_box(&self) -> Box<dyn Module> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn Module> {
-    fn clone(&self) -> Box<dyn Module> {
-        self.clone_box()
-    }
-}
-
 #[allow(dead_code)]
-pub trait Module: Any + Send + ModuleClone {
-    fn requests(&self, id: ID, request: Sender<ModuleSender>) -> Listener {
+pub trait Module: Any + Send {
+    fn requests(&self, id: ID, request: Sender<BinSender>) -> Listener {
         let (tx_req, rx_req): (Sender<Request>, Listener) = channel();
-        request.send(ModuleSender { tx: tx_req, id }).unwrap();
+        request.send(BinSender { tx: tx_req, id }).unwrap();
         rx_req
     }
 
     fn start(
         &self,
         _id: ID,
-        _request: Sender<ModuleSender>,
+        _request: Sender<BinSender>,
         _response: Sender<Response>,
         _config: Config,
     ) {
@@ -249,7 +230,7 @@ macro_rules! create_module_raw {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
+                req: $crate::modules::Sender<$crate::modules::BinSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {
@@ -271,7 +252,7 @@ macro_rules! create_module_producer {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
+                req: $crate::modules::Sender<$crate::modules::BinSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {
@@ -308,7 +289,7 @@ macro_rules! create_module {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
+                req: $crate::modules::Sender<$crate::modules::BinSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {
@@ -342,7 +323,7 @@ macro_rules! create_module_listener {
             fn start(
                 &self,
                 module_id: $crate::modules::ID,
-                req: $crate::modules::Sender<$crate::modules::ModuleSender>,
+                req: $crate::modules::Sender<$crate::modules::BinSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
                 config: $crate::modules::Config,
             ) {

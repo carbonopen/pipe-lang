@@ -1,14 +1,11 @@
 use libloading::{Library, Symbol};
 use pipe_core::{
-    log,
-    modules::{Config, History, Module, ModuleSender, Request, Response, ID},
+    debug,
+    modules::{Module, Request, ID},
 };
 use pipe_parser::Pipe as PipeParse;
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    sync::{Arc, Mutex},
-};
+use serde_json::Value;
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use std::{
     path::PathBuf,
     str::FromStr,
@@ -17,36 +14,15 @@ use std::{
 use std::{sync::mpsc, thread};
 
 use crate::pipe::{ModuleType, Pipe};
-
-#[derive(Default, Clone)]
-struct Reference {
-    name_to_id: HashMap<String, u32>,
-    id_to_name: HashMap<u32, String>,
-}
-
-impl Reference {
-    pub fn add(&mut self, name: String, id: u32) {
-        self.name_to_id.insert(name.clone(), id);
-        self.id_to_name.insert(id, name);
-    }
-
-    pub fn get_by_name(&self, name: &str) -> u32 {
-        self.name_to_id.get(name).unwrap().clone()
-    }
-
-    pub fn get_by_id(&self, id: u32) -> String {
-        self.id_to_name.get(&id).unwrap().clone()
-    }
+use crate::pipeline::Pipeline;
+#[derive(Debug, Clone)]
+pub struct ModuleInner {
+    pub name: String,
+    pub module_type: ModuleType,
 }
 
 #[derive(Debug, Clone)]
-struct ModuleInner {
-    name: String,
-    module_type: ModuleType,
-}
-
-#[derive(Debug, Clone)]
-struct Modules {
+pub struct Modules {
     pub bins: Bins,
     aliases: Aliases,
 }
@@ -56,7 +32,7 @@ impl Modules {
         self.aliases.get(owner).unwrap().get(alias).unwrap().clone()
     }
 
-    pub(crate) fn get_bin(&self, key: &str) -> Box<dyn Module> {
+    pub(crate) fn get_bin(&self, key: &str) -> Bin {
         self.bins.get(key).unwrap().clone()
     }
 }
@@ -64,15 +40,50 @@ impl Modules {
 type Alias = HashMap<String, ModuleInner>;
 type Pipelines = HashMap<String, Pipeline>;
 type Aliases = HashMap<String, Alias>;
-type Bins = HashMap<String, Box<dyn Module>>;
+type Bins = HashMap<String, Bin>;
+
+#[derive(Debug, Clone)]
+pub struct Bin {
+    key: String,
+}
+
+impl Bin {
+    pub fn extract(&self) -> Box<dyn Module> {
+        let lib = match Library::new(self.key.clone()) {
+            Ok(lib) => lib,
+            Err(err) => panic!("Error: {}; Filename: {}", err, self.key.clone()),
+        };
+        let bin = unsafe {
+            let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
+                lib.get(b"_Module").unwrap();
+            let boxed_raw = constructor();
+            Box::from_raw(boxed_raw)
+        };
+
+        bin
+    }
+}
+
+#[derive(Debug)]
+pub struct PipelineResponse {
+    pub payload: Result<Option<Value>, Option<Value>>,
+    pub attach: u32,
+    pub origin: u32,
+    pub trace_id: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct PipelineSender {
+    pub tx: Sender<Request>,
+    pub id: u32,
+}
 
 #[derive(Debug)]
 pub struct Runtime {
     pipelines: Pipelines,
+    pipelines_keys: Vec<String>,
     modules: Modules,
     main: String,
-    receiver: Receiver<ModuleSender>,
-    receiver_control: Receiver<Response>,
 }
 
 impl Runtime {
@@ -82,10 +93,7 @@ impl Runtime {
         let mut aliases: Aliases = HashMap::new();
         let mut pipelines: Pipelines = HashMap::new();
         let mut bins: Bins = HashMap::new();
-        let (sender, receiver): (Sender<ModuleSender>, Receiver<ModuleSender>) = mpsc::channel();
-        let (sender_control, receiver_control): (Sender<Response>, Receiver<Response>) =
-            mpsc::channel();
-
+        let mut pipelines_keys = Vec::new();
         let main = PathBuf::from_str(target)
             .unwrap()
             .canonicalize()
@@ -116,25 +124,18 @@ impl Runtime {
 
             let path_base = target.parent().unwrap().to_str().unwrap();
 
-            pipelines.insert(
-                target_key.clone(),
-                Pipeline::new(
-                    id,
-                    target_key.clone(),
-                    pipe.clone(),
-                    sender.clone(),
-                    sender_control.clone(),
-                ),
-            );
+            let pipeline = Pipeline::new(id, target_key.clone(), pipe.clone());
+            pipelines_keys.push(target_key.clone());
+            pipelines.insert(target_key.clone(), pipeline);
 
             for module in pipe.modules.unwrap().iter() {
-                let module_key = PathBuf::from_str(&format!("{}/{}", path_base, module.path))
-                    .unwrap()
-                    .canonicalize()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
+                let path_raw = format!("{}/{}", path_base, module.path);
+                let module_key = match PathBuf::from_str(&path_raw).unwrap().canonicalize() {
+                    Ok(path) => path.to_str().unwrap().to_string(),
+                    Err(err) => {
+                        panic!("{}: {:?}", path_raw, err);
+                    }
+                };
 
                 match aliases.get_mut(&target_key) {
                     Some(group) => {
@@ -165,18 +166,12 @@ impl Runtime {
 
                 if module.module_type.eq(&ModuleType::Bin) {
                     if bins.get(&module_key).is_none() {
-                        let lib = match Library::new(module_key.clone()) {
-                            Ok(lib) => lib,
-                            Err(err) => panic!("Error: {}; Filename: {}", err, module_key.clone()),
-                        };
-                        let bin = unsafe {
-                            let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
-                                lib.get(b"_Module").unwrap();
-                            let boxed_raw = constructor();
-                            Box::from_raw(boxed_raw)
-                        };
-
-                        bins.insert(module_key.clone(), bin);
+                        bins.insert(
+                            module_key.clone(),
+                            Bin {
+                                key: module_key.clone(),
+                            },
+                        );
                     }
                 } else if module.module_type.eq(&ModuleType::Pipeline) {
                     if pipelines.get(&module_key).is_none() {
@@ -193,246 +188,77 @@ impl Runtime {
             pipelines,
             modules: Modules { bins, aliases },
             main,
-            receiver,
-            receiver_control,
+            pipelines_keys,
         })
     }
 
-    fn get_main(&self) -> &Pipeline {
+    fn _get_main(&self) -> &Pipeline {
         self.pipelines.get(&self.main).unwrap()
     }
 
-    pub fn start(self) {
-        let modules = self.modules.clone();
+    pub fn start(&self) {
+        debug!("START");
 
-        for (_, pipeline) in self.pipelines.iter() {
-            pipeline.start(modules.clone());
+        let (sender_pipeline, receiver_pipeline): (
+            Sender<PipelineSender>,
+            Receiver<PipelineSender>,
+        ) = mpsc::channel();
+        let (sender_control, receiver_control): (
+            Sender<PipelineResponse>,
+            Receiver<PipelineResponse>,
+        ) = mpsc::channel();
+
+        let pipes = self.pipelines.clone();
+        let modules = unsafe { self.modules.clone() };
+        for key in self.pipelines_keys.iter() {
+            let pipeline = pipes.get(key).unwrap().clone();
+            let modules = modules.clone();
+            let sender_pipeline = sender_pipeline.clone();
+            let sender_control = sender_control.clone();
+
+            thread::spawn(move || {
+                match pipeline.start(modules.clone(), sender_pipeline, sender_control) {
+                    Ok(_) => todo!(),
+                    Err(_) => panic!("Pipeline Error: {}", pipeline.key),
+                };
+            });
         }
 
-        let mut senders = HashMap::new();
-        for sender in self.receiver {
-            senders.insert(sender.id, sender.tx);
-        }
+        let mut pipeline_senders = HashMap::new();
+        let mut pipelines_done = self.pipelines_keys.len() - 1;
+        for pipeline_sender in receiver_pipeline {
+            pipeline_senders.insert(pipeline_sender.id, pipeline_sender.tx);
 
-        for response in self.receiver_control {}
-    }
-}
-
-#[derive(Debug)]
-struct Pipeline {
-    id: u32,
-    key: String,
-    pipe: Pipe,
-    sender_msg_global: Sender<Response>,
-    sender_global: Sender<ModuleSender>,
-    sender_local: Sender<Request>,
-    receiver_local: Receiver<Request>,
-}
-
-impl Pipeline {
-    pub(crate) fn new(
-        id: u32,
-        key: String,
-        pipe: Pipe,
-        sender_global: Sender<ModuleSender>,
-        sender_msg_global: Sender<Response>,
-    ) -> Self {
-        let (sender_local, receiver_local): (Sender<Request>, Receiver<Request>) = mpsc::channel();
-
-        Self {
-            id,
-            key,
-            pipe,
-            sender_global,
-            sender_local,
-            receiver_local,
-            sender_msg_global,
-        }
-    }
-
-    pub(crate) async fn start(&self, modules: Modules) -> Result<(), ()> {
-        if self
-            .sender_global
-            .send(ModuleSender {
-                tx: self.sender_local.clone(),
-                id: self.id,
-            })
-            .is_err()
-        {
-            return Err(());
-        }
-
-        let (tx_senders, rx_senders): (Sender<ModuleSender>, Receiver<ModuleSender>) =
-            mpsc::channel();
-        let (tx_control, rx_control): (Sender<Response>, Receiver<Response>) = mpsc::channel();
-        let mut module_id: ID = 0;
-        let mut modules_reference = Reference::default();
-
-        let module_by_name = match self.pipe.modules.clone() {
-            Some(modules) => {
-                let mut result = HashMap::new();
-
-                for module in modules.iter() {
-                    result.insert(module.name.clone(), module.clone());
-                }
-
-                result
-            }
-            None => HashMap::default(),
-        };
-
-        for step in self.pipe.pipeline.iter() {
-            let step = step.clone();
-            let response = tx_control.clone();
-            let request = tx_senders.clone();
-            let module_name = step.module;
-            let reference = match step.reference {
-                Some(reference) => reference,
-                None => format!("step-{}", &module_id),
-            };
-
-            modules_reference.add(reference.clone(), module_id.clone());
-
-            let params = step.params;
-            let producer = step.tags.get("producer").is_some();
-            let default_attach = step.attach;
-            let current_module = module_by_name.get(&module_name).unwrap().clone();
-            let module_inner = modules.get(&self.key, &current_module.name);
-            let bin = modules.get_bin(&module_inner.name);
-
-            log::trace!(
-                "Starting step {}, module_id: {}.",
-                reference.clone(),
-                module_id
-            );
-
-            {
-                let module_id = module_id.clone();
-
-                let tags = step.tags.clone();
-                let args = step.args.clone();
-
-                thread::spawn(move || {
-                    bin.start(
-                        module_id,
-                        request,
-                        response,
-                        Config {
-                            reference: reference.clone(),
-                            params,
-                            producer,
-                            default_attach,
-                            tags,
-                            module_params: current_module.params.clone(),
-                            args,
-                        },
-                    );
-                });
-            }
-
-            module_id = module_id + 1;
-        }
-
-        let mut senders = HashMap::new();
-
-        for sender in rx_senders {
-            log::trace!("Step {} started.", sender.id.clone());
-            senders.insert(sender.id, sender.tx);
-            if (senders.len() as u32) == module_id {
+            if pipelines_done == 0 {
                 break;
             }
+
+            pipelines_done -= 1;
         }
 
-        let history = Arc::new(Mutex::new(History::new()));
-
-        for control in rx_control {
-            log::trace!(
-                "trace_id: {} | Step {} sender: {:?}",
-                control.trace_id,
-                control.origin,
-                control
-            );
-
-            let module_name = modules_reference.get_by_id(control.origin);
-            let mut his_lock = history.lock().unwrap();
-
-            his_lock.insert(control.trace_id, module_name.clone(), control.clone());
-
-            let steps = match his_lock.steps.get(&control.trace_id) {
-                Some(steps) => Some(steps.clone()),
-                None => None,
-            };
-
-            let request = Request {
-                origin: control.origin,
-                payload: control.payload,
-                trace_id: control.trace_id,
-                steps,
-            };
-
-            match control.attach {
-                Some(attach) => {
-                    log::trace!(
-                        "trace_id: {} | Resolving attach: {}",
-                        control.trace_id,
-                        attach.clone()
-                    );
-                    match senders.get(&modules_reference.get_by_name(&attach)) {
-                        Some(module) => {
-                            log::trace!(
-                                "trace_id: {} | Sender from {} to step: {}",
-                                control.trace_id,
-                                control.origin,
-                                module_id
-                            );
-                            match module.send(request) {
-                                Ok(_) => log::trace!(
-                                    "trace_id: {} | Sended from {} to step {}",
-                                    control.trace_id,
-                                    control.origin,
-                                    module_id
-                                ),
-                                Err(err) => log::error!(
-                                    "trace_id: {} |Send Error from {} to {}: {:?}",
-                                    control.trace_id,
-                                    control.origin,
-                                    module_id,
-                                    err
-                                ),
-                            } // TODO: Forçar retorno de erro para o step anterior
-                        }
-                        None => log::warn!(
-                            "trace_id: {} | Reference {} not found",
-                            control.trace_id,
-                            attach
-                        ),
-                    };
-                }
-                None => {
-                    let next_step = control.origin + 1;
-                    log::trace!(
-                        "trace_id: {} | Resolving next step id: {}",
-                        control.trace_id,
-                        next_step
-                    );
-                    match senders.get(&next_step) {
-                        Some(module) => {
-                            module.send(request).unwrap();
-                        }
-                        None if control.origin > 0 => {
-                            log::trace!(
-                                "trace_id: {} |  Step id {} not exist, send to step id 0",
-                                control.trace_id,
-                                next_step
-                            );
-                            senders.get(&0).unwrap().send(request).unwrap();
-                        }
-                        None => (),
-                    };
-                }
+        for pipeline_response in receiver_control {
+            let sender = pipeline_senders.get(&pipeline_response.attach).unwrap();
+            match sender.send(Request {
+                origin: pipeline_response.origin,
+                payload: pipeline_response.payload,
+                steps: None,
+                trace_id: pipeline_response.trace_id,
+            }) {
+                Ok(_) => continue,
+                Err(err) => panic!("{:?}", err),
             }
         }
 
-        Ok(())
+        debug!("END");
+
+        // println!("done");
+
+        // for sender in self.receiver {
+        //     senders.insert(sender.id, sender.tx);
+        // }
+
+        // println!("{:?}", senders);
+
+        // for response in self.receiver_control {}
     }
 }

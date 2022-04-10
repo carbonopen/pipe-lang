@@ -1,21 +1,21 @@
 import {
-    bin "target/release/liblink.so" (
+    bin "../target/release/liblink.so" (
         name="link"
     )
-    bin "target/release/liblog.so" (
+    bin "../target/release/liblog.so" (
         name="log"
         output={
             "type": "stdout"
         }
     )
-    bin "target/release/libexit.so" (
+    bin "../target/release/libexit.so" (
         name="exit"
     )
-    bin "target/release/libswitch.so" (
+    bin "../target/release/libswitch.so" (
         name="switch"
     )
 
-    bin "target/release/libpayload.so" (
+    bin "../target/release/libpayload.so" (
         name="payload"
     )
 }
