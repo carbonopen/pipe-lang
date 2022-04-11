@@ -18,27 +18,6 @@ use crate::{
     runtime::{Modules, PipelineConfig, PipelineResponse, PipelineSetup},
 };
 
-#[derive(Default, Clone)]
-struct Reference {
-    name_to_id: HashMap<String, u32>,
-    id_to_name: HashMap<u32, String>,
-}
-
-impl Reference {
-    pub fn add(&mut self, name: String, id: u32) {
-        self.name_to_id.insert(name.clone(), id);
-        self.id_to_name.insert(id, name);
-    }
-
-    pub fn get_by_name(&self, name: &str) -> u32 {
-        self.name_to_id.get(name).unwrap().clone()
-    }
-
-    pub fn get_by_id(&self, id: u32) -> String {
-        self.id_to_name.get(&id).unwrap().clone()
-    }
-}
-
 #[derive(Debug)]
 pub struct StepConfig {
     pub id: u32,
@@ -76,6 +55,7 @@ impl Step {
 struct Handler {
     pub steps: HashMap<u32, Step>,
     pub history: Arc<Mutex<History>>,
+    pub reference: HashMap<String, u32>,
     total_bins: u32,
 }
 
@@ -85,10 +65,12 @@ impl Handler {
             steps: HashMap::default(),
             history: Arc::new(Mutex::new(History::new())),
             total_bins: 0,
+            reference: HashMap::default(),
         }
     }
 
     pub fn insert_pipeline(&mut self, id: u32, config: StepConfig) {
+        self.reference.insert(config.reference.clone(), id);
         self.steps.insert(
             id,
             Step {
@@ -100,6 +82,7 @@ impl Handler {
     }
 
     pub fn insert_bin(&mut self, id: u32, config: StepConfig) {
+        self.reference.insert(config.reference.clone(), id);
         self.steps.insert(
             id,
             Step {
@@ -115,6 +98,46 @@ impl Handler {
         match self.steps.get_mut(&id) {
             Some(step) => step.sender = Some(sender),
             None => (),
+        }
+    }
+
+    pub fn update_history(
+        &self,
+        response: &Response,
+    ) -> Option<HashMap<String, pipe_core::modules::Step>> {
+        match self.steps.get(&response.origin) {
+            Some(step) => {
+                let mut his_lock = self.history.lock().unwrap();
+
+                his_lock.insert(
+                    response.trace_id,
+                    step.config.reference.clone(),
+                    response.clone(),
+                );
+
+                match his_lock.steps.get(&response.trace_id) {
+                    Some(steps) => Some(steps.clone()),
+                    None => None,
+                }
+            }
+            None => None,
+        }
+    }
+
+    pub fn get_request(&self, response: Response) -> Request {
+        let steps = self.update_history(&response);
+        Request {
+            origin: response.origin,
+            payload: response.payload,
+            trace_id: response.trace_id,
+            steps,
+        }
+    }
+
+    pub fn get_by_reference(&self, reference: &str) -> Option<&Step> {
+        match self.reference.get(reference) {
+            Some(id) => self.steps.get(id),
+            None => None,
         }
     }
 }
@@ -155,7 +178,6 @@ impl Pipeline {
         let (tx_senders, rx_senders): (Sender<BinSender>, Receiver<BinSender>) = mpsc::channel();
         let (tx_control, rx_control): (Sender<Response>, Receiver<Response>) = mpsc::channel();
         let mut module_id: ID = 0;
-        let mut modules_reference = Reference::default();
 
         let module_by_name = match self.pipe.modules.clone() {
             Some(modules) => {
@@ -187,8 +209,6 @@ impl Pipeline {
                 Some(reference) => reference,
                 None => format!("step-{}", &module_id),
             };
-
-            modules_reference.add(reference.clone(), module_id.clone());
 
             let mut params = match step.params {
                 Some(params) => match params.as_object() {
@@ -290,46 +310,18 @@ impl Pipeline {
         }
 
         for control in rx_control {
-            log::trace!(
-                "trace_id: {} | Step {} sender: {:?}",
-                control.trace_id,
-                control.origin,
-                control
-            );
-
-            let module_name = modules_reference.get_by_id(control.origin);
-            let mut his_lock = handler.history.lock().unwrap();
-
-            his_lock.insert(control.trace_id, module_name.clone(), control.clone());
-
-            let steps = match his_lock.steps.get(&control.trace_id) {
-                Some(steps) => Some(steps.clone()),
-                None => None,
-            };
-
-            let request = Request {
-                origin: control.origin,
-                payload: control.payload,
-                trace_id: control.trace_id,
-                steps,
-            };
+            let request = handler.get_request(control.clone());
 
             if let Some(attach) = control.attach {
-                log::trace!(
-                    "trace_id: {} | Resolving attach: {}",
-                    control.trace_id,
-                    attach.clone()
-                );
-
-                let step = handler
-                    .steps
-                    .get(&modules_reference.get_by_name(&attach))
-                    .unwrap();
-
-                match step.send(request) {
-                    Ok(_) => continue,
-                    Err(err) => {
-                        log::error!("{:#?}", err);
+                match handler.get_by_reference(&attach) {
+                    Some(step) => match step.send(request) {
+                        Ok(_) => continue,
+                        Err(err) => {
+                            panic!("{:#?}", err);
+                        }
+                    },
+                    None => {
+                        panic!("Reference {} not found", attach);
                     }
                 };
             } else {
@@ -339,28 +331,21 @@ impl Pipeline {
                     Some(step) => match step.send(request) {
                         Ok(_) => continue,
                         Err(err) => {
-                            log::error!("{:#?}", err);
+                            panic!("{:#?}", err);
                         }
                     },
                     None if control.origin > 0 => {
-                        log::trace!(
-                            "trace_id: {} |  Step id {} not exist, send to step id 0",
-                            control.trace_id,
-                            next_step
-                        );
-
                         match &handler.steps.get(&0) {
                             Some(step) => match step.send(request) {
                                 Ok(_) => continue,
                                 Err(err) => {
-                                    log::error!("{:#?}", err);
+                                    panic!("{:#?}", err);
                                 }
                             },
                             None => {
-                                log::warn!(
+                                panic!(
                                     "trace_id: {} |  Sender by step id {} not exist",
-                                    control.trace_id,
-                                    next_step
+                                    control.trace_id, next_step
                                 );
                             }
                         };
