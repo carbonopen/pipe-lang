@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 
 use pipe_core::{
-    modules::{Config, Listener, Response as CoreResponse, Speaker, TraceId, ID},
+    modules::{Config, Listener, Response as CoreResponse, Speaker, Trace, TraceId, ID},
     serde_json::{json, Map, Value},
 };
 use reqwest::{header::HeaderMap, Client, Method};
@@ -175,7 +175,10 @@ fn request(id: ID, listener: Listener, speaker: Speaker, config: Config) {
                             payload: Ok(Some(result)),
                             attach: attach.clone(),
                             origin: id,
-                            trace_id: trace.lock().unwrap().get_trace(),
+                            trace: Trace::new(
+                                trace.lock().unwrap().get_trace(),
+                                Default::default(),
+                            ),
                         })
                         .unwrap();
                 }
@@ -247,12 +250,11 @@ mod tests {
 
         tx.send(Request {
             origin: 1,
-            trace_id: 1,
+            trace: Trace::new(1, Default::default()),
             payload: Ok(Some(json!({
                 "url": "http://127.0.0.1:10011/other",
             }))),
             steps: None,
-            args: Default::default(),
         })
         .unwrap();
 

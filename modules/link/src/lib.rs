@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate pipe_core;
 
-use pipe_core::modules::{Config, Listener, Return, TraceId};
+use pipe_core::modules::{Config, Listener, Return, Trace, TraceId};
 
 pub fn pipe_link<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     if config.producer {
@@ -10,7 +10,7 @@ pub fn pipe_link<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
         send(Return {
             payload: Ok(None),
             attach: config.default_attach.clone(),
-            trace_id: trace.get_trace(),
+            trace: Trace::new(trace.get_trace(), Default::default()),
         })
     }
 
@@ -18,7 +18,7 @@ pub fn pipe_link<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
         send(Return {
             payload: request.payload,
             attach: config.default_attach.clone(),
-            trace_id: request.trace_id,
+            trace: request.trace,
         })
     }
 }

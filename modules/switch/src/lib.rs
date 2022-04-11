@@ -46,12 +46,13 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     };
 
     'listener: for request in listener {
+        let trace = request.trace.clone();
         macro_rules! send_error {
             ($attach:expr) => {{
                 send(Return {
                     payload: request.payload.clone(),
                     attach: $attach.clone(),
-                    trace_id: request.trace_id,
+                    trace: request.trace.clone(),
                 });
                 continue;
             }};
@@ -59,7 +60,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                 send(Return {
                     payload: Err(Some(Value::from(format!("{}", $err)))),
                     attach: $attach.clone(),
-                    trace_id: request.trace_id,
+                    trace,
                 });
                 continue;
             }};
@@ -73,7 +74,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                             send(Return {
                                 payload: request.payload.clone(),
                                 attach: Some(case.attach.clone()),
-                                trace_id: request.trace_id,
+                                trace,
                             });
                             continue 'listener;
                         }
@@ -82,7 +83,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                     send(Return {
                         payload: request.payload.clone(),
                         attach: switch_default_attach.clone(),
-                        trace_id: request.trace_id,
+                        trace,
                     });
                 }
                 Err(err) => {

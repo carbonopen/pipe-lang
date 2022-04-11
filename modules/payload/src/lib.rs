@@ -2,7 +2,7 @@
 extern crate pipe_core;
 
 use pipe_core::{
-    modules::{Config, Listener, Request, Return, TraceId},
+    modules::{Config, Listener, Request, Return, Trace, TraceId},
     params::Params,
     serde_json::Value,
 };
@@ -18,18 +18,18 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                 Ok(new_payload) => send(Return {
                     payload: Ok(Some(new_payload)),
                     attach: config.default_attach.clone(),
-                    trace_id: trace.get_trace(),
+                    trace: Trace::new(trace.get_trace(), Default::default()),
                 }),
                 Err(err) => send(Return {
                     payload: Err(Some(Value::from(format!("{}", err)))),
                     attach: config.default_attach.clone(),
-                    trace_id: trace.get_trace(),
+                    trace: Trace::new(trace.get_trace(), Default::default()),
                 }),
             },
             Err(err) => send(Return {
                 payload: Err(Some(Value::from(format!("{}", err)))),
                 attach: config.default_attach.clone(),
-                trace_id: trace.get_trace(),
+                trace: Trace::new(trace.get_trace(), Default::default()),
             }),
         }
     }
@@ -40,18 +40,18 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
                 Ok(new_payload) => send(Return {
                     payload: Ok(Some(new_payload)),
                     attach: config.default_attach.clone(),
-                    trace_id: request.trace_id,
+                    trace: request.trace,
                 }),
                 Err(err) => send(Return {
                     payload: Err(Some(Value::from(format!("{}", err)))),
                     attach: config.default_attach.clone(),
-                    trace_id: request.trace_id,
+                    trace: request.trace,
                 }),
             },
             Err(err) => send(Return {
                 payload: Err(Some(Value::from(format!("{}", err)))),
                 attach: config.default_attach.clone(),
-                trace_id: request.trace_id,
+                trace: request.trace,
             }),
         }
     }

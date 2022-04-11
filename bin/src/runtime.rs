@@ -1,4 +1,4 @@
-use pipe_core::modules::{Request, Step, ID};
+use pipe_core::modules::{Request, Step, Trace, ID};
 use pipe_parser::Pipe as PipeParse;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, fmt::Debug};
@@ -61,7 +61,7 @@ pub struct PipelineRequest {
     pub payload: Result<Option<Value>, Option<Value>>,
     pub attach: PipelineTarget,
     pub origin: PipelineTarget,
-    pub trace_id: u32,
+    pub trace: Trace,
     pub steps: Option<HashMap<String, Step>>,
 }
 
@@ -77,7 +77,7 @@ impl PipelineRequest {
                 id: request.origin,
                 key,
             },
-            trace_id: request.trace_id,
+            trace: request.trace,
             steps: request.steps.clone(),
         }
     }
@@ -247,8 +247,7 @@ impl Runtime {
                 origin: pipeline_response.origin.id,
                 payload: pipeline_response.payload,
                 steps: None,
-                trace_id: pipeline_response.trace_id,
-                args: Default::default(),
+                trace: pipeline_response.trace,
             }) {
                 Ok(_) => continue,
                 Err(err) => panic!("{:?}", err),

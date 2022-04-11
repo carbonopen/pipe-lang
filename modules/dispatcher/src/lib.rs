@@ -3,7 +3,7 @@ extern crate pipe_core;
 
 use pipe_core::{
     log,
-    modules::{Config, Listener, Response, Speaker, TraceId, ID},
+    modules::{Config, Listener, Response, Speaker, Trace, TraceId, ID},
     serde_json::Value,
 };
 
@@ -61,7 +61,7 @@ fn dispatcher(id: ID, listener: Listener, speaker: Speaker, config: Config) {
                     speaker_th
                         .send(Response {
                             origin: id,
-                            trace_id,
+                            trace: Trace::new(trace_id, Default::default()),
                             payload: Ok(Some(payload_th.clone())),
                             attach: attach_th.clone(),
                         })
@@ -124,10 +124,9 @@ mod tests {
 
             tx.send(Request {
                 origin: 2,
-                trace_id: response.trace_id,
+                trace: response.trace,
                 payload: Ok(None),
                 steps: None,
-                args: Default::default(),
             })
             .unwrap();
         }

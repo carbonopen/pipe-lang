@@ -246,7 +246,7 @@ impl<'a> Params<'a> {
             None => HashMap::default(),
         };
         let origin = request.origin.clone();
-        let trace_id = request.trace_id.clone();
+        let trace_id = request.trace.trace_id.clone();
 
         match to_dynamic(payload) {
             Ok(value) => {

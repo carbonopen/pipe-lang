@@ -10,6 +10,19 @@ pub use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
 use std::{any::Any, sync::Arc};
 
+#[derive(Debug, Clone, Serialize, Default)]
+#[allow(dead_code)]
+pub struct Trace {
+    pub trace_id: ID,
+    pub args: Args,
+}
+
+impl Trace {
+    pub fn new(trace_id: ID, args: Args) -> Self {
+        Self { trace_id, args }
+    }
+}
+
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Config {
@@ -29,7 +42,7 @@ pub type Args = HashMap<String, Value>;
 pub struct Step {
     pub origin: ID,
     pub payload: Option<Value>,
-    pub trace_id: ID,
+    pub trace: Trace,
 }
 
 #[derive(Debug)]
@@ -45,14 +58,14 @@ impl History {
         }
     }
 
-    pub fn insert(&mut self, trace_id: ID, module_name: String, response: Response) {
+    pub fn insert(&mut self, trace: Trace, module_name: String, response: Response) {
         let content = Step {
             origin: response.origin,
             payload: response.payload.unwrap(),
-            trace_id: response.trace_id,
+            trace: trace.clone(),
         };
 
-        if let Some(step) = self.steps.get_mut(&trace_id) {
+        if let Some(step) = self.steps.get_mut(&trace.trace_id) {
             step.insert(module_name, content);
             return;
         };
@@ -60,7 +73,7 @@ impl History {
         let mut step = HashMap::new();
         step.insert(module_name, content);
 
-        self.steps.insert(trace_id, step);
+        self.steps.insert(trace.trace_id, step);
     }
 }
 
@@ -70,8 +83,7 @@ pub struct Request {
     pub origin: ID,
     pub payload: Payload,
     pub steps: Option<HashMap<String, Step>>,
-    pub trace_id: ID,
-    pub args: Args,
+    pub trace: Trace,
 }
 
 impl Default for Request {
@@ -80,8 +92,7 @@ impl Default for Request {
             origin: Default::default(),
             payload: Ok(None),
             steps: Default::default(),
-            trace_id: Default::default(),
-            args: Default::default(),
+            trace: Default::default(),
         }
     }
 }
@@ -93,6 +104,10 @@ impl Request {
             ..Default::default()
         }
     }
+
+    pub fn set_args(&mut self, args: Args) {
+        self.trace.args = args;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -101,7 +116,7 @@ pub struct Response {
     pub payload: Result<Option<Value>, Option<Value>>,
     pub attach: Option<String>,
     pub origin: ID,
-    pub trace_id: ID,
+    pub trace: Trace,
 }
 
 pub type Listener = Receiver<Request>;
@@ -112,7 +127,7 @@ pub type Speaker = Sender<Response>;
 pub struct Return {
     pub payload: Result<Option<Value>, Option<Value>>,
     pub attach: Option<String>,
-    pub trace_id: ID,
+    pub trace: Trace,
 }
 
 #[derive(Debug)]
@@ -246,7 +261,10 @@ macro_rules! create_module_producer {
                             payload: result.payload,
                             attach: result.attach,
                             origin: module_id,
-                            trace_id: trace.lock().unwrap().get_trace(),
+                            trace: $crate::modules::Trace::new(
+                                trace.lock().unwrap().get_trace(),
+                                result.args,
+                            ),
                         })
                         .unwrap();
                     },
@@ -280,7 +298,7 @@ macro_rules! create_module {
                             payload: result.payload,
                             attach: result.attach,
                             origin: module_id,
-                            trace_id: result.trace_id,
+                            trace: result.trace,
                         })
                         .unwrap();
                     },
@@ -314,6 +332,7 @@ macro_rules! create_module_listener {
                         payload: result.payload,
                         attach: result.attach,
                         origin: module_id,
+                        trace: result.trace,
                     })
                     .unwrap();
                 }
@@ -351,7 +370,7 @@ macro_rules! create_module_assert_eq {
                             payload: result.payload,
                             attach: result.attach,
                             origin: 0,
-                            trace_id: 0,
+                            trace: result.trace,
                         })
                         .unwrap();
                 },
@@ -364,9 +383,8 @@ macro_rules! create_module_assert_eq {
                 .send($crate::modules::Request {
                     payload: $payload,
                     origin: 0,
-                    trace_id: 0,
                     steps: None,
-                    args: Default::default(),
+                    trace: Default::default(),
                 })
                 .unwrap();
         }
@@ -398,7 +416,7 @@ macro_rules! create_module_assert_eq_attach {
                             payload: result.payload,
                             attach: result.attach,
                             origin: 0,
-                            trace_id: 0,
+                            trace: result.trace,
                         })
                         .unwrap();
                 },
@@ -410,9 +428,8 @@ macro_rules! create_module_assert_eq_attach {
             .send($crate::modules::Request {
                 payload: $payload,
                 origin: 0,
-                trace_id: 0,
+                trace: Default::default(),
                 steps: None,
-                args: Default::default(),
             })
             .unwrap();
 

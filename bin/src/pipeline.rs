@@ -18,11 +18,13 @@ use crate::{
     runtime::{Alias, Modules, PipelineRequest, PipelineSetup},
 };
 
+pub type Params = Map<String, Value>;
+
 #[derive(Debug, Clone)]
 pub struct StepConfig {
     pub id: u32,
     pub reference: String,
-    pub params: Map<String, Value>,
+    pub params: Params,
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
@@ -37,10 +39,11 @@ struct Step {
     pub sender: Option<Sender<Request>>,
     pub config: StepConfig,
     pub sender_pipeline: Option<Sender<PipelineRequest>>,
+    pub params: Params,
 }
 
 impl Step {
-    pub fn send(&self, request: Request) -> Result<(), ()> {
+    pub fn send(&self, mut request: Request) -> Result<(), ()> {
         match self.module_type {
             ModuleType::Bin => match &self.sender {
                 Some(sender) => match sender.send(request) {
@@ -51,6 +54,14 @@ impl Step {
             },
             ModuleType::Pipeline => match &self.sender_pipeline {
                 Some(sender) => {
+                    let mut args = HashMap::new();
+
+                    for (key, value) in self.params.iter() {
+                        args.insert(key.clone(), value.clone());
+                    }
+
+                    request.set_args(args);
+
                     match sender.send(PipelineRequest::from_request(
                         self.id,
                         self.key.clone(),
@@ -102,6 +113,7 @@ impl Handler {
                 key,
                 module_type: ModuleType::Pipeline,
                 sender: None,
+                params: config.params.clone(),
                 config,
                 sender_pipeline: Some(self.pipeline_sender.clone()),
             },
@@ -120,6 +132,7 @@ impl Handler {
                 key,
                 module_type: ModuleType::Bin,
                 sender: None,
+                params: config.params.clone(),
                 config,
                 sender_pipeline: None,
             },
@@ -143,12 +156,12 @@ impl Handler {
                 let mut his_lock = self.history.lock().unwrap();
 
                 his_lock.insert(
-                    response.trace_id,
+                    response.trace.clone(),
                     step.config.reference.clone(),
                     response.clone(),
                 );
 
-                match his_lock.steps.get(&response.trace_id) {
+                match his_lock.steps.get(&response.trace.trace_id) {
                     Some(steps) => Some(steps.clone()),
                     None => None,
                 }
@@ -162,9 +175,8 @@ impl Handler {
         Request {
             origin: response.origin,
             payload: response.payload,
-            trace_id: response.trace_id,
             steps,
-            args: Default::default(),
+            trace: response.trace,
         }
     }
 
@@ -287,8 +299,8 @@ impl Pipeline {
                         params,
                         producer,
                         default_attach,
-                        tags,
                         args,
+                        tags,
                     },
                 );
             } else if module_inner.module_type.eq(&ModuleType::Bin) {
@@ -393,7 +405,8 @@ impl Pipeline {
                         None if control.origin > 0 => {
                             let mut lock_pipeline_traces = pipeline_traces_thread.lock().unwrap();
 
-                            if let Some(status) = lock_pipeline_traces.get(&control.trace_id) {
+                            if let Some(status) = lock_pipeline_traces.get(&control.trace.trace_id)
+                            {
                                 if status.eq(&Status::Created) {
                                     lock_pipeline_traces.insert(next_step, Status::Sended);
                                 } else if status.eq(&Status::Sended) {
@@ -422,7 +435,7 @@ impl Pipeline {
                                 None => {
                                     panic!(
                                         "trace_id: {} |  Sender by step id {} not exist",
-                                        control.trace_id, next_step
+                                        control.trace.trace_id, next_step
                                     );
                                 }
                             };
@@ -435,7 +448,7 @@ impl Pipeline {
 
         for request in receiver_request_pipeline {
             let step = handler.steps.get(&0).unwrap();
-            let trace_id = request.trace_id;
+            let trace_id = request.trace.trace_id;
 
             pipeline_traces
                 .lock()

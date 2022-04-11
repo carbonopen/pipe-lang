@@ -4,6 +4,7 @@ extern crate pipe_core;
 use actix_web::http::StatusCode;
 use actix_web::rt::System;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use pipe_core::modules::Trace;
 use pipe_core::{
     log,
     modules::{Config, Listener, Response, Speaker, TraceId, ID},
@@ -183,7 +184,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
                             payload: Ok(Some(payload)),
                             attach: attach.clone(),
                             origin: id,
-                            trace_id: trace_id.clone(),
+                            trace: Trace::new(trace_id.clone(), Default::default()),
                         });
 
                         let response: ContentResponse = rx.recv().unwrap();
@@ -224,7 +225,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
 
     for request_step in listener {
         if let Ok(mut map) = requests_map.lock() {
-            if let Some(sender) = map.get(&request_step.trace_id) {
+            if let Some(sender) = map.get(&request_step.trace.trace_id) {
                 log::trace!("Total request waiting: {}", &map.len());
 
                 let content_response = match request_step.payload {
@@ -251,7 +252,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
                 };
 
                 sender.send(content_response).unwrap();
-                map.remove(&request_step.trace_id);
+                map.remove(&request_step.trace.trace_id);
             } else {
                 log::error!("Sender not found.")
             }
@@ -297,9 +298,8 @@ mod tests {
                 let _ = tx.send(Request {
                     origin: 1,
                     payload: Ok(Some(payload)),
-                    trace_id: request.trace_id,
+                    trace: request.trace,
                     steps: None,
-                    args: Default::default(),
                 });
             });
         };
@@ -450,14 +450,13 @@ mod tests {
         thread::spawn(move || {
             for request in rx {
                 let mut payload = request.payload.unwrap().unwrap();
-                payload["body"] = Value::from(request.trace_id.to_string());
+                payload["body"] = Value::from(request.trace.trace_id.to_string());
 
                 let _ = tx.send(Request {
                     origin: 1,
                     payload: Ok(Some(payload)),
-                    trace_id: request.trace_id,
+                    trace: request.trace,
                     steps: None,
-                    args: Default::default(),
                 });
             }
         });
@@ -515,9 +514,8 @@ mod tests {
                 let _ = tx.send(Request {
                     origin: 1,
                     payload: Ok(Some(payload)),
-                    trace_id: request.trace_id,
+                    trace: request.trace,
                     steps: None,
-                    args: Default::default(),
                 });
             }
         });
@@ -573,9 +571,8 @@ mod tests {
                 let _ = tx.send(Request {
                     origin: 1,
                     payload: Ok(Some(payload)),
-                    trace_id: request.trace_id,
+                    trace: request.trace,
                     steps: None,
-                    args: Default::default(),
                 });
             }
         });
