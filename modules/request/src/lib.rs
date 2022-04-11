@@ -108,7 +108,7 @@ async fn generic_request(method: String, url: String, header: HeaderMap, body: S
 }
 
 fn request(id: ID, listener: Listener, speaker: Speaker, config: Config) {
-    let params = config.clone().params.unwrap();
+    let params = config.params;
     let method = params["method"]
         .as_str()
         .unwrap_or("GET")
@@ -227,14 +227,17 @@ mod tests {
     async fn test_not_producer() {
         let config = Config {
             reference: "test".to_string(),
-            params: Some(json!({
+            params: json!({
                 "url": "http://127.0.0.1:10011/test",
                 "method": "GET"
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
 

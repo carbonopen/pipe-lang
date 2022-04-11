@@ -8,58 +8,53 @@ use pipe_core::{
 };
 
 pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    match config.params {
-        Some(params_raw) => {
-            let mut params = Params::builder(&params_raw, config.args).unwrap();
+    let mut params = Params::builder(&config.params, config.args).unwrap();
 
-            if config.producer {
-                let mut trace = TraceId::new();
+    if config.producer {
+        let mut trace = TraceId::new();
 
-                match params.set_request(&Request::default()) {
-                    Ok(_) => match params.get_value() {
-                        Ok(new_payload) => send(Return {
-                            payload: Ok(Some(new_payload)),
-                            attach: config.default_attach.clone(),
-                            trace_id: trace.get_trace(),
-                        }),
-                        Err(err) => send(Return {
-                            payload: Err(Some(Value::from(format!("{}", err)))),
-                            attach: config.default_attach.clone(),
-                            trace_id: trace.get_trace(),
-                        }),
-                    },
-                    Err(err) => send(Return {
-                        payload: Err(Some(Value::from(format!("{}", err)))),
-                        attach: config.default_attach.clone(),
-                        trace_id: trace.get_trace(),
-                    }),
-                }
-            }
-
-            for request in listener {
-                match params.set_request(&request) {
-                    Ok(_) => match params.get_value() {
-                        Ok(new_payload) => send(Return {
-                            payload: Ok(Some(new_payload)),
-                            attach: config.default_attach.clone(),
-                            trace_id: request.trace_id,
-                        }),
-                        Err(err) => send(Return {
-                            payload: Err(Some(Value::from(format!("{}", err)))),
-                            attach: config.default_attach.clone(),
-                            trace_id: request.trace_id,
-                        }),
-                    },
-                    Err(err) => send(Return {
-                        payload: Err(Some(Value::from(format!("{}", err)))),
-                        attach: config.default_attach.clone(),
-                        trace_id: request.trace_id,
-                    }),
-                }
-            }
+        match params.set_request(&Request::default()) {
+            Ok(_) => match params.get_value() {
+                Ok(new_payload) => send(Return {
+                    payload: Ok(Some(new_payload)),
+                    attach: config.default_attach.clone(),
+                    trace_id: trace.get_trace(),
+                }),
+                Err(err) => send(Return {
+                    payload: Err(Some(Value::from(format!("{}", err)))),
+                    attach: config.default_attach.clone(),
+                    trace_id: trace.get_trace(),
+                }),
+            },
+            Err(err) => send(Return {
+                payload: Err(Some(Value::from(format!("{}", err)))),
+                attach: config.default_attach.clone(),
+                trace_id: trace.get_trace(),
+            }),
         }
-        _ => panic!("No params"),
-    };
+    }
+
+    for request in listener {
+        match params.set_request(&request) {
+            Ok(_) => match params.get_value() {
+                Ok(new_payload) => send(Return {
+                    payload: Ok(Some(new_payload)),
+                    attach: config.default_attach.clone(),
+                    trace_id: request.trace_id,
+                }),
+                Err(err) => send(Return {
+                    payload: Err(Some(Value::from(format!("{}", err)))),
+                    attach: config.default_attach.clone(),
+                    trace_id: request.trace_id,
+                }),
+            },
+            Err(err) => send(Return {
+                payload: Err(Some(Value::from(format!("{}", err)))),
+                attach: config.default_attach.clone(),
+                trace_id: request.trace_id,
+            }),
+        }
+    }
 }
 
 create_module!(payload);
@@ -73,7 +68,7 @@ mod tests {
     fn test_payload() {
         let config = Config {
             reference: "test".parse().unwrap(),
-            params: Some(json!({
+            params: json!({
                 "body" : pipe_param_script!([
                     r#""{\"value\": ""#,
                     "(payload.number)",
@@ -82,11 +77,14 @@ mod tests {
                 "headers": {
                     "content-type": "application/json"
                 }
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
 
@@ -110,7 +108,7 @@ mod tests {
     fn test_payload_quotes() {
         let config = Config {
             reference: "test".parse().unwrap(),
-            params: Some(json!({
+            params: json!({
                 "body" : pipe_param_script!([
                     r#""{\"value\": ""#,
                     "(\"\\\"\" + payload.number + \"\\\"\")",
@@ -119,11 +117,14 @@ mod tests {
                 "headers": {
                     "content-type": "application/json"
                 }
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
 

@@ -65,15 +65,14 @@ struct HttpRequestInner {
 
 fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let sys = System::new("http-server");
-    let params = config.clone().params.unwrap();
-    let params_clone = params.clone();
+    let params_clone = config.params.clone();
     let address = {
-        if params["address"].is_string() {
-            params["address"].as_str().unwrap().to_owned()
-        } else if params["port"].is_number() {
-            format!("127.0.0.1:{}", params["port"].as_i64().unwrap())
-        } else if params["port"].is_string() {
-            format!("127.0.0.1:{}", params["port"].as_str().unwrap())
+        if config.params["address"].is_string() {
+            config.params["address"].as_str().unwrap().to_owned()
+        } else if config.params["port"].is_number() {
+            format!("127.0.0.1:{}", config.params["port"].as_i64().unwrap())
+        } else if config.params["port"].is_string() {
+            format!("127.0.0.1:{}", config.params["port"].as_str().unwrap())
         } else {
             "127.0.0.1:8080".to_owned()
         }
@@ -281,11 +280,11 @@ mod tests {
         ($params:tt, $handler:expr) => {
             let config = Config {
                 reference: "test".to_string(),
-                params: Some(json!($params)),
+                params: json!($params).as_object().unwrap().clone(),
                 producer: false,
                 default_attach: None,
                 tags: Default::default(),
-                module_setup_params: Default::default(),
+
                 args: Default::default(),
             };
 
@@ -430,15 +429,18 @@ mod tests {
     async fn test_multiple_requests() {
         let config = Config {
             reference: "test".to_string(),
-            params: Some(json!({
+            params: json!({
                 "path": "/",
                 "method": "ANY",
                 "port": 9306
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
 
@@ -473,7 +475,7 @@ mod tests {
     async fn test_multiple_paths() {
         let config = Config {
             reference: "test".to_string(),
-            params: Some(json!({
+            params: json!({
                 "route": [
                     {
                         "path": "/foo/fux",
@@ -492,11 +494,14 @@ mod tests {
                     }
                 ],
                 "port": 9307
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
 
@@ -541,15 +546,18 @@ mod tests {
     async fn test_ip() {
         let config = Config {
             reference: "test".to_string(),
-            params: Some(json!({
+            params: json!({
                 "path": "/",
                 "method": "ANY",
                 "port": 9308
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
 

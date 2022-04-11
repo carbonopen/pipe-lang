@@ -1,12 +1,12 @@
+args {
+    item1: String
+    item2: String
+}
+
 import {
     bin "../../../target/release/libprint.so" (
         name="echo"
     )
-}
-
-args {
-    item1: String
-    item2: String
 }
 
 pipeline {

@@ -19,20 +19,19 @@ fn dispatcher(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let trace = TraceId::global();
     let producer = config.producer;
     let attach = config.default_attach.clone();
-    let params = config.get_params_object();
-    let payload = match params.get("payload") {
+    let payload = match config.params.get("payload") {
         Some(payload) => payload.clone(),
         None => Value::from(""),
     };
-    let number_of_dispatch = match params.get("number_of_dispatch") {
+    let number_of_dispatch = match config.params.get("number_of_dispatch") {
         Some(value) => value.as_i64().unwrap_or(1),
         None => 1,
     };
-    let spawn_rate = match params.get("spawn_rate") {
+    let spawn_rate = match config.params.get("spawn_rate") {
         Some(value) => value.as_i64().unwrap_or(1),
         None => 1,
     };
-    let spawn_interval = match params.get("spawn_interval") {
+    let spawn_interval = match config.params.get("spawn_interval") {
         Some(value) => value.as_i64().unwrap_or(1) as u64,
         None => 0,
     };
@@ -98,15 +97,17 @@ mod tests {
     fn test() {
         let config = Config {
             reference: "test".parse().unwrap(),
-            params: Some(json!({
+            params: json!({
                 "number_of_dispatch": 10,
                 "spawn_rate": 1,
                 "spawn_interval": 1000,
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: true,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
             args: Default::default(),
         };
 

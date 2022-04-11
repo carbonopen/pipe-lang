@@ -414,56 +414,54 @@ impl<'a> Params<'a> {
 }
 
 impl<'a> Params<'a> {
-    pub fn builder(target: &Value, args: HashMap<String, Value>) -> Result<Self, Error> {
+    pub fn builder(
+        target: &Map<String, Value>,
+        args: HashMap<String, Value>,
+    ) -> Result<Self, Error> {
         let mut default = HashMap::new();
         let mut params = HashMap::new();
         let engine = Engine::new();
         let re_quotes = Regex::new(r#"\\\\""#).unwrap();
 
-        match target.as_object() {
-            Some(obj) => {
-                for (key, value) in obj.into_iter() {
-                    if let Some(item) = value.as_object() {
-                        if let Some(obj_type_value) = item.get("___PIPE___type") {
-                            if obj_type_value.as_str().unwrap().eq("converter") {
-                                match Self::get_param_by_converter(&engine, &re_quotes, item) {
-                                    Ok(param) => {
-                                        params.insert(key.clone(), param);
-                                    }
-                                    Err(err) => return Err(err),
-                                }
-                            } else if obj_type_value.as_str().unwrap().eq("script") {
-                                match Self::get_param_by_script(&engine, &re_quotes, item) {
-                                    Ok(param) => {
-                                        params.insert(key.clone(), param);
-                                    }
-                                    Err(err) => return Err(err),
-                                }
+        for (key, value) in target.into_iter() {
+            if let Some(item) = value.as_object() {
+                if let Some(obj_type_value) = item.get("___PIPE___type") {
+                    if obj_type_value.as_str().unwrap().eq("converter") {
+                        match Self::get_param_by_converter(&engine, &re_quotes, item) {
+                            Ok(param) => {
+                                params.insert(key.clone(), param);
                             }
+                            Err(err) => return Err(err),
+                        }
+                    } else if obj_type_value.as_str().unwrap().eq("script") {
+                        match Self::get_param_by_script(&engine, &re_quotes, item) {
+                            Ok(param) => {
+                                params.insert(key.clone(), param);
+                            }
+                            Err(err) => return Err(err),
                         }
                     }
-
-                    default.insert(key.clone(), value.clone());
                 }
-
-                let mut scope = Scope::new();
-
-                match to_dynamic(args) {
-                    Ok(value) => {
-                        scope.push_dynamic("args", value);
-                    }
-                    Err(err) => return Err(Error::from(err)),
-                };
-
-                Ok(Self {
-                    default,
-                    params,
-                    engine,
-                    scope,
-                })
             }
-            None => Err(Error::from(ParamError::NoObject)),
+
+            default.insert(key.clone(), value.clone());
         }
+
+        let mut scope = Scope::new();
+
+        match to_dynamic(args) {
+            Ok(value) => {
+                scope.push_dynamic("args", value);
+            }
+            Err(err) => return Err(Error::from(err)),
+        };
+
+        Ok(Self {
+            default,
+            params,
+            engine,
+            scope,
+        })
     }
 }
 #[cfg(test)]
@@ -484,7 +482,10 @@ mod test {
             "param5": pipe_param_convert!("Array", pipe_param_script!(["(payload.array)"])),
             "param6": pipe_param_convert!("Object", pipe_param_script!(["(payload.object)"])),
             "param7": pipe_param_script!([r#""{\"item\": ""#,"(payload.number)", r#""}""#]),
-        });
+        })
+        .as_object()
+        .unwrap()
+        .clone();
 
         let compare = json!({
             "param1": 1,

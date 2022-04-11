@@ -14,34 +14,11 @@ use std::{any::Any, sync::Arc};
 #[allow(dead_code)]
 pub struct Config {
     pub reference: String,
-    pub params: Option<Value>,
+    pub params: Map<String, Value>,
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
-    pub module_setup_params: HashMap<String, Value>,
     pub args: HashMap<String, Value>,
-}
-
-impl Config {
-    pub fn get_params_object(self) -> Map<String, Value> {
-        match self.params {
-            Some(params) => match params.as_object() {
-                Some(params) => params.clone(),
-                None => Map::new(),
-            },
-            None => Map::new(),
-        }
-    }
-
-    pub fn get_params_string(self) -> String {
-        match self.params {
-            Some(params) => match params.as_str() {
-                Some(params) => params.to_string(),
-                None => String::default(),
-            },
-            None => String::default(),
-        }
-    }
 }
 
 pub type Payload = Result<Option<Value>, Option<Value>>;

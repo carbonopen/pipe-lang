@@ -22,81 +22,79 @@ impl Case {
 fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     let switch_default_attach = config.default_attach.clone();
 
-    if let Some(params_raw) = config.params {
-        let mut params = Params::builder(&params_raw, config.args).unwrap();
+    let mut params = Params::builder(&config.params, config.args).unwrap();
 
-        let cases = match params.default.get("case") {
-            Some(case) => match case.as_array() {
-                Some(cases) => {
-                    let mut cases_full = Vec::new();
-                    for case in cases {
-                        let obj = case.as_object().unwrap();
-                        let value_case = obj.get("case").unwrap().clone();
-                        let value_attach = obj.get("attach").unwrap().clone();
+    let cases = match params.default.get("case") {
+        Some(case) => match case.as_array() {
+            Some(cases) => {
+                let mut cases_full = Vec::new();
+                for case in cases {
+                    let obj = case.as_object().unwrap();
+                    let value_case = obj.get("case").unwrap().clone();
+                    let value_attach = obj.get("attach").unwrap().clone();
 
-                        cases_full.push(Case::new(
-                            value_case,
-                            value_attach.as_str().unwrap().to_string(),
-                        ));
-                    }
-                    cases_full
+                    cases_full.push(Case::new(
+                        value_case,
+                        value_attach.as_str().unwrap().to_string(),
+                    ));
                 }
-                _ => panic!("No case"),
-            },
+                cases_full
+            }
             _ => panic!("No case"),
-        };
+        },
+        _ => panic!("No case"),
+    };
 
-        'listener: for request in listener {
-            macro_rules! send_error {
-                ($attach:expr) => {{
+    'listener: for request in listener {
+        macro_rules! send_error {
+            ($attach:expr) => {{
+                send(Return {
+                    payload: request.payload.clone(),
+                    attach: $attach.clone(),
+                    trace_id: request.trace_id,
+                });
+                continue;
+            }};
+            ($attach:expr, $err:expr) => {{
+                send(Return {
+                    payload: Err(Some(Value::from(format!("{}", $err)))),
+                    attach: $attach.clone(),
+                    trace_id: request.trace_id,
+                });
+                continue;
+            }};
+        }
+
+        match params.set_request(&request) {
+            Ok(_) => match params.get_param("target") {
+                Ok(target_value) => {
+                    for case in cases.iter() {
+                        if target_value.eq(&case.case) {
+                            send(Return {
+                                payload: request.payload.clone(),
+                                attach: Some(case.attach.clone()),
+                                trace_id: request.trace_id,
+                            });
+                            continue 'listener;
+                        }
+                    }
+
                     send(Return {
                         payload: request.payload.clone(),
-                        attach: $attach.clone(),
+                        attach: switch_default_attach.clone(),
                         trace_id: request.trace_id,
                     });
-                    continue;
-                }};
-                ($attach:expr, $err:expr) => {{
-                    send(Return {
-                        payload: Err(Some(Value::from(format!("{}", $err)))),
-                        attach: $attach.clone(),
-                        trace_id: request.trace_id,
-                    });
-                    continue;
-                }};
-            }
-
-            match params.set_request(&request) {
-                Ok(_) => match params.get_param("target") {
-                    Ok(target_value) => {
-                        for case in cases.iter() {
-                            if target_value.eq(&case.case) {
-                                send(Return {
-                                    payload: request.payload.clone(),
-                                    attach: Some(case.attach.clone()),
-                                    trace_id: request.trace_id,
-                                });
-                                continue 'listener;
-                            }
-                        }
-
-                        send(Return {
-                            payload: request.payload.clone(),
-                            attach: switch_default_attach.clone(),
-                            trace_id: request.trace_id,
-                        });
-                    }
-                    Err(err) => {
-                        send_error!(switch_default_attach, err);
-                    }
-                },
+                }
                 Err(err) => {
                     send_error!(switch_default_attach, err);
                 }
+            },
+            Err(err) => {
+                send_error!(switch_default_attach, err);
             }
-
-            send_error!(config.default_attach)
         }
+
+        send_error!(config.default_attach)
     }
 }
 
@@ -114,7 +112,7 @@ mod tests {
     fn test_success() {
         let config = Config {
             reference: "test".parse().unwrap(),
-            params: Some(json!({
+            params: json!({
                 "case": [
                     {
                         "case": "foo",
@@ -126,11 +124,14 @@ mod tests {
                     }
                 ],
                 "target": pipe_param_script!(["payload.num"])
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
         let payload = Ok(Some(json!({
@@ -144,7 +145,7 @@ mod tests {
     fn test_error() {
         let config = Config {
             reference: "test".parse().unwrap(),
-            params: Some(json!({
+            params: json!({
                 "case": [
                     {
                         "case": "foo",
@@ -157,11 +158,14 @@ mod tests {
                 ],
                 "target": pipe_param_script!(["payload.num"]),
                 "attach": ""
-            })),
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
-            module_setup_params: Default::default(),
+
             args: Default::default(),
         };
         let payload = Ok(Some(Value::default()));

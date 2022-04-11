@@ -1,9 +1,6 @@
-use pipe_core::{
-    debug,
-    modules::{Request, ID},
-};
+use pipe_core::modules::{Request, ID};
 use pipe_parser::Pipe as PipeParse;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::{collections::HashMap, fmt::Debug};
 use std::{
     path::PathBuf,
@@ -40,6 +37,17 @@ impl Modules {
     pub(crate) fn get_bin_key(&self, key: &str) -> String {
         self.bins.get(key).unwrap().clone()
     }
+}
+
+#[derive(Debug)]
+pub struct PipelineConfig {
+    pub id: u32,
+    pub reference: String,
+    pub params: Map<String, Value>,
+    pub producer: bool,
+    pub default_attach: Option<String>,
+    pub tags: HashMap<String, Value>,
+    pub args: HashMap<String, Value>,
 }
 
 #[derive(Debug)]
