@@ -1,4 +1,4 @@
-use pipe_core::modules::{Request, ID};
+use pipe_core::modules::{Request, Step, ID};
 use pipe_parser::Pipe as PipeParse;
 use serde_json::{Map, Value};
 use std::{collections::HashMap, fmt::Debug};
@@ -14,19 +14,19 @@ use crate::pipeline::Pipeline;
 
 #[derive(Debug, Clone)]
 pub struct ModuleInner {
-    pub name: String,
     pub module_type: ModuleType,
+    pub key: String,
 }
 
-type Alias = HashMap<String, ModuleInner>;
-type Pipelines = HashMap<String, Pipeline>;
-type Aliases = HashMap<String, Alias>;
-type Bins = HashMap<String, String>;
+pub type Alias = HashMap<String, ModuleInner>;
+pub type Pipelines = HashMap<String, Pipeline>;
+pub type Aliases = HashMap<String, Alias>;
+pub type Bins = HashMap<String, String>;
 
 #[derive(Debug, Clone)]
 pub struct Modules {
     pub bins: Bins,
-    aliases: Aliases,
+    pub aliases: Aliases,
 }
 
 impl Modules {
@@ -51,11 +51,36 @@ pub struct PipelineConfig {
 }
 
 #[derive(Debug)]
-pub struct PipelineResponse {
+pub struct PipelineTarget {
+    pub id: u32,
+    pub key: String,
+}
+
+#[derive(Debug)]
+pub struct PipelineRequest {
     pub payload: Result<Option<Value>, Option<Value>>,
-    pub attach: u32,
-    pub origin: u32,
+    pub attach: PipelineTarget,
+    pub origin: PipelineTarget,
     pub trace_id: u32,
+    pub steps: Option<HashMap<String, Step>>,
+}
+
+impl PipelineRequest {
+    pub fn from_request(attach_id: u32, key: String, request: Request) -> Self {
+        Self {
+            payload: request.payload,
+            attach: PipelineTarget {
+                id: attach_id,
+                key: key.clone(),
+            },
+            origin: PipelineTarget {
+                id: request.origin,
+                key,
+            },
+            trace_id: request.trace_id,
+            steps: request.steps.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -128,7 +153,7 @@ impl Runtime {
                         group.insert(
                             module.name.clone(),
                             ModuleInner {
-                                name: module_key.clone(),
+                                key: module_key.clone(),
                                 module_type: module.module_type.clone(),
                             },
                         );
@@ -140,7 +165,7 @@ impl Runtime {
                             group.insert(
                                 module.name.clone(),
                                 ModuleInner {
-                                    name: module_key.clone(),
+                                    key: module_key.clone(),
                                     module_type: module.module_type.clone(),
                                 },
                             );
@@ -181,8 +206,8 @@ impl Runtime {
         let (sender_pipeline, receiver_pipeline): (Sender<PipelineSetup>, Receiver<PipelineSetup>) =
             mpsc::channel();
         let (sender_control, receiver_control): (
-            Sender<PipelineResponse>,
-            Receiver<PipelineResponse>,
+            Sender<PipelineRequest>,
+            Receiver<PipelineRequest>,
         ) = mpsc::channel();
 
         let pipes = self.pipelines.clone();
@@ -216,9 +241,9 @@ impl Runtime {
         }
 
         for pipeline_response in receiver_control {
-            let sender = pipeline_senders.get(&pipeline_response.attach).unwrap();
+            let sender = pipeline_senders.get(&pipeline_response.attach.id).unwrap();
             match sender.send(Request {
-                origin: pipeline_response.origin,
+                origin: pipeline_response.origin.id,
                 payload: pipeline_response.payload,
                 steps: None,
                 trace_id: pipeline_response.trace_id,
