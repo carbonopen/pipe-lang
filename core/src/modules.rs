@@ -18,10 +18,11 @@ pub struct Config {
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
-    pub args: HashMap<String, Value>,
+    pub args: Args,
 }
 
 pub type Payload = Result<Option<Value>, Option<Value>>;
+pub type Args = HashMap<String, Value>;
 
 #[derive(Debug, Clone, Serialize)]
 #[allow(dead_code)]
@@ -70,6 +71,7 @@ pub struct Request {
     pub payload: Payload,
     pub steps: Option<HashMap<String, Step>>,
     pub trace_id: ID,
+    pub args: Args,
 }
 
 impl Default for Request {
@@ -79,6 +81,7 @@ impl Default for Request {
             payload: Ok(None),
             steps: Default::default(),
             trace_id: Default::default(),
+            args: Default::default(),
         }
     }
 }
@@ -363,6 +366,7 @@ macro_rules! create_module_assert_eq {
                     origin: 0,
                     trace_id: 0,
                     steps: None,
+                    args: Default::default(),
                 })
                 .unwrap();
         }
@@ -408,6 +412,7 @@ macro_rules! create_module_assert_eq_attach {
                 origin: 0,
                 trace_id: 0,
                 steps: None,
+                args: Default::default(),
             })
             .unwrap();
 

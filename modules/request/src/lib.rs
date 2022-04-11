@@ -252,6 +252,7 @@ mod tests {
                 "url": "http://127.0.0.1:10011/other",
             }))),
             steps: None,
+            args: Default::default(),
         })
         .unwrap();
 

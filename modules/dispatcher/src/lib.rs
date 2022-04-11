@@ -127,6 +127,7 @@ mod tests {
                 trace_id: response.trace_id,
                 payload: Ok(None),
                 steps: None,
+                args: Default::default(),
             })
             .unwrap();
         }

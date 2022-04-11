@@ -11,7 +11,7 @@ import {
 
 pipeline {
     echo {
-        text=${ args.item1 + " " + args.item2}
+        text=`Result: ${ args.item1 + " " + args.item2}`
     }
 }
 

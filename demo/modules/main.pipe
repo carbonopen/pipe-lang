@@ -1,8 +1,21 @@
 import {
    mod "libs/name" ()
+   bin "../../target/release/liblink.so" (
+        name="link"
+    )
+
+    bin "../../target/release/libprint.so" (
+        name="print"
+    )
 }
 
 pipeline {
+    link {} :producer()
+
+    print {
+        text="Start!"
+    }
+
     name {
         first_name="Philippe"
         first_name="Assis"

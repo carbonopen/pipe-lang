@@ -15,7 +15,7 @@ use std::{sync::mpsc, thread};
 
 use crate::{
     pipe::{ModuleType, Pipe},
-    runtime::{Alias, Aliases, Modules, PipelineRequest, PipelineSetup},
+    runtime::{Alias, Modules, PipelineRequest, PipelineSetup},
 };
 
 #[derive(Debug, Clone)]
@@ -164,6 +164,7 @@ impl Handler {
             payload: response.payload,
             trace_id: response.trace_id,
             steps,
+            args: Default::default(),
         }
     }
 
@@ -173,6 +174,12 @@ impl Handler {
             None => None,
         }
     }
+}
+
+#[derive(PartialEq, Eq)]
+enum Status {
+    Created,
+    Sended,
 }
 
 #[derive(Debug, Clone)]
@@ -335,7 +342,12 @@ impl Pipeline {
             }
         }
 
-        let mut limit_senders = handler.total_bins - 1;
+        let mut limit_senders = if handler.total_bins > 0 {
+            handler.total_bins - 1
+        } else {
+            0
+        };
+
         for sender in rx_senders {
             handler.bin_sender(sender.id, sender.tx);
 
@@ -346,7 +358,8 @@ impl Pipeline {
             limit_senders -= 1;
         }
 
-        let pipeline_traces: Arc<Mutex<HashMap<u32, bool>>> = Arc::new(Mutex::new(HashMap::new()));
+        let pipeline_traces: Arc<Mutex<HashMap<u32, Status>>> =
+            Arc::new(Mutex::new(HashMap::new()));
         let handler_thread = handler.clone();
         let pipeline_traces_thread = pipeline_traces.clone();
         let key_thread = self.key.clone();
@@ -370,53 +383,52 @@ impl Pipeline {
                 } else {
                     let next_step = control.origin + 1;
 
-                    let mut lock_pipeline_traces = pipeline_traces_thread.lock().unwrap();
-
-                    match lock_pipeline_traces.get(&next_step) {
-                        Some(pipeline_trace) => {
-                            if pipeline_trace == &false {
-                                lock_pipeline_traces.insert(next_step, true);
-                            } else {
-                                match sender_request_runtime.send(PipelineRequest::from_request(
-                                    next_step,
-                                    key_thread.clone(),
-                                    request,
-                                )) {
-                                    Ok(_) => continue,
-                                    Err(err) => {
-                                        panic!("{:#?}", err);
-                                    }
-                                };
+                    match handler_thread.steps.get(&next_step) {
+                        Some(step) => match step.send(request) {
+                            Ok(_) => continue,
+                            Err(err) => {
+                                panic!("{:#?}", err);
                             }
-                        }
-                        None => {
-                            match handler_thread.steps.get(&next_step) {
+                        },
+                        None if control.origin > 0 => {
+                            let mut lock_pipeline_traces = pipeline_traces_thread.lock().unwrap();
+
+                            if let Some(status) = lock_pipeline_traces.get(&control.trace_id) {
+                                if status.eq(&Status::Created) {
+                                    lock_pipeline_traces.insert(next_step, Status::Sended);
+                                } else if status.eq(&Status::Sended) {
+                                    match sender_request_runtime.send(
+                                        PipelineRequest::from_request(
+                                            next_step,
+                                            key_thread.clone(),
+                                            request,
+                                        ),
+                                    ) {
+                                        Ok(_) => continue,
+                                        Err(err) => {
+                                            panic!("{:#?}", err);
+                                        }
+                                    };
+                                }
+                            }
+
+                            match &handler_thread.steps.get(&0) {
                                 Some(step) => match step.send(request) {
                                     Ok(_) => continue,
                                     Err(err) => {
                                         panic!("{:#?}", err);
                                     }
                                 },
-                                None if control.origin > 0 => {
-                                    match &handler_thread.steps.get(&0) {
-                                        Some(step) => match step.send(request) {
-                                            Ok(_) => continue,
-                                            Err(err) => {
-                                                panic!("{:#?}", err);
-                                            }
-                                        },
-                                        None => {
-                                            panic!(
-                                                "trace_id: {} |  Sender by step id {} not exist",
-                                                control.trace_id, next_step
-                                            );
-                                        }
-                                    };
+                                None => {
+                                    panic!(
+                                        "trace_id: {} |  Sender by step id {} not exist",
+                                        control.trace_id, next_step
+                                    );
                                 }
-                                None => (),
                             };
                         }
-                    }
+                        None => (),
+                    };
                 }
             }
         });
@@ -425,7 +437,10 @@ impl Pipeline {
             let step = handler.steps.get(&0).unwrap();
             let trace_id = request.trace_id;
 
-            pipeline_traces.lock().unwrap().insert(trace_id, false);
+            pipeline_traces
+                .lock()
+                .unwrap()
+                .insert(trace_id, Status::Created);
 
             match step.send(request) {
                 Ok(_) => continue,

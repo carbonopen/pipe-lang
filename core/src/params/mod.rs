@@ -13,6 +13,8 @@ use serde_json::{Error as SerdeJsonError, Map, Value};
 use crate::modules::Request;
 
 #[derive(Debug)]
+#[allow(dead_code)]
+
 enum ParamError {
     NoObject,
     NotFoundParam,

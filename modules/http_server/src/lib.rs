@@ -299,6 +299,7 @@ mod tests {
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
                     steps: None,
+                    args: Default::default(),
                 });
             });
         };
@@ -456,6 +457,7 @@ mod tests {
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
                     steps: None,
+                    args: Default::default(),
                 });
             }
         });
@@ -515,6 +517,7 @@ mod tests {
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
                     steps: None,
+                    args: Default::default(),
                 });
             }
         });
@@ -557,7 +560,6 @@ mod tests {
             producer: false,
             default_attach: None,
             tags: Default::default(),
-
             args: Default::default(),
         };
 
@@ -573,6 +575,7 @@ mod tests {
                     payload: Ok(Some(payload)),
                     trace_id: request.trace_id,
                     steps: None,
+                    args: Default::default(),
                 });
             }
         });

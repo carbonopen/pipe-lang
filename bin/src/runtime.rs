@@ -221,7 +221,7 @@ impl Runtime {
 
             thread::spawn(move || {
                 match pipeline.start(modules.clone(), sender_pipeline, sender_control) {
-                    Ok(_) => todo!(),
+                    Ok(_) => (),
                     Err(_) => panic!("Pipeline Error: {}", pipeline.key),
                 };
             });
@@ -242,11 +242,13 @@ impl Runtime {
 
         for pipeline_response in receiver_control {
             let sender = pipeline_senders.get(&pipeline_response.attach.id).unwrap();
+
             match sender.send(Request {
                 origin: pipeline_response.origin.id,
                 payload: pipeline_response.payload,
                 steps: None,
                 trace_id: pipeline_response.trace_id,
+                args: Default::default(),
             }) {
                 Ok(_) => continue,
                 Err(err) => panic!("{:?}", err),
