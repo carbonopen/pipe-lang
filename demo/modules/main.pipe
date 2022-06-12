@@ -7,6 +7,9 @@ import {
     bin "../../target/release/libprint.so" (
         name="print"
     )
+    bin "../../target/release/libexit.so" (
+        name="exit"
+    )
 }
 
 pipeline {
@@ -18,8 +21,14 @@ pipeline {
 
     name {
         first_name="Philippe"
-        first_name="Assis"
+        first_last="Assis"
     }
+
+    print {
+        text="End!"
+    }
+
+    exit {}
 }
 
 

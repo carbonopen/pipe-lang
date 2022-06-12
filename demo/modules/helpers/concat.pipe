@@ -1,6 +1,7 @@
 args {
     item1: String
     item2: String
+    item3: String
 }
 
 import {
@@ -11,7 +12,7 @@ import {
 
 pipeline {
     echo {
-        text=`Result: ${ args.item1 + " " + args.item2}`
+        text=`Result: ${ args.item1 + " " + args.item2 + " " + args.item3}`
     }
 }
 

@@ -1,10 +1,11 @@
 use libloading::{Library, Symbol};
 use pipe_core::{
-    debug, log,
-    modules::{BinSender, Config, History, Module, Request, Response, ID},
+    log,
+    modules::{BinSender, Config, History, Module, Request, Response, Trace, ID},
 };
 use serde_json::{Map, Value};
 
+use core::panic;
 use std::sync::mpsc::{Receiver, Sender};
 use std::{
     collections::HashMap,
@@ -22,7 +23,8 @@ pub type Params = Map<String, Value>;
 
 #[derive(Debug, Clone)]
 pub struct StepConfig {
-    pub id: u32,
+    pub id: ID,
+    pub pipeline_id: ID,
     pub reference: String,
     pub params: Params,
     pub producer: bool,
@@ -33,8 +35,8 @@ pub struct StepConfig {
 
 #[derive(Debug, Clone)]
 struct Step {
-    pub id: u32,
-    pub key: String,
+    pub id: ID,
+    pub pipeline_id: ID,
     pub module_type: ModuleType,
     pub sender: Option<Sender<Request>>,
     pub config: StepConfig,
@@ -63,9 +65,9 @@ impl Step {
                     request.set_args(args);
 
                     match sender.send(PipelineRequest::from_request(
-                        self.id,
-                        self.key.clone(),
                         request,
+                        Some(self.pipeline_id),
+                        None,
                     )) {
                         Ok(_) => Ok(()),
                         Err(_) => Err(()),
@@ -79,38 +81,32 @@ impl Step {
 
 #[derive(Debug, Clone)]
 struct Handler {
-    key: String,
     pub steps: HashMap<u32, Step>,
     pub history: Arc<Mutex<History>>,
     pub reference: HashMap<String, u32>,
     total_bins: u32,
     pipeline_sender: Sender<PipelineRequest>,
-    alias: Alias,
 }
 
 impl Handler {
-    pub fn new(pipeline_sender: Sender<PipelineRequest>, alias: Alias, key: String) -> Self {
+    pub fn new(pipeline_sender: Sender<PipelineRequest>) -> Self {
         Self {
-            key,
             steps: HashMap::default(),
             history: Arc::new(Mutex::new(History::new())),
             total_bins: 0,
             reference: HashMap::default(),
             pipeline_sender,
-            alias,
         }
     }
 
-    pub fn insert_pipeline(&mut self, id: u32, alias: &str, config: StepConfig) {
+    pub fn insert_pipeline(&mut self, id: ID, pipeline_id: ID, config: StepConfig) {
         self.reference.insert(config.reference.clone(), id);
-
-        let key = self.alias.get(alias).unwrap().key.clone();
 
         self.steps.insert(
             id,
             Step {
                 id,
-                key,
+                pipeline_id,
                 module_type: ModuleType::Pipeline,
                 sender: None,
                 params: config.params.clone(),
@@ -120,16 +116,14 @@ impl Handler {
         );
     }
 
-    pub fn insert_bin(&mut self, id: u32, alias: &str, config: StepConfig) {
+    pub fn insert_bin(&mut self, id: ID, pipeline_id: ID, config: StepConfig) {
         self.reference.insert(config.reference.clone(), id);
-
-        let key = self.alias.get(alias).unwrap().key.clone();
 
         self.steps.insert(
             id,
             Step {
                 id,
-                key,
+                pipeline_id,
                 module_type: ModuleType::Bin,
                 sender: None,
                 params: config.params.clone(),
@@ -188,22 +182,44 @@ impl Handler {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 enum Status {
     Created,
     Sended,
+}
+
+#[derive(Debug)]
+struct PipelineTrace {
+    pub status: Status,
+    pub pipeline_request: PipelineRequest,
+}
+
+impl PipelineTrace {
+    pub fn update_status(&mut self, status: Status) {
+        self.status = status
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Pipeline {
     pub id: u32,
     pub key: String,
-    pipe: Pipe,
+    pub pipe: Pipe,
+    pub references: HashMap<String, ID>,
 }
 
 impl Pipeline {
     pub fn new(id: u32, key: String, pipe: Pipe) -> Self {
-        Self { id, key, pipe }
+        Self {
+            id,
+            key,
+            pipe,
+            references: HashMap::default(),
+        }
+    }
+
+    pub fn add_references(&mut self, references: HashMap<String, ID>) {
+        self.references = references;
     }
 
     pub fn start(
@@ -211,10 +227,11 @@ impl Pipeline {
         modules: Modules,
         sender_setup_runtime: Sender<PipelineSetup>,
         sender_request_runtime: Sender<PipelineRequest>,
+        initial_step_id: ID,
     ) -> Result<(), ()> {
         let (sender_request_pipeline, receiver_request_pipeline): (
-            Sender<Request>,
-            Receiver<Request>,
+            Sender<PipelineRequest>,
+            Receiver<PipelineRequest>,
         ) = mpsc::channel();
 
         if sender_setup_runtime
@@ -229,7 +246,7 @@ impl Pipeline {
 
         let (tx_senders, rx_senders): (Sender<BinSender>, Receiver<BinSender>) = mpsc::channel();
         let (tx_control, rx_control): (Sender<Response>, Receiver<Response>) = mpsc::channel();
-        let mut module_id: ID = 0;
+        let mut step_id = initial_step_id;
 
         let module_by_name = match self.pipe.modules.clone() {
             Some(modules) => {
@@ -244,9 +261,7 @@ impl Pipeline {
             None => HashMap::default(),
         };
 
-        let alias = modules.aliases.get(&self.key).unwrap().clone();
-
-        let mut handler = Handler::new(sender_request_runtime.clone(), alias, self.key.clone());
+        let mut handler = Handler::new(sender_request_runtime.clone());
 
         for step in self.pipe.pipeline.iter() {
             let step = step.clone();
@@ -261,7 +276,7 @@ impl Pipeline {
 
             let reference = match step.reference {
                 Some(reference) => reference,
-                None => format!("step-{}", &module_id),
+                None => format!("step-{}", &step_id),
             };
 
             let mut params = match step.params {
@@ -275,12 +290,9 @@ impl Pipeline {
             let producer = step.tags.get("producer").is_some();
             let default_attach = step.attach;
             let module_inner = modules.get(&self.key, &current_module.name);
-            let id = module_id.clone();
             let tags = step.tags.clone();
             let args = step.args.clone();
             let reference = reference.clone();
-
-            module_id = module_id + 1;
 
             if module_inner.module_type.eq(&ModuleType::Pipeline) {
                 module_setup_params.remove("name");
@@ -290,11 +302,14 @@ impl Pipeline {
                     params.insert(key, value);
                 }
 
+                let pipeline_id = *self.references.get(&module_inner.key).unwrap();
+
                 handler.insert_pipeline(
-                    id,
-                    &current_module.name,
+                    step_id,
+                    pipeline_id,
                     StepConfig {
-                        id,
+                        id: step_id,
+                        pipeline_id,
                         reference: reference.clone(),
                         params,
                         producer,
@@ -312,10 +327,11 @@ impl Pipeline {
                 }
 
                 handler.insert_bin(
-                    id,
-                    &current_module.name,
+                    step_id,
+                    self.id,
                     StepConfig {
-                        id,
+                        id: step_id,
+                        pipeline_id: self.id,
                         reference: reference.clone(),
                         params: params.clone(),
                         producer,
@@ -349,9 +365,11 @@ impl Pipeline {
                         Box::from_raw(boxed_raw)
                     };
 
-                    bin.start(id, request, response, config);
+                    bin.start(step_id, request, response, config);
                 });
             }
+
+            step_id += 1;
         }
 
         let mut limit_senders = if handler.total_bins > 0 {
@@ -370,11 +388,10 @@ impl Pipeline {
             limit_senders -= 1;
         }
 
-        let pipeline_traces: Arc<Mutex<HashMap<u32, Status>>> =
+        let pipeline_traces: Arc<Mutex<HashMap<u32, PipelineTrace>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let handler_thread = handler.clone();
         let pipeline_traces_thread = pipeline_traces.clone();
-        let key_thread = self.key.clone();
 
         thread::spawn(move || {
             for control in rx_control {
@@ -405,57 +422,70 @@ impl Pipeline {
                         None if control.origin > 0 => {
                             let mut lock_pipeline_traces = pipeline_traces_thread.lock().unwrap();
 
-                            if let Some(status) = lock_pipeline_traces.get(&control.trace.trace_id)
-                            {
-                                if status.eq(&Status::Created) {
-                                    lock_pipeline_traces.insert(next_step, Status::Sended);
-                                } else if status.eq(&Status::Sended) {
-                                    match sender_request_runtime.send(
-                                        PipelineRequest::from_request(
-                                            next_step,
-                                            key_thread.clone(),
-                                            request,
-                                        ),
-                                    ) {
-                                        Ok(_) => continue,
-                                        Err(err) => {
-                                            panic!("{:#?}", err);
-                                        }
-                                    };
-                                }
-                            }
-
-                            match &handler_thread.steps.get(&0) {
-                                Some(step) => match step.send(request) {
-                                    Ok(_) => continue,
-                                    Err(err) => {
-                                        panic!("{:#?}", err);
+                            match lock_pipeline_traces.get_mut(&control.trace.trace_id) {
+                                Some(pipeline_trace) => match pipeline_trace.status {
+                                    Status::Created => {
+                                        match sender_request_runtime.send(
+                                            PipelineRequest::from_request(
+                                                request,
+                                                None,
+                                                Some(
+                                                    pipeline_trace.pipeline_request.request.origin
+                                                        + 2,
+                                                ),
+                                            ),
+                                        ) {
+                                            Ok(_) => {
+                                                pipeline_trace.update_status(Status::Sended);
+                                            }
+                                            Err(err) => {
+                                                panic!("{:#?}", err);
+                                            }
+                                        };
+                                    }
+                                    Status::Sended => {
+                                        panic!("{}", "Message already sent");
                                     }
                                 },
-                                None => {
-                                    panic!(
-                                        "trace_id: {} |  Sender by step id {} not exist",
-                                        control.trace.trace_id, next_step
-                                    );
-                                }
-                            };
+                                None => panic!("{}", "Step not found"),
+                            }
                         }
-                        None => (),
+                        None => match &handler_thread.steps.get(&0) {
+                            Some(step) => match step.send(request) {
+                                Ok(_) => continue,
+                                Err(err) => {
+                                    panic!("{:#?}", err);
+                                }
+                            },
+                            None => {
+                                panic!(
+                                    "trace_id: {} |  Sender by step id {} not exist",
+                                    control.trace.trace_id, next_step
+                                );
+                            }
+                        },
                     };
                 }
             }
         });
 
-        for request in receiver_request_pipeline {
-            let step = handler.steps.get(&0).unwrap();
-            let trace_id = request.trace.trace_id;
+        for pipeline_request in receiver_request_pipeline {
+            let step_id = match pipeline_request.step_attach {
+                Some(step_attach) => step_attach,
+                None => initial_step_id,
+            };
+            let step = handler.steps.get(&step_id).unwrap();
+            let trace_id = pipeline_request.request.trace.trace_id;
 
-            pipeline_traces
-                .lock()
-                .unwrap()
-                .insert(trace_id, Status::Created);
+            pipeline_traces.lock().unwrap().insert(
+                trace_id,
+                PipelineTrace {
+                    status: Status::Created,
+                    pipeline_request: pipeline_request.clone(),
+                },
+            );
 
-            match step.send(request) {
+            match step.send(pipeline_request.request) {
                 Ok(_) => continue,
                 Err(_) => {
                     panic!("trace_id: {} |  Sender by step id 0 not exist", trace_id);

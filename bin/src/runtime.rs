@@ -1,3 +1,4 @@
+use core::panic;
 use pipe_core::modules::{Request, Step, Trace, ID};
 use pipe_parser::Pipe as PipeParse;
 use serde_json::{Map, Value};
@@ -40,52 +41,40 @@ impl Modules {
 }
 
 #[derive(Debug)]
-pub struct PipelineConfig {
-    pub id: u32,
-    pub reference: String,
-    pub params: Map<String, Value>,
-    pub producer: bool,
-    pub default_attach: Option<String>,
-    pub tags: HashMap<String, Value>,
-    pub args: HashMap<String, Value>,
-}
-
-#[derive(Debug)]
 pub struct PipelineTarget {
     pub id: u32,
     pub key: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PipelineRequest {
-    pub payload: Result<Option<Value>, Option<Value>>,
-    pub attach: PipelineTarget,
-    pub origin: PipelineTarget,
-    pub trace: Trace,
-    pub steps: Option<HashMap<String, Step>>,
+    pub step_attach: Option<ID>,
+    pub pipeline_attach: Option<ID>,
+    pub request: Request,
 }
 
 impl PipelineRequest {
-    pub fn from_request(attach_id: u32, key: String, request: Request) -> Self {
+    pub fn from_request(
+        request: Request,
+        pipeline_attach: Option<ID>,
+        step_attach: Option<ID>,
+    ) -> Self {
         Self {
-            payload: request.payload,
-            attach: PipelineTarget {
-                id: attach_id,
-                key: key.clone(),
+            request: Request {
+                payload: request.payload,
+                origin: request.origin,
+                trace: request.trace,
+                steps: request.steps.clone(),
             },
-            origin: PipelineTarget {
-                id: request.origin,
-                key,
-            },
-            trace: request.trace,
-            steps: request.steps.clone(),
+            step_attach,
+            pipeline_attach,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct PipelineSetup {
-    pub tx: Sender<Request>,
+    pub tx: Sender<PipelineRequest>,
     pub id: u32,
 }
 
@@ -94,7 +83,7 @@ pub struct Runtime {
     pipelines: Pipelines,
     pipelines_keys: Vec<String>,
     modules: Modules,
-    main: String,
+    references: HashMap<String, ID>,
 }
 
 impl Runtime {
@@ -103,17 +92,10 @@ impl Runtime {
         let mut targets = vec![target.to_string()];
         let mut aliases: Aliases = HashMap::new();
         let mut pipelines: Pipelines = HashMap::new();
+        let mut references = HashMap::new();
         let mut bins: Bins = HashMap::new();
         let mut pipelines_keys = Vec::new();
-        let main = PathBuf::from_str(target)
-            .unwrap()
-            .canonicalize()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-
-        let mut id: ID = 0;
+        let mut pipeline_id: ID = 0;
 
         loop {
             let index = if targets.len() > 0 {
@@ -121,8 +103,6 @@ impl Runtime {
             } else {
                 break;
             };
-
-            id += 1;
 
             let path = PathBuf::from_str(targets.get(index).unwrap()).unwrap();
             let target = path.canonicalize().unwrap();
@@ -135,9 +115,10 @@ impl Runtime {
 
             let path_base = target.parent().unwrap().to_str().unwrap();
 
-            let pipeline = Pipeline::new(id, target_key.clone(), pipe.clone());
+            let pipeline = Pipeline::new(pipeline_id, target_key.clone(), pipe.clone());
             pipelines_keys.push(target_key.clone());
             pipelines.insert(target_key.clone(), pipeline);
+            references.insert(target_key.clone(), pipeline_id);
 
             for module in pipe.modules.unwrap().iter() {
                 let path_raw = format!("{}/{}", path_base, module.path);
@@ -188,18 +169,16 @@ impl Runtime {
             }
 
             targets.remove(index);
+
+            pipeline_id += 1;
         }
 
         Ok(Self {
             pipelines,
             modules: Modules { bins, aliases },
-            main,
             pipelines_keys,
+            references,
         })
-    }
-
-    fn _get_main(&self) -> &Pipeline {
-        self.pipelines.get(&self.main).unwrap()
     }
 
     pub fn start(&self) {
@@ -212,15 +191,30 @@ impl Runtime {
 
         let pipes = self.pipelines.clone();
         let modules = self.modules.clone();
+        let mut last_steps_id: ID = 0;
+        let mut pipeline_steps_ref = HashMap::new();
 
         for key in self.pipelines_keys.iter() {
-            let pipeline = pipes.get(key).unwrap().clone();
+            let mut pipeline = pipes.get(key).unwrap().clone();
             let modules = modules.clone();
             let sender_pipeline = sender_pipeline.clone();
             let sender_control = sender_control.clone();
+            let initial_step_id = last_steps_id;
+            last_steps_id += pipeline.pipe.pipeline.len() as ID;
+
+            for step_id in initial_step_id..last_steps_id {
+                pipeline_steps_ref.insert(step_id, pipeline.id);
+            }
+
+            pipeline.add_references(self.references.clone());
 
             thread::spawn(move || {
-                match pipeline.start(modules.clone(), sender_pipeline, sender_control) {
+                match pipeline.start(
+                    modules.clone(),
+                    sender_pipeline,
+                    sender_control,
+                    initial_step_id,
+                ) {
                     Ok(_) => (),
                     Err(_) => panic!("Pipeline Error: {}", pipeline.key),
                 };
@@ -240,15 +234,21 @@ impl Runtime {
             pipelines_done -= 1;
         }
 
-        for pipeline_response in receiver_control {
-            let sender = pipeline_senders.get(&pipeline_response.attach.id).unwrap();
+        for pipeline_request in receiver_control {
+            let pipeline_id = match pipeline_request.pipeline_attach {
+                Some(id) => id,
+                None => pipeline_steps_ref
+                    .get(&pipeline_request.step_attach.unwrap())
+                    .unwrap()
+                    .clone(),
+            };
+            let sender = pipeline_senders.get(&pipeline_id).unwrap();
 
-            match sender.send(Request {
-                origin: pipeline_response.origin.id,
-                payload: pipeline_response.payload,
-                steps: None,
-                trace: pipeline_response.trace,
-            }) {
+            if pipeline_request.request.origin != 1 {
+                println!("{:#?}", pipeline_id);
+            }
+
+            match sender.send(pipeline_request) {
                 Ok(_) => continue,
                 Err(err) => panic!("{:?}", err),
             }

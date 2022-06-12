@@ -2,7 +2,6 @@ import {
     bin "../../../target/release/libprint.so" (
         name="print"
     )
-    mod "../helpers/concat" ()
 }
 
 args {
@@ -23,9 +22,9 @@ pipeline {
         text="is"
     }
 
-    concat {
-        item1=${args.first_name}
-        item2=${args.last_name}
+    print {
+        text=`First name: ${args.first_name}`
     }
+
 }
 
