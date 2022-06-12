@@ -244,10 +244,6 @@ impl Runtime {
             };
             let sender = pipeline_senders.get(&pipeline_id).unwrap();
 
-            if pipeline_request.request.origin != 1 {
-                println!("{:#?}", pipeline_id);
-            }
-
             match sender.send(pipeline_request) {
                 Ok(_) => continue,
                 Err(err) => panic!("{:?}", err),
