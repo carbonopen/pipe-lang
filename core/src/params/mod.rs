@@ -223,7 +223,8 @@ impl Param {
 
 #[derive(Debug)]
 pub struct Params<'a> {
-    pub default: HashMap<String, Value>,
+    pub default_params: HashMap<String, Value>,
+    pub default_args: HashMap<String, Value>,
     params: HashMap<String, Param>,
     engine: Engine,
     scope: Scope<'a>,
@@ -247,6 +248,7 @@ impl<'a> Params<'a> {
         };
         let origin = request.origin.clone();
         let trace_id = request.trace.trace_id.clone();
+        let args = request.trace.args.clone();
 
         match to_dynamic(payload) {
             Ok(value) => {
@@ -260,7 +262,14 @@ impl<'a> Params<'a> {
                                 match to_dynamic(trace_id) {
                                     Ok(value) => {
                                         self.scope.push_dynamic("trace_id", value);
-                                        Ok(())
+
+                                        match to_dynamic(args) {
+                                            Ok(value) => {
+                                                self.scope.push_dynamic("args", value);
+                                                Ok(())
+                                            }
+                                            Err(err) => Err(Error::from(err)),
+                                        }
                                     }
                                     Err(err) => Err(Error::from(err)),
                                 }
@@ -276,7 +285,7 @@ impl<'a> Params<'a> {
     }
 
     pub fn get_map(&mut self) -> Result<HashMap<String, Value>, Error> {
-        let mut result = self.default.clone();
+        let mut result = self.default_params.clone();
 
         for (key, param) in self.params.iter() {
             match param.get(&self.engine, &mut self.scope) {
@@ -297,7 +306,7 @@ impl<'a> Params<'a> {
                 Ok(value) => Ok(value),
                 Err(err) => Err(err),
             },
-            None => match self.default.get(name) {
+            None => match self.default_params.get(name) {
                 Some(value) => Ok(value.clone()),
                 None => Err(Error::from(ParamError::NotFoundParam)),
             },
@@ -314,9 +323,7 @@ impl<'a> Params<'a> {
             Err(err) => Err(Error::from(err)),
         }
     }
-}
 
-impl<'a> Params<'a> {
     fn script_to_ast(
         engine: &Engine,
         re_quotes: &Regex,
@@ -413,14 +420,12 @@ impl<'a> Params<'a> {
             }),
         }
     }
-}
 
-impl<'a> Params<'a> {
     pub fn builder(
         target: &Map<String, Value>,
-        args: HashMap<String, Value>,
+        default_args: HashMap<String, Value>,
     ) -> Result<Self, Error> {
-        let mut default = HashMap::new();
+        let mut default_params = HashMap::new();
         let mut params = HashMap::new();
         let engine = Engine::new();
         let re_quotes = Regex::new(r#"\\\\""#).unwrap();
@@ -446,12 +451,12 @@ impl<'a> Params<'a> {
                 }
             }
 
-            default.insert(key.clone(), value.clone());
+            default_params.insert(key.clone(), value.clone());
         }
 
         let mut scope = Scope::new();
 
-        match to_dynamic(args) {
+        match to_dynamic(default_args.clone()) {
             Ok(value) => {
                 scope.push_dynamic("args", value);
             }
@@ -459,7 +464,8 @@ impl<'a> Params<'a> {
         };
 
         Ok(Self {
-            default,
+            default_params,
+            default_args,
             params,
             engine,
             scope,

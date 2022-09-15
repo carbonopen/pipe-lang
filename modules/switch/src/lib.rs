@@ -24,7 +24,7 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
 
     let mut params = Params::builder(&config.params, config.args).unwrap();
 
-    let cases = match params.default.get("case") {
+    let cases = match params.default_params.get("case") {
         Some(case) => match case.as_array() {
             Some(cases) => {
                 let mut cases_full = Vec::new();

@@ -51,6 +51,7 @@ pub struct PipelineRequest {
     pub step_attach: Option<ID>,
     pub pipeline_attach: Option<ID>,
     pub request: Request,
+    pub return_pipeline: bool,
 }
 
 impl PipelineRequest {
@@ -58,6 +59,7 @@ impl PipelineRequest {
         request: Request,
         pipeline_attach: Option<ID>,
         step_attach: Option<ID>,
+        return_pipeline: bool
     ) -> Self {
         Self {
             request: Request {
@@ -68,6 +70,7 @@ impl PipelineRequest {
             },
             step_attach,
             pipeline_attach,
+            return_pipeline,
         }
     }
 }
@@ -86,9 +89,47 @@ pub struct Runtime {
     references: HashMap<String, ID>,
 }
 
+fn listener(
+    receiver_control: Receiver<PipelineRequest>,
+    pipeline_steps_ref: HashMap<u32, u32>,
+    pipeline_senders: HashMap<u32, Sender<PipelineRequest>>,
+) {
+    for pipeline_request in receiver_control {
+        let pipeline_id = match pipeline_request.pipeline_attach {
+            Some(id) => id,
+            None => pipeline_steps_ref
+                .get(&pipeline_request.step_attach.unwrap())
+                .unwrap()
+                .clone(),
+        };
+
+        let origin_pipeline = pipeline_steps_ref
+            .get(&pipeline_request.request.origin)
+            .unwrap();
+
+        let (new_pipeline_request, pipeline_id) = if pipeline_id.eq(origin_pipeline) {
+            (
+                PipelineRequest {
+                    return_pipeline: true,
+                    ..pipeline_request
+                },
+                pipeline_id,
+            )
+        } else {
+            (pipeline_request, pipeline_id)
+        };
+
+        let sender = pipeline_senders.get(&pipeline_id).unwrap();
+
+        match sender.send(new_pipeline_request) {
+            Ok(_) => continue,
+            Err(err) => panic!("{:?}", err),
+        }
+    }
+}
+
 impl Runtime {
-    pub fn builder(main_path: &str) -> Result<Self, ()> {
-        let target = main_path;
+    pub fn builder(target: &str) -> Result<Self, ()> {
         let mut targets = vec![target.to_string()];
         let mut aliases: Aliases = HashMap::new();
         let mut pipelines: Pipelines = HashMap::new();
@@ -182,72 +223,76 @@ impl Runtime {
     }
 
     pub fn start(&self) {
-        let (sender_pipeline, receiver_pipeline): (Sender<PipelineSetup>, Receiver<PipelineSetup>) =
-            mpsc::channel();
+        let mut pipeline_steps_ref = HashMap::new();
+        let mut pipeline_senders = HashMap::new();
         let (sender_control, receiver_control): (
             Sender<PipelineRequest>,
             Receiver<PipelineRequest>,
         ) = mpsc::channel();
 
-        let pipes = self.pipelines.clone();
-        let modules = self.modules.clone();
-        let mut last_steps_id: ID = 0;
-        let mut pipeline_steps_ref = HashMap::new();
+        {
+            let (sender_pipeline, receiver_pipeline): (
+                Sender<PipelineSetup>,
+                Receiver<PipelineSetup>,
+            ) = mpsc::channel();
 
-        for key in self.pipelines_keys.iter() {
-            let mut pipeline = pipes.get(key).unwrap().clone();
-            let modules = modules.clone();
-            let sender_pipeline = sender_pipeline.clone();
-            let sender_control = sender_control.clone();
-            let initial_step_id = last_steps_id;
-            last_steps_id += pipeline.pipe.pipeline.len() as ID;
+            let pipes = self.pipelines.clone();
+            let modules = self.modules.clone();
+            let mut last_steps_id: ID = 0;
 
-            for step_id in initial_step_id..last_steps_id {
-                pipeline_steps_ref.insert(step_id, pipeline.id);
+            for key in self.pipelines_keys.iter() {
+                let mut pipeline = pipes.get(key).unwrap().clone();
+                let modules = modules.clone();
+                let sender_pipeline = sender_pipeline.clone();
+                let sender_control = sender_control.clone();
+                let initial_step_id = last_steps_id;
+                last_steps_id += pipeline.pipe.pipeline.len() as ID;
+
+                for step_id in initial_step_id..last_steps_id {
+                    pipeline_steps_ref.insert(step_id, pipeline.id);
+                }
+
+                pipeline.add_references(self.references.clone());
+
+                thread::spawn(move || {
+                    match pipeline.start(
+                        modules.clone(),
+                        sender_pipeline,
+                        sender_control,
+                        initial_step_id,
+                    ) {
+                        Ok(_) => (),
+                        Err(_) => panic!("Pipeline Error: {}", pipeline.key),
+                    };
+                });
             }
 
-            pipeline.add_references(self.references.clone());
+            let mut pipelines_done = self.pipelines_keys.len() - 1;
 
-            thread::spawn(move || {
-                match pipeline.start(
-                    modules.clone(),
-                    sender_pipeline,
-                    sender_control,
-                    initial_step_id,
-                ) {
-                    Ok(_) => (),
-                    Err(_) => panic!("Pipeline Error: {}", pipeline.key),
-                };
-            });
+            for pipeline_sender in receiver_pipeline {
+                pipeline_senders.insert(pipeline_sender.id, pipeline_sender.tx);
+
+                if pipelines_done == 0 {
+                    break;
+                }
+
+                pipelines_done -= 1;
+            }
         }
 
-        let mut pipeline_senders = HashMap::new();
-        let mut pipelines_done = self.pipelines_keys.len() - 1;
+        listener(receiver_control, pipeline_steps_ref, pipeline_senders);
+    }
+}
 
-        for pipeline_sender in receiver_pipeline {
-            pipeline_senders.insert(pipeline_sender.id, pipeline_sender.tx);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-            if pipelines_done == 0 {
-                break;
-            }
-
-            pipelines_done -= 1;
-        }
-
-        for pipeline_request in receiver_control {
-            let pipeline_id = match pipeline_request.pipeline_attach {
-                Some(id) => id,
-                None => pipeline_steps_ref
-                    .get(&pipeline_request.step_attach.unwrap())
-                    .unwrap()
-                    .clone(),
-            };
-            let sender = pipeline_senders.get(&pipeline_id).unwrap();
-
-            match sender.send(pipeline_request) {
-                Ok(_) => continue,
-                Err(err) => panic!("{:?}", err),
-            }
+    #[test]
+    fn runtime_tet() {
+        match Runtime::builder("demo/modules/main.pipe") {
+            Ok(run) => run.start(),
+            Err(_) => assert!(false),
         }
     }
 }

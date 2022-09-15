@@ -2,28 +2,31 @@ import {
     bin "../../../target/release/libprint.so" (
         name="print"
     )
+    mod "../helpers/concat" ()
 }
 
 args {
-    first_name: String
-    last_name: String
+    first_name: String = "default"
+    last_name: String = "test"
 }
 
 pipeline {
     print {
-        text="Your"
-    }
-
-    print {
-        text="name"
-    }
-
-    print {
-        text="is"
-    }
-
-    print {
         text=`First name: ${args.first_name}`
+    }
+
+    print {
+        text=`Last name: ${args.first_name}`
+    }
+
+    print {
+        text="------------"
+    }
+
+    concat {
+        item1="test1"
+        item2="test2"
+        item3="!"
     }
 
 }
