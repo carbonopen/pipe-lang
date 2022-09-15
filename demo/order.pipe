@@ -1,14 +1,14 @@
 import {
-    bin "target/release/liblink.so" (
+    bin "../target/release/liblink.so" (
         name="link"
     )
-    bin "target/release/liblog.so" (
+    bin "../target/release/liblog.so" (
         name="log"
         output={
             "type": "stdout"
         }
     )
-    bin "target/release/libexit.so" (
+    bin "../target/release/libexit.so" (
         name="exit"
     )
 }
@@ -43,7 +43,6 @@ pipeline {
     } :step(0)
 
     link init {} :producer() :first()
-
 
 }
 

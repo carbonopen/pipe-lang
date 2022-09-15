@@ -1,15 +1,12 @@
 import {
-    bin "target/release/libhttp_server.so" (
+    bin "../target/release/libhttp_server.so" (
         name="http"
     )
-    bin "target/release/libswitch.so" (
+    bin "../target/release/libswitch.so" (
         name="switch"
     )
-    bin "target/release/libpayload.so" (
+    bin "../target/release/libpayload.so" (
         name="payload"
-    )
-    bin "target/release/run.so" (
-        name="run"
     )
 }
 
