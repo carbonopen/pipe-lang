@@ -88,45 +88,6 @@ pub struct Runtime {
     references: HashMap<String, ID>,
 }
 
-fn listener(
-    receiver_control: Receiver<PipelineRequest>,
-    pipeline_steps_ref: HashMap<u32, u32>,
-    pipeline_senders: HashMap<u32, Sender<PipelineRequest>>,
-) {
-    for pipeline_request in receiver_control {
-        let pipeline_id = match pipeline_request.pipeline_attach {
-            Some(id) => id,
-            None => pipeline_steps_ref
-                .get(&pipeline_request.step_attach.unwrap())
-                .unwrap()
-                .clone(),
-        };
-
-        let origin_pipeline = pipeline_steps_ref
-            .get(&pipeline_request.request.origin)
-            .unwrap();
-
-        let (new_pipeline_request, pipeline_id) = if pipeline_id.eq(origin_pipeline) {
-            (
-                PipelineRequest {
-                    return_pipeline: true,
-                    ..pipeline_request
-                },
-                pipeline_id,
-            )
-        } else {
-            (pipeline_request, pipeline_id)
-        };
-
-        let sender = pipeline_senders.get(&pipeline_id).unwrap();
-
-        match sender.send(new_pipeline_request) {
-            Ok(_) => continue,
-            Err(err) => panic!("{:?}", err),
-        }
-    }
-}
-
 impl Runtime {
     pub fn builder(target: &str) -> Result<Self, ()> {
         let mut targets = vec![target.to_string()];
@@ -229,6 +190,21 @@ impl Runtime {
             Receiver<PipelineRequest>,
         ) = mpsc::channel();
 
+        self.start_pipelines(
+            sender_control,
+            &mut pipeline_steps_ref,
+            &mut pipeline_senders,
+        );
+
+        Self::listener(receiver_control, pipeline_steps_ref, pipeline_senders);
+    }
+
+    fn start_pipelines<'a>(
+        &self,
+        sender_control: Sender<PipelineRequest>,
+        pipeline_steps_ref: &mut HashMap<u32, u32>,
+        pipeline_senders: &mut HashMap<u32, Sender<PipelineRequest>>,
+    ) {
         {
             let (sender_pipeline, receiver_pipeline): (
                 Sender<PipelineSetup>,
@@ -278,8 +254,45 @@ impl Runtime {
                 pipelines_done -= 1;
             }
         }
+    }
 
-        listener(receiver_control, pipeline_steps_ref, pipeline_senders);
+    fn listener(
+        receiver_control: Receiver<PipelineRequest>,
+        pipeline_steps_ref: HashMap<u32, u32>,
+        pipeline_senders: HashMap<u32, Sender<PipelineRequest>>,
+    ) {
+        for pipeline_request in receiver_control {
+            let pipeline_id = match pipeline_request.pipeline_attach {
+                Some(id) => id,
+                None => pipeline_steps_ref
+                    .get(&pipeline_request.step_attach.unwrap())
+                    .unwrap()
+                    .clone(),
+            };
+
+            let origin_pipeline = pipeline_steps_ref
+                .get(&pipeline_request.request.origin)
+                .unwrap();
+
+            let (new_pipeline_request, pipeline_id) = if pipeline_id.eq(origin_pipeline) {
+                (
+                    PipelineRequest {
+                        return_pipeline: true,
+                        ..pipeline_request
+                    },
+                    pipeline_id,
+                )
+            } else {
+                (pipeline_request, pipeline_id)
+            };
+
+            let sender = pipeline_senders.get(&pipeline_id).unwrap();
+
+            match sender.send(new_pipeline_request) {
+                Ok(_) => continue,
+                Err(err) => panic!("{:?}", err),
+            }
+        }
     }
 }
 

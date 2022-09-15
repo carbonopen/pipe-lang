@@ -198,154 +198,6 @@ struct SetupStep {
     pub step_id: u32,
 }
 
-fn pipeline_runtime(
-    rx_control: Receiver<Response>,
-    pipeline_control: PipelineControl,
-    pipeline_traces: Arc<Mutex<HashMap<u32, PipelineRequest>>>,
-    sender_request_runtime: Sender<PipelineRequest>,
-    initial_step_id: u32,
-) {
-    for control in rx_control {
-        let request = pipeline_control.get_request(control.clone());
-
-        if let Some(attach) = control.attach {
-            match pipeline_control.get_by_reference(&attach) {
-                Some(step) => match step.send(request) {
-                    Ok(_) => continue,
-                    Err(err) => {
-                        panic!("{:#?}", err);
-                    }
-                },
-                None => {
-                    panic!("Reference {} not found", attach);
-                }
-            };
-        } else {
-            let next_step = control.origin + 1;
-
-            match pipeline_control.steps.get(&next_step) {
-                Some(step) => match step.send(request) {
-                    Ok(_) => continue,
-                    Err(err) => {
-                        panic!("{:#?}", err);
-                    }
-                },
-                None => {
-                    let mut lock_pipeline_traces = pipeline_traces.lock().unwrap();
-
-                    match lock_pipeline_traces.get(&control.trace.trace_id) {
-                        Some(pipeline_request) => {
-                            match sender_request_runtime.send(PipelineRequest::from_request(
-                                request,
-                                None,
-                                Some(pipeline_request.request.origin),
-                                true,
-                            )) {
-                                Ok(_) => {
-                                    lock_pipeline_traces.remove(&control.trace.trace_id);
-                                }
-                                Err(err) => {
-                                    panic!("{:#?}", err);
-                                }
-                            };
-                        }
-                        None => {
-                            match &pipeline_control.steps.get(&initial_step_id) {
-                                Some(step) => match step.send(request) {
-                                    Ok(_) => continue,
-                                    Err(err) => {
-                                        panic!("{:#?}", err);
-                                    }
-                                },
-                                None => {
-                                    panic!(
-                                        "trace_id: {} |  Sender by step id {} not exist",
-                                        control.trace.trace_id, next_step
-                                    );
-                                }
-                            };
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn listener(
-    receiver_request_pipeline: Receiver<PipelineRequest>,
-    pipeline_traces: Arc<Mutex<HashMap<u32, PipelineRequest>>>,
-    pipeline_control: PipelineControl,
-    initial_step_id: u32,
-    tx_control: Sender<Response>,
-) {
-    for pipeline_request in receiver_request_pipeline {
-        let step_id = match pipeline_request.step_attach {
-            Some(step_attach) if pipeline_request.return_pipeline == true => {
-                let origin = step_attach + 1;
-                let attach = pipeline_control
-                    .steps
-                    .get(&origin)
-                    .unwrap()
-                    .config
-                    .default_attach
-                    .clone();
-
-                let response = Response {
-                    payload: pipeline_request.request.payload,
-                    attach,
-                    origin,
-                    trace: pipeline_request.request.trace,
-                };
-
-                match tx_control.send(response) {
-                    Ok(_) => continue,
-                    Err(_) => panic!("Return error"),
-                }
-            }
-            Some(step_attach) => step_attach,
-            None => initial_step_id,
-        };
-        let step = match pipeline_control.steps.get(&step_id) {
-            Some(step) => step,
-            None => todo!(),
-        };
-        let trace_id = pipeline_request.request.trace.trace_id;
-        let request = pipeline_request.request.clone();
-
-        match step.send(request) {
-            Ok(_) if pipeline_request.return_pipeline == false => {
-                pipeline_traces
-                    .lock()
-                    .unwrap()
-                    .insert(trace_id, pipeline_request);
-            }
-            Err(_) => {
-                panic!("trace_id: {} |  Sender by step id 0 not exist", trace_id);
-            }
-            _ => (),
-        }
-    }
-}
-
-fn wait_senders(pipeline_control: &mut PipelineControl, rx_senders: Receiver<BinSender>) {
-    let mut limit_senders = if pipeline_control.total_bins > 0 {
-        pipeline_control.total_bins - 1
-    } else {
-        0
-    };
-
-    for sender in rx_senders {
-        pipeline_control.bin_sender(sender.id, sender.tx);
-
-        if limit_senders == 0 {
-            break;
-        }
-
-        limit_senders -= 1;
-    }
-}
-
 impl Pipeline {
     pub fn new(id: u32, key: String, pipe: Pipe) -> Self {
         Self {
@@ -360,14 +212,14 @@ impl Pipeline {
         self.references = references;
     }
 
-    fn load_and_start_steps(
+    fn load_and_start_steps<'a>(
         &self,
         mut step_id: u32,
         modules: &Modules,
         pipeline_control: &mut PipelineControl,
         tx_control: Sender<Response>,
         tx_senders: Sender<BinSender>,
-    ) -> Vec<SetupStep> {
+    ) {
         let module_by_name = match self.pipe.modules.clone() {
             Some(modules) => {
                 let mut result = HashMap::new();
@@ -380,8 +232,6 @@ impl Pipeline {
             }
             None => HashMap::default(),
         };
-
-        let mut step_setup_list = Vec::new();
 
         for step in self.pipe.pipeline.iter() {
             let step = step.clone();
@@ -473,19 +323,24 @@ impl Pipeline {
                     args,
                 };
 
-                step_setup_list.push(SetupStep {
-                    step_id,
-                    response,
-                    request,
-                    bin_key,
-                    config,
+                thread::spawn(move || {
+                    let lib = match Library::new(bin_key.clone()) {
+                        Ok(lib) => lib,
+                        Err(err) => panic!("Error: {}; Filename: {}", err, bin_key),
+                    };
+                    let bin = unsafe {
+                        let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
+                            lib.get(b"_Module").unwrap();
+                        let boxed_raw = constructor();
+                        Box::from_raw(boxed_raw)
+                    };
+
+                    bin.start(step_id, request, response, config);
                 });
             }
 
             step_id += 1;
         }
-
-        step_setup_list
     }
 
     pub fn start(
@@ -521,7 +376,7 @@ impl Pipeline {
             let (tx_senders, rx_senders): (Sender<BinSender>, Receiver<BinSender>) =
                 mpsc::channel();
 
-            let step_setups = self.load_and_start_steps(
+            self.load_and_start_steps(
                 initial_step_id,
                 &modules,
                 &mut pipeline_control,
@@ -529,40 +384,21 @@ impl Pipeline {
                 tx_senders.clone(),
             );
 
-            for setup in step_setups {
-                thread::spawn(move || {
-                    let lib = match Library::new(setup.bin_key.clone()) {
-                        Ok(lib) => lib,
-                        Err(err) => panic!("Error: {}; Filename: {}", err, setup.bin_key),
-                    };
-                    let bin = unsafe {
-                        let constructor: Symbol<unsafe extern "C" fn() -> *mut dyn Module> =
-                            lib.get(b"_Module").unwrap();
-                        let boxed_raw = constructor();
-                        Box::from_raw(boxed_raw)
-                    };
-
-                    bin.start(setup.step_id, setup.request, setup.response, setup.config);
-                });
-            }
-
-            wait_senders(&mut pipeline_control, rx_senders);
+            Self::wait_senders(&mut pipeline_control, rx_senders);
 
             let pipeline_control_thread = pipeline_control.clone();
             let pipeline_traces_thread = pipeline_traces.clone();
 
-            thread::spawn(move || {
-                pipeline_runtime(
-                    rx_control,
-                    pipeline_control_thread,
-                    pipeline_traces_thread,
-                    sender_request_runtime,
-                    initial_step_id,
-                );
-            });
+            Self::steps_runtime(
+                rx_control,
+                pipeline_control_thread,
+                pipeline_traces_thread,
+                sender_request_runtime,
+                initial_step_id,
+            );
         }
 
-        listener(
+        Self::listener(
             receiver_request_pipeline,
             pipeline_traces,
             pipeline_control,
@@ -571,5 +407,157 @@ impl Pipeline {
         );
 
         Ok(())
+    }
+
+    fn steps_runtime<'a>(
+        rx_control: Receiver<Response>,
+        pipeline_control: PipelineControl,
+        pipeline_traces: Arc<Mutex<HashMap<u32, PipelineRequest>>>,
+        sender_request_runtime: Sender<PipelineRequest>,
+        initial_step_id: u32,
+    ) {
+        thread::spawn(move || {
+            for control in rx_control {
+                let request = pipeline_control.get_request(control.clone());
+
+                if let Some(attach) = control.attach {
+                    match pipeline_control.get_by_reference(&attach) {
+                        Some(step) => match step.send(request) {
+                            Ok(_) => continue,
+                            Err(err) => {
+                                panic!("{:#?}", err);
+                            }
+                        },
+                        None => {
+                            panic!("Reference {} not found", attach);
+                        }
+                    };
+                } else {
+                    let next_step = control.origin + 1;
+
+                    match pipeline_control.steps.get(&next_step) {
+                        Some(step) => match step.send(request) {
+                            Ok(_) => continue,
+                            Err(err) => {
+                                panic!("{:#?}", err);
+                            }
+                        },
+                        None => {
+                            let mut lock_pipeline_traces = pipeline_traces.lock().unwrap();
+
+                            match lock_pipeline_traces.get(&control.trace.trace_id) {
+                                Some(pipeline_request) => {
+                                    match sender_request_runtime.send(
+                                        PipelineRequest::from_request(
+                                            request,
+                                            None,
+                                            Some(pipeline_request.request.origin),
+                                            true,
+                                        ),
+                                    ) {
+                                        Ok(_) => {
+                                            lock_pipeline_traces.remove(&control.trace.trace_id);
+                                        }
+                                        Err(err) => {
+                                            panic!("{:#?}", err);
+                                        }
+                                    };
+                                }
+                                None => {
+                                    match &pipeline_control.steps.get(&initial_step_id) {
+                                        Some(step) => match step.send(request) {
+                                            Ok(_) => continue,
+                                            Err(err) => {
+                                                panic!("{:#?}", err);
+                                            }
+                                        },
+                                        None => {
+                                            panic!(
+                                                "trace_id: {} |  Sender by step id {} not exist",
+                                                control.trace.trace_id, next_step
+                                            );
+                                        }
+                                    };
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    fn listener(
+        receiver_request_pipeline: Receiver<PipelineRequest>,
+        pipeline_traces: Arc<Mutex<HashMap<u32, PipelineRequest>>>,
+        pipeline_control: PipelineControl,
+        initial_step_id: u32,
+        tx_control: Sender<Response>,
+    ) {
+        for pipeline_request in receiver_request_pipeline {
+            let step_id = match pipeline_request.step_attach {
+                Some(step_attach) if pipeline_request.return_pipeline == true => {
+                    let origin = step_attach + 1;
+                    let attach = pipeline_control
+                        .steps
+                        .get(&origin)
+                        .unwrap()
+                        .config
+                        .default_attach
+                        .clone();
+
+                    let response = Response {
+                        payload: pipeline_request.request.payload,
+                        attach,
+                        origin,
+                        trace: pipeline_request.request.trace,
+                    };
+
+                    match tx_control.send(response) {
+                        Ok(_) => continue,
+                        Err(_) => panic!("Return error"),
+                    }
+                }
+                Some(step_attach) => step_attach,
+                None => initial_step_id,
+            };
+            let step = match pipeline_control.steps.get(&step_id) {
+                Some(step) => step,
+                None => todo!(),
+            };
+            let trace_id = pipeline_request.request.trace.trace_id;
+            let request = pipeline_request.request.clone();
+
+            match step.send(request) {
+                Ok(_) if pipeline_request.return_pipeline == false => {
+                    pipeline_traces
+                        .lock()
+                        .unwrap()
+                        .insert(trace_id, pipeline_request);
+                }
+                Err(_) => {
+                    panic!("trace_id: {} |  Sender by step id 0 not exist", trace_id);
+                }
+                _ => (),
+            }
+        }
+    }
+
+    fn wait_senders(pipeline_control: &mut PipelineControl, rx_senders: Receiver<BinSender>) {
+        let mut limit_senders = if pipeline_control.total_bins > 0 {
+            pipeline_control.total_bins - 1
+        } else {
+            0
+        };
+
+        for sender in rx_senders {
+            pipeline_control.bin_sender(sender.id, sender.tx);
+
+            if limit_senders == 0 {
+                break;
+            }
+
+            limit_senders -= 1;
+        }
     }
 }
