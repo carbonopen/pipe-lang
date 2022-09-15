@@ -158,7 +158,6 @@ pub struct Runtime {
     pipelines_keys: Vec<String>,
     modules: Modules,
     references: HashMap<String, ID>,
-    pipeline_traces: Arc<Mutex<PipelineTrace>>,
 }
 
 impl Runtime {
@@ -259,7 +258,6 @@ impl Runtime {
             modules: Modules { bins, aliases },
             pipelines_keys,
             references,
-            pipeline_traces,
         })
     }
 
