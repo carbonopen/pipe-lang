@@ -1,7 +1,6 @@
 use core::panic;
-use pipe_core::modules::{Request, Step, Trace, ID};
+use pipe_core::modules::{Request, ID};
 use pipe_parser::Pipe as PipeParse;
-use serde_json::{Map, Value};
 use std::{collections::HashMap, fmt::Debug};
 use std::{
     path::PathBuf,
@@ -59,7 +58,7 @@ impl PipelineRequest {
         request: Request,
         pipeline_attach: Option<ID>,
         step_attach: Option<ID>,
-        return_pipeline: bool
+        return_pipeline: bool,
     ) -> Self {
         Self {
             request: Request {
