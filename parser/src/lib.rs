@@ -39,6 +39,7 @@ macro_rules! debug {
     };
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Error {
     parse: Option<PestError<Rule>>,
