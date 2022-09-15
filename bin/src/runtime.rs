@@ -1,6 +1,7 @@
 use core::panic;
 use pipe_core::modules::{Request, ID};
 use pipe_parser::Pipe as PipeParse;
+use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fmt::Debug};
 use std::{
     path::PathBuf,
@@ -81,11 +82,83 @@ pub struct PipelineSetup {
 }
 
 #[derive(Debug)]
+pub struct TraceItem {
+    items: HashMap<u32, PipelineRequest>,
+    initial: u32,
+}
+
+#[derive(Debug)]
+pub struct PipelineTrace {
+    traces: HashMap<u32, TraceItem>,
+}
+
+impl PipelineTrace {
+    pub fn new() -> Self {
+        Self {
+            traces: HashMap::new(),
+        }
+    }
+
+    pub fn remove_trace(&mut self, pipeline_id: &u32, trace_id: &u32) {
+        match self.traces.get_mut(trace_id) {
+            Some(pipeline_trace) => {
+                if pipeline_trace.initial.eq(pipeline_id) {
+                    if self.traces.remove(trace_id).is_none() {
+                        panic!("Trace was previously removed");
+                    }
+                } else if pipeline_trace.items.remove(pipeline_id).is_none() {
+                    panic!("Trace not found on pipeline");
+                }
+            }
+            None => panic!("Pipeline trace not found"),
+        }
+    }
+
+    pub fn add_trace(&mut self, pipeline_id: &u32, trace_id: &u32, request: PipelineRequest) {
+        match self.traces.get_mut(trace_id) {
+            Some(pipeline_trace) => {
+                pipeline_trace.items.insert(*pipeline_id, request);
+            }
+            None => {
+                self.traces.insert(
+                    *trace_id,
+                    TraceItem {
+                        items: {
+                            let mut map = HashMap::new();
+                            map.insert(*pipeline_id, request);
+                            map
+                        },
+                        initial: *pipeline_id,
+                    },
+                );
+            }
+        }
+    }
+
+    pub fn get_trace(&self, pipeline_id: &u32, trace_id: &u32) -> Option<&PipelineRequest> {
+        match self.traces.get(trace_id) {
+            Some(pipeline_trace) => match pipeline_trace.items.get(pipeline_id) {
+                Some(request) => Some(request),
+                None => None,
+            },
+            None => panic!("Pipeline trace not found"),
+        }
+    }
+}
+
+impl Default for PipelineTrace {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug)]
 pub struct Runtime {
     pipelines: Pipelines,
     pipelines_keys: Vec<String>,
     modules: Modules,
     references: HashMap<String, ID>,
+    pipeline_traces: Arc<Mutex<PipelineTrace>>,
 }
 
 impl Runtime {
@@ -97,6 +170,7 @@ impl Runtime {
         let mut bins: Bins = HashMap::new();
         let mut pipelines_keys = Vec::new();
         let mut pipeline_id: ID = 0;
+        let pipeline_traces = Arc::new(Mutex::new(PipelineTrace::new()));
 
         loop {
             let index = if targets.len() > 0 {
@@ -116,7 +190,13 @@ impl Runtime {
 
             let path_base = target.parent().unwrap().to_str().unwrap();
 
-            let pipeline = Pipeline::new(pipeline_id, target_key.clone(), pipe.clone());
+            let pipeline = Pipeline::new(
+                pipeline_id,
+                target_key.clone(),
+                pipe.clone(),
+                pipeline_traces.clone(),
+            );
+
             pipelines_keys.push(target_key.clone());
             pipelines.insert(target_key.clone(), pipeline);
             references.insert(target_key.clone(), pipeline_id);
@@ -179,6 +259,7 @@ impl Runtime {
             modules: Modules { bins, aliases },
             pipelines_keys,
             references,
+            pipeline_traces,
         })
     }
 

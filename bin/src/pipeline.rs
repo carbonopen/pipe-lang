@@ -16,7 +16,7 @@ use std::{sync::mpsc, thread};
 
 use crate::{
     pipe::{ModuleType, Pipe},
-    runtime::{Modules, PipelineRequest, PipelineSetup},
+    runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace},
 };
 
 pub type Params = Map<String, Value>;
@@ -188,15 +188,22 @@ pub struct Pipeline {
     pub key: String,
     pub pipe: Pipe,
     pub references: HashMap<String, ID>,
+    pipeline_traces: Arc<Mutex<PipelineTrace>>,
 }
 
 impl Pipeline {
-    pub fn new(id: u32, key: String, pipe: Pipe) -> Self {
+    pub fn new(
+        id: u32,
+        key: String,
+        pipe: Pipe,
+        pipeline_traces: Arc<Mutex<PipelineTrace>>,
+    ) -> Self {
         Self {
             id,
             key,
             pipe,
             references: HashMap::default(),
+            pipeline_traces,
         }
     }
 
@@ -336,7 +343,7 @@ impl Pipeline {
     }
 
     pub fn start(
-        &self,
+        &mut self,
         modules: Modules,
         sender_setup_runtime: Sender<PipelineSetup>,
         sender_request_runtime: Sender<PipelineRequest>,
@@ -359,8 +366,6 @@ impl Pipeline {
 
         drop(sender_setup_runtime);
 
-        let pipeline_traces: Arc<Mutex<HashMap<u32, PipelineRequest>>> =
-            Arc::new(Mutex::new(HashMap::new()));
         let mut pipeline_control = PipelineControl::new(sender_request_runtime.clone());
         let (tx_control, rx_control): (Sender<Response>, Receiver<Response>) = mpsc::channel();
 
@@ -379,20 +384,17 @@ impl Pipeline {
             Self::wait_senders(&mut pipeline_control, rx_senders);
 
             let pipeline_control_thread = pipeline_control.clone();
-            let pipeline_traces_thread = pipeline_traces.clone();
 
-            Self::steps_runtime(
+            self.steps_runtime(
                 rx_control,
                 pipeline_control_thread,
-                pipeline_traces_thread,
                 sender_request_runtime,
                 initial_step_id,
             );
         }
 
-        Self::listener(
+        self.listener(
             receiver_request_pipeline,
-            pipeline_traces,
             pipeline_control,
             initial_step_id,
             tx_control,
@@ -402,12 +404,15 @@ impl Pipeline {
     }
 
     fn steps_runtime<'a>(
+        &self,
         rx_control: Receiver<Response>,
         pipeline_control: PipelineControl,
-        pipeline_traces: Arc<Mutex<HashMap<u32, PipelineRequest>>>,
         sender_request_runtime: Sender<PipelineRequest>,
         initial_step_id: u32,
     ) {
+        let pipeline_id = self.id;
+        let pipeline_traces = self.pipeline_traces.clone();
+
         thread::spawn(move || {
             for control in rx_control {
                 let request = pipeline_control.get_request(control.clone());
@@ -437,7 +442,9 @@ impl Pipeline {
                         None => {
                             let mut lock_pipeline_traces = pipeline_traces.lock().unwrap();
 
-                            match lock_pipeline_traces.get(&control.trace.trace_id) {
+                            match lock_pipeline_traces
+                                .get_trace(&pipeline_id, &control.trace.trace_id)
+                            {
                                 Some(pipeline_request) => {
                                     match sender_request_runtime.send(
                                         PipelineRequest::from_request(
@@ -448,7 +455,10 @@ impl Pipeline {
                                         ),
                                     ) {
                                         Ok(_) => {
-                                            lock_pipeline_traces.remove(&control.trace.trace_id);
+                                            lock_pipeline_traces.remove_trace(
+                                                &pipeline_id,
+                                                &control.trace.trace_id,
+                                            );
                                         }
                                         Err(err) => {
                                             panic!("{:#?}", err);
@@ -480,8 +490,8 @@ impl Pipeline {
     }
 
     fn listener(
+        &mut self,
         receiver_request_pipeline: Receiver<PipelineRequest>,
-        pipeline_traces: Arc<Mutex<HashMap<u32, PipelineRequest>>>,
         pipeline_control: PipelineControl,
         initial_step_id: u32,
         tx_control: Sender<Response>,
@@ -522,10 +532,11 @@ impl Pipeline {
 
             match step.send(request) {
                 Ok(_) if pipeline_request.return_pipeline == false => {
-                    pipeline_traces
-                        .lock()
-                        .unwrap()
-                        .insert(trace_id, pipeline_request);
+                    self.pipeline_traces.lock().unwrap().add_trace(
+                        &self.id,
+                        &trace_id,
+                        pipeline_request,
+                    );
                 }
                 Err(_) => {
                     panic!("trace_id: {} |  Sender by step id 0 not exist", trace_id);
