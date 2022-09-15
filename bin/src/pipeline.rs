@@ -58,6 +58,7 @@ impl Step {
                 Some(sender) => {
                     let mut args = HashMap::new();
                     // TODO: manipular argumenstos aqui
+                    // TODO e se maniputar todos os paramentros antes de enviar para os modulos?
                     for (key, value) in self.params.iter() {
                         args.insert(key.clone(), value.clone());
                     }

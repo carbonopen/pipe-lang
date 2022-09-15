@@ -24,7 +24,7 @@ pipeline {
     }
 
     concat {
-        item1="test1"
+        item1=${args.first_name}
         item2="test2"
         item3="!"
 

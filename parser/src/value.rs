@@ -25,7 +25,6 @@ pub struct Script {
 
 impl Script {
     pub fn get_list_value(&self) -> Vec<Value> {
-        //TODO: remover
         self.list.clone()
     }
 }
