@@ -308,13 +308,22 @@ fn listener(
     for pipeline_request in receiver_request_pipeline {
         let step_id = match pipeline_request.step_attach {
             Some(step_attach) if pipeline_request.return_pipeline == true => {
+                let origin = step_attach + 1;
+                let attach = pipeline_control
+                    .steps
+                    .get(&origin)
+                    .unwrap()
+                    .config
+                    .default_attach
+                    .clone();
+
                 let response = Response {
                     payload: pipeline_request.request.payload,
-                    attach: None,
-                    origin: step_attach + 1,
+                    attach,
+                    origin,
                     trace: pipeline_request.request.trace,
                 };
-                // TODO definir attach 
+
                 match tx_control.send(response) {
                     Ok(_) => continue,
                     Err(_) => panic!("Return error"),

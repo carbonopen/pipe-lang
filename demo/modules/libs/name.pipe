@@ -27,6 +27,16 @@ pipeline {
         item1="test1"
         item2="test2"
         item3="!"
+
+        | final
+    }
+
+    print {
+        text="Pulou esse"
+    }
+
+    print final {
+        text="Esse OK"
     }
 
 }
