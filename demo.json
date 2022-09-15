@@ -1,0 +1,45 @@
+{
+    "pipeline": [
+        {
+            "module": "link",
+            "ref": null,
+            "tags": {
+                "producer": []
+            }
+        },
+        {
+            "params": {
+                "text": "Print me!",
+                "attach": {
+                    "module": "exit",
+                    "ref": null
+                }
+            },
+            "module": "print",
+            "ref": null
+        },
+        {
+            "module": "print",
+            "ref": null,
+            "params": {
+                "text": "Nooo!!"
+            }
+        }
+    ],
+    "import": {
+        "bin": [
+            {
+                "bin": "../target/release/libprint.so",
+                "name": "print"
+            },
+            {
+                "name": "exit",
+                "bin": "../target/release/libexit.so"
+            },
+            {
+                "name": "link",
+                "bin": "../target/release/liblink.so"
+            }
+        ]
+    }
+}

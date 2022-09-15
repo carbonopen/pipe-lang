@@ -61,7 +61,6 @@ impl Error {
     }
 }
 
-// TODO: criar exportação de .pipe com pos_parse realizado.
 impl Pipe {
     pub fn from_path(path: &str) -> Result<Value, Error> {
         let unparsed_file = match fs::read_to_string(path) {
@@ -107,7 +106,7 @@ impl Pipe {
     //     result.push_str(&content[content_last_end..]);
 
     //     result
-    // }
+    // }    
 
     pub fn parse_embedded(content: String) -> String {
         let re = Regex::new(r#"(?s)```.*?```"#).unwrap();

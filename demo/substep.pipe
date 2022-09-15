@@ -1,0 +1,28 @@
+import {
+    bin "../target/release/libprint.so" (
+        name="print"
+    )
+    bin "../target/release/libexit.so" (
+        name="exit"
+    )
+    bin "../target/release/liblink.so" (
+        name="link"
+    )
+}
+
+pipeline {
+    link {} :producer()
+
+
+    print {
+        text="Print me!"
+        | exit
+    }
+
+    print {
+        text="Nooo!!"
+    }
+
+    exit exit {}
+}
+

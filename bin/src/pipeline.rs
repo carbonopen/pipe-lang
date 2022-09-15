@@ -190,14 +190,6 @@ pub struct Pipeline {
     pub references: HashMap<String, ID>,
 }
 
-struct SetupStep {
-    pub response: Sender<Response>,
-    pub request: Sender<BinSender>,
-    pub bin_key: String,
-    pub config: Config,
-    pub step_id: u32,
-}
-
 impl Pipeline {
     pub fn new(id: u32, key: String, pipe: Pipe) -> Self {
         Self {
