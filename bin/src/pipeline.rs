@@ -57,7 +57,7 @@ impl Step {
             ModuleType::Pipeline => match &self.sender_pipeline {
                 Some(sender) => {
                     let mut args = HashMap::new();
-                    // TODO: manipular argumenstos aqui
+
                     // TODO e se maniputar todos os paramentros antes de enviar para os modulos?
                     for (key, value) in self.params.iter() {
                         args.insert(key.clone(), value.clone());
@@ -68,7 +68,7 @@ impl Step {
                     match sender.send(PipelineRequest::from_request(
                         request,
                         Some(self.pipeline_id),
-                        None, //TODO possibilitar chamar step diretamente
+                        None,
                         false,
                     )) {
                         Ok(_) => Ok(()),

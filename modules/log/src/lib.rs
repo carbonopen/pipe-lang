@@ -29,7 +29,6 @@ impl Output {
                 None => "stdout".to_string(),
             };
 
-            // TODO: add more output
             if out_type.eq("stdout") {
                 OutputType::Stdout
             } else {
