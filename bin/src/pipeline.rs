@@ -19,7 +19,7 @@ use crate::{
     runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace},
 };
 
-pub type Params = Map<String, Value>;
+pub type Params = HashMap<String, Value>;
 
 #[derive(Debug, Clone)]
 pub struct StepConfig {
@@ -250,10 +250,13 @@ impl Pipeline {
 
             let mut params = match step.params {
                 Some(params) => match params.as_object() {
-                    Some(params) => params.clone(),
-                    None => Map::new(),
+                    Some(params) => params
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect::<HashMap<_, _>>(),
+                    None => HashMap::new(),
                 },
-                None => Map::new(),
+                None => HashMap::new(),
             };
             let mut module_setup_params = current_module.params.clone();
             let producer = step.tags.get("producer").is_some();

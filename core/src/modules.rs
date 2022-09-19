@@ -27,7 +27,7 @@ impl Trace {
 #[allow(dead_code)]
 pub struct Config {
     pub reference: String,
-    pub params: Map<String, Value>,
+    pub params: HashMap<String, Value>,
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
