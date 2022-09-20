@@ -3,7 +3,7 @@ use pipe_core::{
     log,
     modules::{BinSender, Config, History, Module, Request, Response, ID},
 };
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use core::panic;
 use std::sync::mpsc::{Receiver, Sender};
@@ -388,7 +388,7 @@ impl Pipeline {
 
             let pipeline_control_thread = pipeline_control.clone();
 
-            self.steps_runtime(
+            self.listener_step(
                 rx_control,
                 pipeline_control_thread,
                 sender_request_runtime,
@@ -396,7 +396,7 @@ impl Pipeline {
             );
         }
 
-        self.listener(
+        self.listener_pipeline(
             receiver_request_pipeline,
             pipeline_control,
             initial_step_id,
@@ -406,7 +406,7 @@ impl Pipeline {
         Ok(())
     }
 
-    fn steps_runtime<'a>(
+    fn listener_step<'a>(
         &self,
         rx_control: Receiver<Response>,
         pipeline_control: PipelineControl,
@@ -492,7 +492,7 @@ impl Pipeline {
         });
     }
 
-    fn listener(
+    fn listener_pipeline(
         &mut self,
         receiver_request_pipeline: Receiver<PipelineRequest>,
         pipeline_control: PipelineControl,

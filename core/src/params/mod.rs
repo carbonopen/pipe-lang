@@ -8,9 +8,18 @@ use std::{
 pub mod macros;
 use regex::Regex;
 use rhai::{serde::to_dynamic, Engine, EvalAltResult, ParseError, Scope, AST};
-use serde_json::{Error as SerdeJsonError, Map, Value};
+use serde_json::{Error as SerdeJsonError, Value};
 
 use crate::modules::Request;
+
+macro_rules! map_to_hashmap {
+    ($target:expr) => {
+        $target
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<HashMap<_, _>>()
+    };
+}
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -107,6 +116,7 @@ impl From<ParamError> for Error {
     }
 }
 
+#[derive(Clone)]
 enum Converter {
     String,
     Number,
@@ -150,7 +160,7 @@ impl Debug for Converter {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 struct Param {
     converter: Option<Converter>,
     script: Option<AST>,
@@ -221,16 +231,29 @@ impl Param {
     }
 }
 
-#[derive(Debug)]
 pub struct Params<'a> {
-    pub default_params: HashMap<String, Value>,
-    pub default_args: HashMap<String, Value>,
-    params: HashMap<String, Param>,
-    engine: Engine,
-    scope: Scope<'a>,
+    pub engine: Engine,
+    pub params: ParamsHandler<'a>,
 }
 
 impl<'a> Params<'a> {
+    pub fn builder(params: &HashMap<String, Value>) -> Self {
+        let engine = Engine::new();
+        Self {
+            params: ParamsHandler::builder(&engine, params).unwrap(),
+            engine,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ParamsHandler<'a> {
+    pub default_params: HashMap<String, Value>,
+    params: HashMap<String, Param>,
+    scope: Scope<'a>,
+}
+
+impl<'a> ParamsHandler<'a> {
     pub fn set_request(&mut self, request: &Request) -> Result<(), Error> {
         let payload = match request.payload.clone() {
             Ok(payload) => match payload {
@@ -284,11 +307,11 @@ impl<'a> Params<'a> {
         }
     }
 
-    pub fn get_map(&mut self) -> Result<HashMap<String, Value>, Error> {
+    pub fn get_map(&mut self, engine: &Engine) -> Result<HashMap<String, Value>, Error> {
         let mut result = self.default_params.clone();
 
         for (key, param) in self.params.iter() {
-            match param.get(&self.engine, &mut self.scope) {
+            match param.get(engine, &mut self.scope) {
                 Ok(value) => {
                     result.insert(key.clone(), value);
                 }
@@ -300,9 +323,9 @@ impl<'a> Params<'a> {
     }
 
     /// Returns param by name
-    pub fn get_param(&mut self, name: &str) -> Result<Value, Error> {
+    pub fn get_param(&mut self, engine: &Engine, name: &str) -> Result<Value, Error> {
         match self.params.get(name) {
-            Some(param) => match param.get(&self.engine, &mut self.scope) {
+            Some(param) => match param.get(engine, &mut self.scope) {
                 Ok(value) => Ok(value),
                 Err(err) => Err(err),
             },
@@ -314,8 +337,8 @@ impl<'a> Params<'a> {
     }
 
     /// Returns all parameters compiled in a map
-    pub fn get_value(&mut self) -> Result<Value, Error> {
-        match self.get_map() {
+    pub fn get_value(&mut self, engine: &Engine) -> Result<Value, Error> {
+        match self.get_map(engine) {
             Ok(value) => match serde_json::to_value(value) {
                 Ok(value) => Ok(value),
                 Err(err) => Err(Error::from(err)),
@@ -327,7 +350,7 @@ impl<'a> Params<'a> {
     fn script_to_ast(
         engine: &Engine,
         re_quotes: &Regex,
-        item: &Map<String, Value>,
+        item: &HashMap<String, Value>,
     ) -> Result<AST, Error> {
         let script = item
             .get("___PIPE___list")
@@ -358,7 +381,7 @@ impl<'a> Params<'a> {
     fn get_param_by_script(
         engine: &Engine,
         re_quotes: &Regex,
-        item: &Map<String, Value>,
+        item: &HashMap<String, Value>,
     ) -> Result<Param, Error> {
         match Self::script_to_ast(engine, re_quotes, item) {
             Ok(ast) => Ok(Param {
@@ -373,14 +396,18 @@ impl<'a> Params<'a> {
     fn get_param_by_converter(
         engine: &Engine,
         re_quotes: &Regex,
-        item: &Map<String, Value>,
+        item: &HashMap<String, Value>,
     ) -> Result<Param, Error> {
         let (script, default_value) = match item.get("___PIPE___default") {
             Some(default_value) => {
                 if let Some(default_value_obj) = default_value.as_object() {
                     if let Some(pipe_param_type) = default_value_obj.get("___PIPE___type") {
                         if pipe_param_type.as_str().unwrap().eq("script") {
-                            match Self::script_to_ast(&engine, &re_quotes, default_value_obj) {
+                            match Self::script_to_ast(
+                                &engine,
+                                &re_quotes,
+                                &map_to_hashmap!(default_value_obj),
+                            ) {
                                 Ok(ast) => (Some(ast), Some(default_value.clone())),
                                 Err(err) => return Err(err),
                             }
@@ -421,27 +448,28 @@ impl<'a> Params<'a> {
         }
     }
 
-    pub fn builder(
-        target: &Map<String, Value>,
-        default_args: HashMap<String, Value>,
-    ) -> Result<Self, Error> {
+    pub fn builder(engine: &Engine, target: &HashMap<String, Value>) -> Result<Self, Error> {
         let mut default_params = HashMap::new();
         let mut params = HashMap::new();
-        let engine = Engine::new();
         let re_quotes = Regex::new(r#"\\\\""#).unwrap();
 
         for (key, value) in target.into_iter() {
             if let Some(item) = value.as_object() {
                 if let Some(obj_type_value) = item.get("___PIPE___type") {
                     if obj_type_value.as_str().unwrap().eq("converter") {
-                        match Self::get_param_by_converter(&engine, &re_quotes, item) {
+                        match Self::get_param_by_converter(
+                            &engine,
+                            &re_quotes,
+                            &map_to_hashmap!(item),
+                        ) {
                             Ok(param) => {
                                 params.insert(key.clone(), param);
                             }
                             Err(err) => return Err(err),
                         }
                     } else if obj_type_value.as_str().unwrap().eq("script") {
-                        match Self::get_param_by_script(&engine, &re_quotes, item) {
+                        match Self::get_param_by_script(&engine, &re_quotes, &map_to_hashmap!(item))
+                        {
                             Ok(param) => {
                                 params.insert(key.clone(), param);
                             }
@@ -454,21 +482,10 @@ impl<'a> Params<'a> {
             default_params.insert(key.clone(), value.clone());
         }
 
-        let mut scope = Scope::new();
-
-        match to_dynamic(default_args.clone()) {
-            Ok(value) => {
-                scope.push_dynamic("args", value);
-            }
-            Err(err) => return Err(Error::from(err)),
-        };
-
         Ok(Self {
             default_params,
-            default_args,
             params,
-            engine,
-            scope,
+            scope: Scope::new(),
         })
     }
 }
@@ -477,6 +494,7 @@ mod test {
     use crate::modules::Request;
 
     use super::Params;
+    use rhai::Engine;
     use serde_json::json;
     use std::collections::HashMap;
 
@@ -519,13 +537,14 @@ mod test {
             }"#,
         });
 
-        let mut params = Params::builder(&data, HashMap::default()).unwrap();
+
+        let mut params = Params::builder(&map_to_hashmap!(data)).unwrap();
 
         params
             .set_request(&Request::from_payload(payload))
             .expect("Payload error.");
 
-        let resolve = params.get_value().unwrap();
+        let resolve = params.get_value(&engine).unwrap();
 
         assert_eq!(compare, resolve);
     }

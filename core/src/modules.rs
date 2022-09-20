@@ -2,7 +2,7 @@ extern crate serde_json;
 
 use serde::Serialize;
 pub use serde_json::json;
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -25,9 +25,9 @@ impl Trace {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct Config {
+pub struct Config<'a> {
     pub reference: String,
-    pub params: HashMap<String, Value>,
+    pub params: Params<'a>,
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
@@ -171,6 +171,8 @@ impl Debug for dyn Module {
 }
 
 use uuid::Uuid;
+
+use crate::params::Params;
 
 pub fn get_trace() -> String {
     Uuid::new_v4().to_string()
