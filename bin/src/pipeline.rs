@@ -1,7 +1,7 @@
 use libloading::{Library, Symbol};
 use pipe_core::{
     log,
-    modules::{BinSender, Config, History, Module, PreConfig, Request, Response, ID},
+    modules::{BinSender, History, Module, PreConfig, Request, Response, ID},
     params::Params,
 };
 use serde_json::Value;
