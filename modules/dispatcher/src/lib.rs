@@ -19,19 +19,19 @@ fn dispatcher(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let trace = TraceId::global();
     let producer = config.producer;
     let attach = config.default_attach.clone();
-    let payload = match config.params.get("payload") {
+    let payload = match config.params.default_values.get("payload") {
         Some(payload) => payload.clone(),
         None => Value::from(""),
     };
-    let number_of_dispatch = match config.params.get("number_of_dispatch") {
+    let number_of_dispatch = match config.params.default_values.get("number_of_dispatch") {
         Some(value) => value.as_i64().unwrap_or(1),
         None => 1,
     };
-    let spawn_rate = match config.params.get("spawn_rate") {
+    let spawn_rate = match config.params.default_values.get("spawn_rate") {
         Some(value) => value.as_i64().unwrap_or(1),
         None => 1,
     };
-    let spawn_interval = match config.params.get("spawn_interval") {
+    let spawn_interval = match config.params.default_values.get("spawn_interval") {
         Some(value) => value.as_i64().unwrap_or(1) as u64,
         None => 0,
     };
@@ -91,20 +91,25 @@ create_module_raw!(dispatcher);
 
 #[cfg(test)]
 mod tests {
-    use pipe_core::modules::*;
+    use std::convert::TryFrom;
+
+    use pipe_core::{modules::*, params::Params};
 
     #[test]
     fn test() {
-        let config = Config {
+        let config = PreConfig {
             reference: "test".parse().unwrap(),
-            params: json!({
-                "number_of_dispatch": 10,
-                "spawn_rate": 1,
-                "spawn_interval": 1000,
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            params: Params::try_from(
+                json!({
+                    "number_of_dispatch": 10,
+                    "spawn_rate": 1,
+                    "spawn_interval": 1000,
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            )
+            .unwrap(),
             producer: true,
             default_attach: None,
             tags: Default::default(),

@@ -66,14 +66,23 @@ struct HttpRequestInner {
 
 fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let sys = System::new("http-server");
-    let params_clone = config.params.clone();
+
     let address = {
-        if config.params["address"].is_string() {
-            config.params["address"].as_str().unwrap().to_owned()
-        } else if config.params["port"].is_number() {
-            format!("127.0.0.1:{}", config.params["port"].as_i64().unwrap())
-        } else if config.params["port"].is_string() {
-            format!("127.0.0.1:{}", config.params["port"].as_str().unwrap())
+        if config.params.default_values["address"].is_string() {
+            config.params.default_values["address"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        } else if config.params.default_values["port"].is_number() {
+            format!(
+                "127.0.0.1:{}",
+                config.params.default_values["port"].as_i64().unwrap()
+            )
+        } else if config.params.default_values["port"].is_string() {
+            format!(
+                "127.0.0.1:{}",
+                config.params.default_values["port"].as_str().unwrap()
+            )
         } else {
             "127.0.0.1:8080".to_owned()
         }
@@ -81,6 +90,10 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
     let requests_map = Arc::new(Mutex::new(HashMap::new()));
     let requests_map_clone = requests_map.clone();
     let trace = TraceId::global();
+    let routes = config.params.default_values["route"]
+        .as_array()
+        .unwrap()
+        .clone();
 
     HttpServer::new(move || {
         log::trace!("New http worker created.");
@@ -90,9 +103,7 @@ fn http_server(id: ID, listener: Listener, speaker: Speaker, config: Config) {
 
         let mut services = Vec::new();
 
-        let routes = params_clone["route"].as_array().unwrap().clone();
-
-        for route in routes {
+        for route in routes.iter() {
             let requests_map_inner_clone = requests_map_inner_clone.clone();
             let speaker_clone = speaker_clone.clone();
             let trace_clone = trace_clone.clone();
@@ -269,9 +280,9 @@ create_module_raw!(http_server);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pipe_core::{modules::*, serde_json};
+    use pipe_core::{modules::*, params::Params, serde_json};
     use reqwest::{Body, IntoUrl};
-    use std::thread;
+    use std::{convert::TryFrom, thread};
 
     #[macro_export]
     macro_rules! create_test {
@@ -279,9 +290,9 @@ mod tests {
             create_test!($params, |payload: Value| { payload })
         };
         ($params:tt, $handler:expr) => {
-            let config = Config {
+            let config = PreConfig {
                 reference: "test".to_string(),
-                params: json!($params).as_object().unwrap().clone(),
+                params: Params::try_from(json!($params).as_object().unwrap().clone()).unwrap(),
                 producer: false,
                 default_attach: None,
                 tags: Default::default(),
@@ -428,16 +439,19 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_multiple_requests() {
-        let config = Config {
+        let config = PreConfig {
             reference: "test".to_string(),
-            params: json!({
-                "path": "/",
-                "method": "ANY",
-                "port": 9306
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            params: Params::try_from(
+                json!({
+                    "path": "/",
+                    "method": "ANY",
+                    "port": 9306
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            )
+            .unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
@@ -474,31 +488,34 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_multiple_paths() {
-        let config = Config {
+        let config = PreConfig {
             reference: "test".to_string(),
-            params: json!({
-                "route": [
-                    {
-                        "path": "/foo/fux",
-                        "default_status_code": 203,
-                        "method": "POST"
-                    },
-                    {
-                        "path": "/bar/foo",
-                        "default_status_code": 202,
-                        "method": "POST"
-                    },
-                    {
-                        "path": "/bar/xxx",
-                        "default_status_code": 400,
-                        "method": "GET"
-                    }
-                ],
-                "port": 9307
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            params: Params::try_from(
+                json!({
+                    "route": [
+                        {
+                            "path": "/foo/fux",
+                            "default_status_code": 203,
+                            "method": "POST"
+                        },
+                        {
+                            "path": "/bar/foo",
+                            "default_status_code": 202,
+                            "method": "POST"
+                        },
+                        {
+                            "path": "/bar/xxx",
+                            "default_status_code": 400,
+                            "method": "GET"
+                        }
+                    ],
+                    "port": 9307
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            )
+            .unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
@@ -545,16 +562,16 @@ mod tests {
 
     #[actix_rt::test]
     async fn test_ip() {
-        let config = Config {
+        let config = PreConfig {
             reference: "test".to_string(),
-            params: json!({
+            params: Params::try_from(json!({
                 "path": "/",
                 "method": "ANY",
                 "port": 9308
             })
             .as_object()
             .unwrap()
-            .clone(),
+            .clone()).unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),

@@ -1,16 +1,20 @@
 use libloading::{Library, Symbol};
 use pipe_core::{
     log,
-    modules::{BinSender, Config, History, Module, Request, Response, ID},
+    modules::{BinSender, Config, History, Module, PreConfig, Request, Response, ID},
+    params::Params,
 };
 use serde_json::Value;
 
 use core::panic;
-use std::sync::mpsc::{Receiver, Sender};
 use std::{
     collections::HashMap,
     fmt::Debug,
     sync::{Arc, Mutex},
+};
+use std::{
+    convert::TryFrom,
+    sync::mpsc::{Receiver, Sender},
 };
 use std::{sync::mpsc, thread};
 
@@ -19,14 +23,12 @@ use crate::{
     runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace},
 };
 
-pub type Params = HashMap<String, Value>;
-
 #[derive(Debug, Clone)]
 pub struct StepConfig {
     pub id: ID,
     pub pipeline_id: ID,
     pub reference: String,
-    pub params: Params,
+    pub params: HashMap<String, Value>,
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
@@ -41,7 +43,7 @@ struct Step {
     pub sender: Option<Sender<Request>>,
     pub config: StepConfig,
     pub sender_pipeline: Option<Sender<PipelineRequest>>,
-    pub params: Params,
+    pub params: HashMap<String, Value>,
 }
 
 impl Step {
@@ -316,16 +318,17 @@ impl Pipeline {
                 let response = tx_control.clone();
                 let request = tx_senders.clone();
                 let bin_key = modules.get_bin_key(&module_inner.key);
-                let config = Config {
-                    reference,
-                    params,
-                    producer,
-                    default_attach,
-                    tags,
-                    args,
-                };
 
                 thread::spawn(move || {
+                    let pre_config = PreConfig {
+                        reference,
+                        params: Params::try_from(params).unwrap(),
+                        producer,
+                        default_attach,
+                        tags,
+                        args,
+                    };
+
                     let lib = match Library::new(bin_key.clone()) {
                         Ok(lib) => lib,
                         Err(err) => panic!("Error: {}; Filename: {}", err, bin_key),
@@ -337,7 +340,7 @@ impl Pipeline {
                         Box::from_raw(boxed_raw)
                     };
 
-                    bin.start(step_id, request, response, config);
+                    bin.start(step_id, request, response, pre_config);
                 });
             }
 

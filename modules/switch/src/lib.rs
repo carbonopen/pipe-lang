@@ -19,12 +19,10 @@ impl Case {
     }
 }
 
-fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
+fn switch<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) {
     let switch_default_attach = config.default_attach.clone();
 
-    let mut params = Params::builder(&config.params, config.args).unwrap();
-
-    let cases = match params.default_params.get("case") {
+    let cases = match config.params.default_values.get("case") {
         Some(case) => match case.as_array() {
             Some(cases) => {
                 let mut cases_full = Vec::new();
@@ -66,8 +64,8 @@ fn switch<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
             }};
         }
 
-        match params.set_request(&request) {
-            Ok(_) => match params.get_param("target") {
+        match config.params.set_request(&request) {
+            Ok(_) => match config.params.get_param("target") {
                 Ok(target_value) => {
                     for case in cases.iter() {
                         if target_value.eq(&case.case) {
@@ -104,31 +102,37 @@ create_module!(switch);
 #[cfg(test)]
 mod tests {
 
+    use std::convert::TryFrom;
+
     use pipe_core::{
         modules::*,
+        params::Params,
         serde_json::{json, Value},
     };
 
     #[test]
     fn test_success() {
-        let config = Config {
+        let pre_config = PreConfig {
             reference: "test".parse().unwrap(),
-            params: json!({
-                "case": [
-                    {
-                        "case": "foo",
-                        "attach": "foo"
-                    },
-                    {
-                        "case": "bar",
-                        "attach": "bar",
-                    }
-                ],
-                "target": pipe_param_script!(["payload.num"])
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            params: Params::try_from(
+                json!({
+                    "case": [
+                        {
+                            "case": "foo",
+                            "attach": "foo"
+                        },
+                        {
+                            "case": "bar",
+                            "attach": "bar",
+                        }
+                    ],
+                    "target": pipe_param_script!(["payload.num"])
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            )
+            .unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
@@ -139,30 +143,33 @@ mod tests {
             "num": "bar"
         })));
         let compare = Some("bar".to_string());
-        create_module_assert_eq_attach!(crate::switch, config, payload, compare);
+        create_module_assert_eq_attach!(crate::switch, pre_config, payload, compare);
     }
 
     #[test]
     fn test_error() {
-        let config = Config {
+        let pre_config = PreConfig {
             reference: "test".parse().unwrap(),
-            params: json!({
-                "case": [
-                    {
-                        "case": "foo",
-                        "attach": "foo"
-                    },
-                    {
-                        "case": "bar",
-                        "attach": "bar",
-                    }
-                ],
-                "target": pipe_param_script!(["payload.num"]),
-                "attach": ""
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
+            params: Params::try_from(
+                json!({
+                    "case": [
+                        {
+                            "case": "foo",
+                            "attach": "foo"
+                        },
+                        {
+                            "case": "bar",
+                            "attach": "bar",
+                        }
+                    ],
+                    "target": pipe_param_script!(["payload.num"]),
+                    "attach": ""
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            )
+            .unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
@@ -172,6 +179,6 @@ mod tests {
         let payload = Ok(Some(Value::default()));
         let compare = Err(Some(Value::from("hrai: Unknown property 'num' - a getter is not registered for type '()' (line 1, position 29) in call to function handler (line 1, position 46)".to_string())));
 
-        create_module_assert_eq!(crate::switch, config, payload, compare);
+        create_module_assert_eq!(crate::switch, pre_config, payload, compare);
     }
 }

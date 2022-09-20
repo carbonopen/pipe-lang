@@ -2,7 +2,6 @@
 extern crate pipe_core;
 
 use std::collections::HashMap;
-use std::convert::TryInto;
 
 use pipe_core::{
     modules::{Config, Listener, Response as CoreResponse, Speaker, Trace, TraceId, ID},
@@ -108,22 +107,21 @@ async fn generic_request(method: String, url: String, header: HeaderMap, body: S
 }
 
 fn request(id: ID, listener: Listener, speaker: Speaker, config: Config) {
-    let params = config.params;
-    let method = params["method"]
+    let method = config.params.default_values["method"]
         .as_str()
         .unwrap_or("GET")
         .to_string()
         .to_uppercase();
-    let url = params["url"].as_str().unwrap_or("").to_string();
-    let header = match params["header"].as_object() {
+    let url = config.params.default_values["url"].as_str().unwrap_or("").to_string();
+    let header = match config.params.default_values["header"].as_object() {
         Some(header) => map_to_header_map(header),
         None => HeaderMap::new(),
     };
-    let body = match params["body"].as_str() {
+    let body = match config.params.default_values["body"].as_str() {
         Some(body) => body.to_string(),
         None => "".to_string(),
     };
-    let attach = match params["attach"].as_str() {
+    let attach = match config.params.default_values["attach"].as_str() {
         Some(attach) => Some(attach.to_string()),
         None => None,
     };
@@ -192,9 +190,9 @@ create_module_raw!(request);
 #[cfg(test)]
 mod tests {
     use actix_web::{rt::System, web, App, HttpRequest, HttpResponse, HttpServer};
-    use pipe_core::modules::*;
+    use pipe_core::{modules::*, params::Params};
     use reqwest::StatusCode;
-    use std::thread;
+    use std::{thread, convert::TryFrom};
     use tokio::runtime::Runtime;
 
     macro_rules! create_server {
@@ -228,15 +226,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_not_producer() {
-        let config = Config {
+        let config = PreConfig {
             reference: "test".to_string(),
-            params: json!({
+            params: Params::try_from(json!({
                 "url": "http://127.0.0.1:10011/test",
                 "method": "GET"
             })
             .as_object()
             .unwrap()
-            .clone(),
+            .clone()).unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),

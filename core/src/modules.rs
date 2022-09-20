@@ -5,6 +5,7 @@ pub use serde_json::json;
 use serde_json::Value;
 
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fmt::Debug;
 pub use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
@@ -25,9 +26,38 @@ impl Trace {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
+pub struct PreConfig {
+    pub reference: String,
+    pub params: Params,
+    pub producer: bool,
+    pub default_attach: Option<String>,
+    pub tags: HashMap<String, Value>,
+    pub args: Args,
+}
+
+impl TryInto<Config<'_>> for PreConfig {
+    type Error = Error;
+
+    fn try_into(self) -> Result<Config<'static>, Self::Error> {
+        match ParamsEngine::builder(self.params) {
+            Ok(params) => Ok(Config {
+                reference: self.reference,
+                params,
+                producer: self.producer,
+                default_attach: self.default_attach,
+                tags: self.tags,
+                args: self.args,
+            }),
+            Err(err) => Err(err),
+        }
+    }
+}
+
+#[derive(Debug)]
+#[allow(dead_code)]
 pub struct Config<'a> {
     pub reference: String,
-    pub params: Params<'a>,
+    pub params: ParamsEngine<'a>,
     pub producer: bool,
     pub default_attach: Option<String>,
     pub tags: HashMap<String, Value>,
@@ -159,7 +189,7 @@ pub trait Module: Any + Send {
         _id: ID,
         _request: Sender<BinSender>,
         _response: Sender<Response>,
-        _config: Config,
+        _config: PreConfig,
     ) {
     }
 }
@@ -172,7 +202,7 @@ impl Debug for dyn Module {
 
 use uuid::Uuid;
 
-use crate::params::Params;
+use crate::params::{Error, Params, ParamsEngine};
 
 pub fn get_trace() -> String {
     Uuid::new_v4().to_string()
@@ -220,6 +250,7 @@ macro_rules! declare_module {
 #[macro_export]
 macro_rules! create_module_raw {
     ($handler:ident) => {
+        use std::convert::TryInto;
         #[derive(Debug, Default, Clone)]
         pub struct Custom {}
 
@@ -229,9 +260,14 @@ macro_rules! create_module_raw {
                 module_id: $crate::modules::ID,
                 req: $crate::modules::Sender<$crate::modules::BinSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
-                config: $crate::modules::Config,
+                config: $crate::modules::PreConfig,
             ) {
-                $handler(module_id, self.requests(module_id, req), res, config)
+                $handler(
+                    module_id,
+                    self.requests(module_id, req),
+                    res,
+                    config.try_into().expect("Params load error"),
+                )
             }
         }
 
@@ -243,6 +279,7 @@ macro_rules! create_module_raw {
 macro_rules! create_module_producer {
     ($handler:ident) => {
         #[derive(Debug, Default)]
+        use std::convert::TryInto;
         pub struct Custom {}
 
         impl $crate::modules::Module for Custom {
@@ -251,7 +288,7 @@ macro_rules! create_module_producer {
                 module_id: $crate::modules::ID,
                 req: $crate::modules::Sender<$crate::modules::BinSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
-                config: $crate::modules::Config,
+                config: $crate::modules::PreConfig,
             ) {
                 let trace =
                     std::sync::Arc::new(std::sync::Mutex::new($crate::modules::TraceId::new()));
@@ -270,7 +307,7 @@ macro_rules! create_module_producer {
                         })
                         .unwrap();
                     },
-                    config,
+                    config.try_into().expect("Params load error"),
                 )
             }
         }
@@ -282,6 +319,7 @@ macro_rules! create_module_producer {
 #[macro_export]
 macro_rules! create_module {
     ($handler:ident) => {
+        use std::convert::TryInto;
         #[derive(Debug, Default, Clone)]
         pub struct Custom {}
 
@@ -291,7 +329,7 @@ macro_rules! create_module {
                 module_id: $crate::modules::ID,
                 req: $crate::modules::Sender<$crate::modules::BinSender>,
                 res: $crate::modules::Sender<$crate::modules::Response>,
-                config: $crate::modules::Config,
+                config: $crate::modules::PreConfig,
             ) {
                 $handler(
                     self.requests(module_id, req),
@@ -304,7 +342,7 @@ macro_rules! create_module {
                         })
                         .unwrap();
                     },
-                    config,
+                    config.try_into().expect("Params load error"),
                 )
             }
         }
@@ -354,6 +392,7 @@ macro_rules! create_module_assert_eq {
         create_module_assert_eq!($module, $config, $payload, $compare, true);
     };
     ($module:expr, $config:expr, $payload:expr, $compare:expr, $producer:expr) => {
+        use std::convert::TryInto;
         let (tx_res, rx_res): (
             $crate::modules::Sender<$crate::modules::Response>,
             $crate::modules::Receiver<$crate::modules::Response>,
@@ -376,7 +415,7 @@ macro_rules! create_module_assert_eq {
                         })
                         .unwrap();
                 },
-                $config,
+                $config.try_into().expect("Params load error"),
             );
         });
 
@@ -400,6 +439,7 @@ macro_rules! create_module_assert_eq {
 #[macro_export]
 macro_rules! create_module_assert_eq_attach {
     ($module:expr, $config:expr, $payload:expr, $compare:expr) => {
+        use std::convert::TryInto;
         let (tx_res, rx_res): (
             $crate::modules::Sender<$crate::modules::Response>,
             $crate::modules::Receiver<$crate::modules::Response>,
@@ -422,7 +462,7 @@ macro_rules! create_module_assert_eq_attach {
                         })
                         .unwrap();
                 },
-                $config,
+                $config.try_into().expect("Params load error"),
             );
         });
 
@@ -444,6 +484,7 @@ macro_rules! create_module_assert_eq_attach {
 #[macro_export]
 macro_rules! run_module_raw {
     ($module:expr, $config:expr, $tx:ident, $rx:ident) => {
+        use std::convert::TryInto;
         let ($tx, rreq): (
             $crate::modules::Sender<$crate::modules::Request>,
             $crate::modules::Listener,
@@ -453,8 +494,10 @@ macro_rules! run_module_raw {
             $crate::modules::Receiver<$crate::modules::Response>,
         ) = $crate::modules::channel();
 
-        std::thread::spawn(move || {
-            $module(0, rreq, tres, $config);
-        });
+        unsafe {
+            std::thread::spawn(move || {
+                $module(0, rreq, tres, $config.try_into().expect("Params load error"));
+            });
+        }
     };
 }

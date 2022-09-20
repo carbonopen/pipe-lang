@@ -45,18 +45,16 @@ impl Output {
     }
 }
 
-pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
+pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) {
     let mut default_config = Map::new();
     default_config.insert("type".to_string(), Value::String("stdout".to_string()));
 
-    let mut params = Params::builder(&config.params, config.args).unwrap();
-
-    let level = match config.params.get("level") {
+    let level = match config.params.default_values.get("level") {
         Some(value) => value.as_str().unwrap().to_string(),
         None => "info".to_string(),
     };
 
-    let options = match params.get_param("output") {
+    let options = match config.params.get_param("output") {
         Ok(value) => match value.as_object() {
             Some(value) => value.clone(),
             None => panic!("Error loading module settings."),
@@ -67,8 +65,8 @@ pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     let output = Output::new(options);
 
     for request in listener {
-        match params.set_request(&request) {
-            Ok(_) => match params.get_param("message") {
+        match config.params.set_request(&request) {
+            Ok(_) => match config.params.get_param("message") {
                 Ok(message) => {
                     output.send(message!(level, message));
 

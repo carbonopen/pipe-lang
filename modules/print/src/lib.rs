@@ -1,17 +1,12 @@
 #[macro_use]
 extern crate pipe_core;
 
-use pipe_core::{
-    modules::{Config, Listener, Return},
-    params::Params,
-};
+use pipe_core::modules::{Config, Listener, Return};
 
-pub fn pipe_print<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    let mut params = Params::builder(&config.params, config.args).unwrap();
-
+pub fn pipe_print<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) {
     for request in listener {
-        match params.set_request(&request) {
-            Ok(_) => match params.get_param("text") {
+        match config.params.set_request(&request) {
+            Ok(_) => match config.params.get_param("text") {
                 Ok(message) => {
                     println!("{}", message);
 

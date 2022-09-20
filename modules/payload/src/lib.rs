@@ -7,14 +7,13 @@ use pipe_core::{
     serde_json::Value,
 };
 
-pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
-    let mut params = Params::builder(&config.params, config.args).unwrap();
+pub fn payload<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) {
 
     if config.producer {
         let mut trace = TraceId::new();
 
-        match params.set_request(&Request::default()) {
-            Ok(_) => match params.get_value() {
+        match config.params.set_request(&Request::default()) {
+            Ok(_) => match config.params.get_value() {
                 Ok(new_payload) => send(Return {
                     payload: Ok(Some(new_payload)),
                     attach: config.default_attach.clone(),
@@ -35,8 +34,8 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     }
 
     for request in listener {
-        match params.set_request(&request) {
-            Ok(_) => match params.get_value() {
+        match config.params.set_request(&request) {
+            Ok(_) => match config.params.get_value() {
                 Ok(new_payload) => send(Return {
                     payload: Ok(Some(new_payload)),
                     attach: config.default_attach.clone(),
@@ -61,14 +60,16 @@ create_module!(payload);
 #[cfg(test)]
 mod tests {
 
+    use std::convert::TryFrom;
+
     use super::*;
-    use pipe_core::serde_json::json;
+    use pipe_core::{serde_json::json, modules::PreConfig};
 
     #[test]
     fn test_payload() {
-        let config = Config {
+        let config = PreConfig {
             reference: "test".parse().unwrap(),
-            params: json!({
+            params: Params::try_from(json!({
                 "body" : pipe_param_script!([
                     r#""{\"value\": ""#,
                     "(payload.number)",
@@ -80,7 +81,7 @@ mod tests {
             })
             .as_object()
             .unwrap()
-            .clone(),
+            .clone()).unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
@@ -106,9 +107,9 @@ mod tests {
 
     #[test]
     fn test_payload_quotes() {
-        let config = Config {
+        let config = PreConfig {
             reference: "test".parse().unwrap(),
-            params: json!({
+            params: Params::try_from(json!({
                 "body" : pipe_param_script!([
                     r#""{\"value\": ""#,
                     "(\"\\\"\" + payload.number + \"\\\"\")",
@@ -120,7 +121,7 @@ mod tests {
             })
             .as_object()
             .unwrap()
-            .clone(),
+            .clone()).unwrap(),
             producer: false,
             default_attach: None,
             tags: Default::default(),
