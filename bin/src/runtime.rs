@@ -172,12 +172,7 @@ impl Runtime {
         let pipeline_traces = Arc::new(Mutex::new(PipelineTrace::new()));
 
         loop {
-            let index = if targets.len() > 0 {
-                targets.len() - 1
-            } else {
-                break;
-            };
-
+            let index = targets.len() - 1;
             let path = PathBuf::from_str(targets.get(index).unwrap()).unwrap();
             let target = path.canonicalize().unwrap();
             let target_key = target.to_str().unwrap().to_string();
@@ -249,6 +244,10 @@ impl Runtime {
             }
 
             targets.remove(index);
+
+            if targets.is_empty() {
+                break;
+            }
 
             pipeline_id += 1;
         }
@@ -340,7 +339,7 @@ impl Runtime {
         pipeline_steps_ref: HashMap<u32, u32>,
         pipeline_senders: HashMap<u32, Sender<PipelineRequest>>,
     ) {
-        for mut pipeline_request in receiver_control {
+        for pipeline_request in receiver_control {
             let pipeline_id = match pipeline_request.pipeline_attach {
                 Some(id) => id,
                 None => pipeline_steps_ref
@@ -348,8 +347,6 @@ impl Runtime {
                     .unwrap()
                     .clone(),
             };
-
-            pipeline_request.request.resolve_args();
 
             let origin_pipeline = pipeline_steps_ref
                 .get(&pipeline_request.request.origin)

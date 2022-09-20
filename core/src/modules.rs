@@ -1,6 +1,5 @@
 extern crate serde_json;
 
-use rhai::Engine;
 use serde::Serialize;
 pub use serde_json::json;
 use serde_json::Value;
@@ -136,13 +135,10 @@ impl Request {
         }
     }
 
-    pub fn set_args(&mut self, args: Args) {
-        self.trace.args = args;
-    }
-
-    pub fn resolve_args(&mut self) {
-        let params = Params::from(self.trace.args.clone());
+    pub fn set_and_resolve_args(&mut self, args: Args) {
+        let params = Params::from(args);
         let mut engine = ParamsEngine::builder(params).expect("Resolve args error");
+
         engine
             .set_request(self)
             .expect("Resolve args error, no set request");

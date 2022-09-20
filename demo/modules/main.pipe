@@ -21,7 +21,7 @@ pipeline {
 
     name {
         first_name="Philippe"
-        first_last="Assis"
+        last_name="Assis"
     }
 
     print {

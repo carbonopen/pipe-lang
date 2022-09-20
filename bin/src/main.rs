@@ -1,3 +1,4 @@
+pub mod step;
 mod pipe;
 mod pipeline;
 pub mod pos_parse;
