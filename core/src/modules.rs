@@ -1,5 +1,6 @@
 extern crate serde_json;
 
+use rhai::Engine;
 use serde::Serialize;
 pub use serde_json::json;
 use serde_json::Value;
@@ -137,6 +138,16 @@ impl Request {
 
     pub fn set_args(&mut self, args: Args) {
         self.trace.args = args;
+    }
+
+    pub fn resolve_args(&mut self) {
+        let params = Params::from(self.trace.args.clone());
+        let mut engine = ParamsEngine::builder(params).expect("Resolve args error");
+        engine
+            .set_request(self)
+            .expect("Resolve args error, no set request");
+
+        self.trace.args = engine.get_map().expect("Resolve args error, no get map");
     }
 }
 
@@ -496,7 +507,12 @@ macro_rules! run_module_raw {
 
         unsafe {
             std::thread::spawn(move || {
-                $module(0, rreq, tres, $config.try_into().expect("Params load error"));
+                $module(
+                    0,
+                    rreq,
+                    tres,
+                    $config.try_into().expect("Params load error"),
+                );
             });
         }
     };

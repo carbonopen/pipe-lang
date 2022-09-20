@@ -340,7 +340,7 @@ impl Runtime {
         pipeline_steps_ref: HashMap<u32, u32>,
         pipeline_senders: HashMap<u32, Sender<PipelineRequest>>,
     ) {
-        for pipeline_request in receiver_control {
+        for mut pipeline_request in receiver_control {
             let pipeline_id = match pipeline_request.pipeline_attach {
                 Some(id) => id,
                 None => pipeline_steps_ref
@@ -348,6 +348,8 @@ impl Runtime {
                     .unwrap()
                     .clone(),
             };
+
+            pipeline_request.request.resolve_args();
 
             let origin_pipeline = pipeline_steps_ref
                 .get(&pipeline_request.request.origin)
