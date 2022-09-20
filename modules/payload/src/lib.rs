@@ -3,7 +3,6 @@ extern crate pipe_core;
 
 use pipe_core::{
     modules::{Config, Listener, Request, Return, Trace, TraceId},
-    params::Params,
     serde_json::Value,
 };
 
@@ -59,11 +58,10 @@ pub fn payload<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) {
 create_module!(payload);
 #[cfg(test)]
 mod tests {
-
     use std::convert::TryFrom;
 
     use super::*;
-    use pipe_core::{serde_json::json, modules::PreConfig};
+    use pipe_core::{serde_json::json, modules::PreConfig, params::Params};
 
     #[test]
     fn test_payload() {

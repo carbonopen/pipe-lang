@@ -3,7 +3,6 @@ extern crate pipe_core;
 
 use pipe_core::{
     modules::{Config, Listener, Return},
-    params::Params,
     serde_json::Value,
 };
 
