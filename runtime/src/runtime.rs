@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn runtime_tet() {
         match Runtime::builder(
-            "demo/modules/main.pipe",
+            "example/modules/main.pipe",
             &format!(
                 "{}/extensions",
                 env::current_dir().unwrap().to_str().unwrap()

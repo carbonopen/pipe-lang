@@ -3,11 +3,11 @@ default_to_workspace = false
 
 [tasks.example-modules]
 command = "cargo"
-args = ["run", "-p", "pipe-runtime", "--release", "demo/modules/main.pipe"]
+args = ["run", "-p", "pipe-runtime", "--release", "example/modules/main.pipe"]
 
 [tasks.example-order]
 command = "cargo"
-args = ["run", "-p", "pipe-runtime", "--release", "demo/order.pipe"]
+args = ["run", "-p", "pipe-runtime", "--release", "example/order.pipe"]
 
 [tasks.build]
 command = "cargo"
