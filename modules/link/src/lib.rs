@@ -1,9 +1,9 @@
 #[macro_use]
-extern crate pipe_core;
+extern crate lab_core;
 
-use pipe_core::modules::{Config, Listener, Return, Trace, TraceId};
+use lab_core::modules::{Config, Listener, Return, Trace, TraceId};
 
-pub fn pipe_link<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
+pub fn lab_link<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     if config.producer {
         let mut trace = TraceId::new();
 
@@ -23,4 +23,4 @@ pub fn pipe_link<F: Fn(Return)>(listener: Listener, send: F, config: Config) {
     }
 }
 
-create_module!(pipe_link);
+create_module!(lab_link);

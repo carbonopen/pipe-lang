@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 reqwest = "0.11.4"
-pipe-core = { path = "../../core", features = ["modules"] }
+lab-core = { path = "../../core", features = ["modules"] }
 tokio = { version = "1", features = ["full"] }
 
 [dev-dependencies]

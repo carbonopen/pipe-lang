@@ -1,7 +1,7 @@
 #[macro_use]
-extern crate pipe_core;
+extern crate lab_core;
 
-use pipe_core::{
+use lab_core::{
     log,
     modules::{Config, Listener, Response, Speaker, Trace, TraceId, ID},
     serde_json::Value,
@@ -93,7 +93,7 @@ create_module_raw!(dispatcher);
 mod tests {
     use std::convert::TryFrom;
 
-    use pipe_core::{modules::*, params::Params};
+    use lab_core::{modules::*, params::Params};
 
     #[test]
     fn test() {

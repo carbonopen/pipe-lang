@@ -1,12 +1,12 @@
 [package]
-name = "pipe-extension-sort"
+name = "lab-extension-sort"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pipe-runtime = { path = "../../runtime", features = ["extensions"] }
+lab-runtime = { path = "../../runtime", features = ["extensions"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]

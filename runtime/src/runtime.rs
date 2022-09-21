@@ -1,6 +1,6 @@
 use core::panic;
-use pipe_core::modules::{Request, ID};
-use pipe_parser::Pipe as PipeParse;
+use lab_core::modules::{Request, ID};
+use lab_parser::Lab as LabParse;
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fmt::Debug};
 use std::{
@@ -10,7 +10,7 @@ use std::{
 };
 use std::{sync::mpsc, thread};
 
-use crate::pipe::{ModuleType, Pipe};
+use crate::lab::{ModuleType, Lab};
 use crate::pipeline::Pipeline;
 
 #[derive(Debug, Clone)]
@@ -177,8 +177,8 @@ impl Runtime {
             let target = path.canonicalize().unwrap();
             let target_key = target.to_str().unwrap().to_string();
 
-            let pipe = match PipeParse::from_path(&target_key) {
-                Ok(value) => Pipe::new(&value, lab_lang_extension_path),
+            let lab = match LabParse::from_path(&target_key) {
+                Ok(value) => Lab::new(&value, lab_lang_extension_path),
                 Err(_) => return Err(()),
             };
 
@@ -187,7 +187,7 @@ impl Runtime {
             let pipeline = Pipeline::new(
                 pipeline_id,
                 target_key.clone(),
-                pipe.clone(),
+                lab.clone(),
                 pipeline_traces.clone(),
             );
 
@@ -195,7 +195,7 @@ impl Runtime {
             pipelines.insert(target_key.clone(), pipeline);
             references.insert(target_key.clone(), pipeline_id);
 
-            for module in pipe.modules.unwrap().iter() {
+            for module in lab.modules.unwrap().iter() {
                 let path_raw = format!("{}/{}", path_base, module.path);
                 let module_key = match PathBuf::from_str(&path_raw).unwrap().canonicalize() {
                     Ok(path) => path.to_str().unwrap().to_string(),
@@ -289,17 +289,17 @@ impl Runtime {
                 Receiver<PipelineSetup>,
             ) = mpsc::channel();
 
-            let pipes = self.pipelines.clone();
+            let labs = self.pipelines.clone();
             let modules = self.modules.clone();
             let mut last_steps_id: ID = 0;
 
             for key in self.pipelines_keys.iter() {
-                let mut pipeline = pipes.get(key).unwrap().clone();
+                let mut pipeline = labs.get(key).unwrap().clone();
                 let modules = modules.clone();
                 let sender_pipeline = sender_pipeline.clone();
                 let sender_control = sender_control.clone();
                 let initial_step_id = last_steps_id;
-                last_steps_id += pipeline.pipe.pipeline.len() as ID;
+                last_steps_id += pipeline.lab.pipeline.len() as ID;
 
                 for step_id in initial_step_id..last_steps_id {
                     pipeline_steps_ref.insert(step_id, pipeline.id);
@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn runtime_tet() {
         match Runtime::builder(
-            "example/modules/main.pipe",
+            "example/modules/main.lab",
             &format!(
                 "{}/extensions",
                 env::current_dir().unwrap().to_str().unwrap()

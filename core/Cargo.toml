@@ -1,5 +1,5 @@
 [package]
-name = "pipe-core"
+name = "lab-core"
 version = "0.1.0"
 authors = ["Philippe Assis <codephilippe@gmail.com>"]
 edition = "2018"
@@ -23,4 +23,4 @@ modules = ["scripts"]
 scripts = []
 
 [lib]
-name = "pipe_core"
+name = "lab_core"

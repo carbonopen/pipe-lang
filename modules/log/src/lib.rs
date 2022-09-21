@@ -1,7 +1,7 @@
 #[macro_use]
-extern crate pipe_core;
+extern crate lab_core;
 
-use pipe_core::{
+use lab_core::{
     modules::{Config, Listener, Return},
     serde_json::{Map, Value},
 };
@@ -44,7 +44,7 @@ impl Output {
     }
 }
 
-pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) {
+pub fn lab_log<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) {
     let mut default_config = Map::new();
     default_config.insert("type".to_string(), Value::String("stdout".to_string()));
 
@@ -98,4 +98,4 @@ pub fn pipe_log<F: Fn(Return)>(listener: Listener, send: F, mut config: Config) 
     }
 }
 
-create_module!(pipe_log);
+create_module!(lab_log);

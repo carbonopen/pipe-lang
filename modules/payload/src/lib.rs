@@ -1,7 +1,7 @@
 #[macro_use]
-extern crate pipe_core;
+extern crate lab_core;
 
-use pipe_core::{
+use lab_core::{
     modules::{Config, Listener, Request, Return, Trace, TraceId},
     serde_json::Value,
 };
@@ -61,14 +61,14 @@ mod tests {
     use std::convert::TryFrom;
 
     use super::*;
-    use pipe_core::{serde_json::json, modules::PreConfig, params::Params};
+    use lab_core::{serde_json::json, modules::PreConfig, params::Params};
 
     #[test]
     fn test_payload() {
         let config = PreConfig {
             reference: "test".parse().unwrap(),
             params: Params::try_from(json!({
-                "body" : pipe_param_script!([
+                "body" : lab_param_script!([
                     r#""{\"value\": ""#,
                     "(payload.number)",
                     r#"", \"type\": \"default\"}""#
@@ -108,7 +108,7 @@ mod tests {
         let config = PreConfig {
             reference: "test".parse().unwrap(),
             params: Params::try_from(json!({
-                "body" : pipe_param_script!([
+                "body" : lab_param_script!([
                     r#""{\"value\": ""#,
                     "(\"\\\"\" + payload.number + \"\\\"\")",
                     r#"", \"type\": \"default\"}""#

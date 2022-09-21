@@ -14,11 +14,11 @@ use value::Value;
 
 use crate::value::Script;
 #[derive(Parser)]
-#[grammar = "pipe.pest"]
-struct PipeParser;
+#[grammar = "lab.pest"]
+struct LabParser;
 
 #[derive(Debug)]
-pub struct Pipe {}
+pub struct Lab {}
 
 #[macro_export]
 macro_rules! map {
@@ -62,7 +62,7 @@ impl Error {
     }
 }
 
-impl Pipe {
+impl Lab {
     pub fn from_path(path: &str) -> Result<Value, Error> {
         let unparsed_file = match fs::read_to_string(path) {
             Ok(file) => file,
@@ -78,7 +78,7 @@ impl Pipe {
     }
 
     pub fn from_pos_parsed_str(pos_parse_file: &str) -> Result<Value, Error> {
-        match PipeParser::parse(Rule::pipe, pos_parse_file) {
+        match LabParser::parse(Rule::lab, pos_parse_file) {
             Ok(mut pairs) => match pairs.next() {
                 Some(pair) => Ok(Self::parse(pair)),
                 None => Ok(Value::Undefined),
@@ -487,40 +487,40 @@ mod tests {
 
     #[test]
     fn parse() {
-        let pipe = r#"
+        let lab = r#"
             pipeline {
                 macro "http" (
                     test=true
                 )
             }
         "#;
-        let value = Pipe::from_str(pipe);
+        let value = Lab::from_str(lab);
         assert!(value.is_ok());
     }
 
     #[test]
     fn parse_json() {
-        let pipe = r#"
+        let lab = r#"
             pipeline {
                 macro "http" (
                     test=true
                 )
             }
         "#;
-        let value = Pipe::from_str(pipe).unwrap();
+        let value = Lab::from_str(lab).unwrap();
         assert!(value.as_json().contains("pipeline"));
     }
 
     #[test]
     fn complex_macro() {
-        let pipe = r#"
+        let lab = r#"
         import {
             module 1 [1.5] {"item": true} false "name" (
                 item=false
             )
         }
         "#;
-        let value = Pipe::from_str(pipe).unwrap();
+        let value = Lab::from_str(lab).unwrap();
         let module_base = value
             .to_object()
             .unwrap()
@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn interpolation_string() {
-        let value = match Pipe::from_str(PIPE_CONTENT) {
+        let value = match Lab::from_str(PIPE_CONTENT) {
             Ok(value) => value,
             Err(err) => panic!("{:?}", err),
         };
@@ -589,7 +589,7 @@ mod tests {
 
     #[test]
     fn interpolation() {
-        let value = match Pipe::from_str(PIPE_CONTENT) {
+        let value = match Lab::from_str(PIPE_CONTENT) {
             Ok(value) => value,
             Err(err) => panic!("{:?}", err),
         };

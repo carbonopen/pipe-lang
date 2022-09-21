@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::fmt::Debug;
 
-use crate::pipe::step::Step;
+use crate::lab::step::Step;
 
 pub type Steps = Vec<Step>;
 

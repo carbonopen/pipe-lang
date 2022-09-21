@@ -1,9 +1,9 @@
 #[macro_use]
-extern crate pipe_core;
+extern crate lab_core;
 
 use std::collections::HashMap;
 
-use pipe_core::{
+use lab_core::{
     modules::{Config, Listener, Response as CoreResponse, Speaker, Trace, TraceId, ID},
     serde_json::{json, Map, Value},
 };
@@ -190,7 +190,7 @@ create_module_raw!(request);
 #[cfg(test)]
 mod tests {
     use actix_web::{rt::System, web, App, HttpRequest, HttpResponse, HttpServer};
-    use pipe_core::{modules::*, params::Params};
+    use lab_core::{modules::*, params::Params};
     use reqwest::StatusCode;
     use std::{thread, convert::TryFrom};
     use tokio::runtime::Runtime;

@@ -1,11 +1,11 @@
 #[macro_use]
-extern crate pipe_core;
+extern crate lab_core;
 
 use actix_web::http::StatusCode;
 use actix_web::rt::System;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
-use pipe_core::modules::Trace;
-use pipe_core::{
+use lab_core::modules::Trace;
+use lab_core::{
     log,
     modules::{Config, Listener, Response, Speaker, TraceId, ID},
     serde_json::{json, Map, Value},
@@ -280,7 +280,7 @@ create_module_raw!(http_server);
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pipe_core::{modules::*, params::Params, serde_json};
+    use lab_core::{modules::*, params::Params, serde_json};
     use reqwest::{Body, IntoUrl};
     use std::{convert::TryFrom, thread};
 

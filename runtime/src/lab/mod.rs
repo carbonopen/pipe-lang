@@ -2,7 +2,7 @@ pub mod step;
 use crate::extensions::Extension;
 use crate::extensions::ExtensionType;
 use libloading::{Library, Symbol};
-use pipe_parser::value::Value;
+use lab_parser::value::Value;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::fs;
@@ -47,7 +47,7 @@ impl Module {
             .unwrap();
 
         if module_type.eq(&ModuleType::Pipeline) {
-            path += ".pipe";
+            path += ".lab";
         }
 
         params.insert("path".to_string(), Value::String(path.clone()));
@@ -81,17 +81,17 @@ impl Module {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct Pipe {
+pub struct Lab {
     pub config: Option<HashMap<String, Value>>,
     pub args: Option<HashMap<String, Value>>,
     pub modules: Option<Vec<Module>>,
     pub pipeline: Vec<Step>,
 }
 
-impl Pipe {
+impl Lab {
     pub fn new(value: &Value, runtime_extension_path: &str) -> Self {
-        let pipe_obj = value.to_object().expect("Error trying to capture code.");
-        let modules = match pipe_obj.get("import") {
+        let lab_obj = value.to_object().expect("Error trying to capture code.");
+        let modules = match lab_obj.get("import") {
             Some(value) => match value.to_object() {
                 Ok(obj) => Some(Self::load_modules(&obj)),
                 Err(_) => None,
@@ -99,11 +99,11 @@ impl Pipe {
             None => None,
         };
         let pipeline = {
-            let args = match pipe_obj.get("args") {
+            let args = match lab_obj.get("args") {
                 Some(args) => Some(args.clone()),
                 None => None,
             };
-            let pipeline = pipe_obj.get("pipeline").expect("No pipeline present.");
+            let pipeline = lab_obj.get("pipeline").expect("No pipeline present.");
             let obj = pipeline.to_array().expect("Could not load pipeline");
 
             if cfg!(feature = "extensions") {

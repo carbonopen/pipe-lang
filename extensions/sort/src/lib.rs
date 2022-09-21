@@ -1,7 +1,7 @@
-use pipe_runtime::{
+use lab_runtime::{
     declare_extension,
     extensions::{Extension, ExtensionType},
-    pipe::step::Step,
+    lab::step::Step,
 };
 
 #[derive(Debug, Default, Clone)]

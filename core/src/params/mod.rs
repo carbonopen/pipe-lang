@@ -456,8 +456,8 @@ impl Params {
         let (script, default_value) = match item.get("___PIPE___default") {
             Some(default_value) => {
                 if let Some(default_value_obj) = default_value.as_object() {
-                    if let Some(pipe_param_type) = default_value_obj.get("___PIPE___type") {
-                        if pipe_param_type.as_str().unwrap().eq("script") {
+                    if let Some(lab_param_type) = default_value_obj.get("___PIPE___type") {
+                        if lab_param_type.as_str().unwrap().eq("script") {
                             match Self::script_to_ast(
                                 &engine,
                                 &re_quotes,
@@ -517,12 +517,12 @@ mod test {
     fn test_full() {
         let data = json!({
             "param1": 1,
-            "param2": pipe_param_convert!("String", pipe_param_script!(["(payload.number)"])),
-            "param3": pipe_param_convert!("Number", pipe_param_script!(["(payload.string)"])),
-            "param4": pipe_param_convert!("Boolean", pipe_param_script!(["(payload.boolean)"])),
-            "param5": pipe_param_convert!("Array", pipe_param_script!(["(payload.array)"])),
-            "param6": pipe_param_convert!("Object", pipe_param_script!(["(payload.object)"])),
-            "param7": pipe_param_script!([r#""{\"item\": ""#,"(payload.number)", r#""}""#]),
+            "param2": lab_param_convert!("String", lab_param_script!(["(payload.number)"])),
+            "param3": lab_param_convert!("Number", lab_param_script!(["(payload.string)"])),
+            "param4": lab_param_convert!("Boolean", lab_param_script!(["(payload.boolean)"])),
+            "param5": lab_param_convert!("Array", lab_param_script!(["(payload.array)"])),
+            "param6": lab_param_convert!("Object", lab_param_script!(["(payload.object)"])),
+            "param7": lab_param_script!([r#""{\"item\": ""#,"(payload.number)", r#""}""#]),
         })
         .as_object()
         .unwrap()

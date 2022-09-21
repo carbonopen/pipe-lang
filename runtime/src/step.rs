@@ -1,10 +1,10 @@
-use pipe_core::modules::{Request, ID};
+use lab_core::modules::{Request, ID};
 use serde_json::Value;
 
 use std::sync::mpsc::Sender;
 use std::{collections::HashMap, fmt::Debug};
 
-use crate::{pipe::ModuleType, runtime::PipelineRequest};
+use crate::{lab::ModuleType, runtime::PipelineRequest};
 
 #[derive(Debug, Clone)]
 pub struct StepConfig {

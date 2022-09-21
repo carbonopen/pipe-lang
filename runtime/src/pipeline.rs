@@ -1,5 +1,5 @@
 use libloading::{Library, Symbol};
-use pipe_core::{
+use lab_core::{
     log,
     modules::{BinSender, History, Module, PreConfig, Request, Response, ID},
     params::Params,
@@ -18,7 +18,7 @@ use std::{
 use std::{sync::mpsc, thread};
 
 use crate::{
-    pipe::{ModuleType, Pipe},
+    lab::{ModuleType, Lab},
     runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace}, step::{Step, StepConfig},
 };
 
@@ -86,7 +86,7 @@ impl PipelineControl {
     pub fn update_history(
         &self,
         response: &Response,
-    ) -> Option<HashMap<String, pipe_core::modules::Step>> {
+    ) -> Option<HashMap<String, lab_core::modules::Step>> {
         match self.steps.get(&response.origin) {
             Some(step) => {
                 let mut his_lock = self.history.lock().unwrap();
@@ -128,7 +128,7 @@ impl PipelineControl {
 pub struct Pipeline {
     pub id: u32,
     pub key: String,
-    pub pipe: Pipe,
+    pub lab: Lab,
     pub references: HashMap<String, ID>,
     pipeline_traces: Arc<Mutex<PipelineTrace>>,
 }
@@ -137,13 +137,13 @@ impl Pipeline {
     pub fn new(
         id: u32,
         key: String,
-        pipe: Pipe,
+        lab: Lab,
         pipeline_traces: Arc<Mutex<PipelineTrace>>,
     ) -> Self {
         Self {
             id,
             key,
-            pipe,
+            lab,
             references: HashMap::default(),
             pipeline_traces,
         }
@@ -161,7 +161,7 @@ impl Pipeline {
         tx_control: Sender<Response>,
         tx_senders: Sender<BinSender>,
     ) {
-        let module_by_name = match self.pipe.modules.clone() {
+        let module_by_name = match self.lab.modules.clone() {
             Some(modules) => {
                 let mut result = HashMap::new();
 
@@ -174,7 +174,7 @@ impl Pipeline {
             None => HashMap::default(),
         };
 
-        for step in self.pipe.pipeline.iter() {
+        for step in self.lab.pipeline.iter() {
             let step = step.clone();
 
             let current_module = match module_by_name.get(&step.module) {

@@ -1,4 +1,4 @@
-pipe = _{ SOI ~ sessions* ~ EOI }
+lab = _{ SOI ~ sessions* ~ EOI }
 WHITESPACE = _{ " " | "\t"  }
 COMMENT =  _{ inline_comment | block_comment }
 
@@ -26,7 +26,7 @@ tag = { ":" ~ ident ~ tag_args? }
 tag_args = {"(" ~ ( number | boolean | null | string| string_alt | ident | array | object | ",")* ~ ")"}
 
 //Attatch
-attach= { ("|" | "pipe") ~ (module | ident | reference) }
+attach= { ("|" | "lab") ~ (module | ident | reference) }
 reference = @{ "@" ~ ident }
 //Macro
 param_macro = { ident ~ value*? ~ param_macro_content }

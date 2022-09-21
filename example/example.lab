@@ -15,7 +15,7 @@ pipeline {
         address="127.0.0.1:8085"
         route(
             path="/send/{item}"
-            pipe match
+            lab match
         )
         route(
             path="/health"
@@ -27,10 +27,10 @@ pipeline {
         target = ${ payload.params.item }
 
         case "one" (
-            pipe one
+            lab one
         )
         case "other" (
-            pipe other
+            lab other
         )
 
         | default

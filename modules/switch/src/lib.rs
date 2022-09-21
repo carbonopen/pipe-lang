@@ -1,7 +1,7 @@
 #[macro_use]
-extern crate pipe_core;
+extern crate lab_core;
 
-use pipe_core::{
+use lab_core::{
     modules::{Config, Listener, Return},
     serde_json::Value,
 };
@@ -103,7 +103,7 @@ mod tests {
 
     use std::convert::TryFrom;
 
-    use pipe_core::{
+    use lab_core::{
         modules::*,
         params::Params,
         serde_json::{json, Value},
@@ -125,7 +125,7 @@ mod tests {
                             "attach": "bar",
                         }
                     ],
-                    "target": pipe_param_script!(["payload.num"])
+                    "target": lab_param_script!(["payload.num"])
                 })
                 .as_object()
                 .unwrap()
@@ -161,7 +161,7 @@ mod tests {
                             "attach": "bar",
                         }
                     ],
-                    "target": pipe_param_script!(["payload.num"]),
+                    "target": lab_param_script!(["payload.num"]),
                     "attach": ""
                 })
                 .as_object()

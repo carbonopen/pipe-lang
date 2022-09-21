@@ -1,6 +1,6 @@
 mod envs;
 pub mod extensions;
-mod pipe;
+mod lab;
 mod pipeline;
 mod runtime;
 pub mod step;
@@ -9,8 +9,8 @@ mod to_file;
 use clap::Parser;
 use env_logger::{Builder, Env, Target};
 use envs::Envs;
-use pipe_core::log;
-use pipe_parser::Pipe;
+use lab_core::log;
+use lab_parser::Lab;
 use runtime::Runtime;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -27,14 +27,14 @@ fn main() {
     builder.target(Target::Stdout);
     builder.init();
 
-    log::trace!("Start Pipe.");
+    log::trace!("Start Lab.");
 
     let args = Args::parse();
     let envs = Envs::builder();
 
     match args.to_json {
-        Some(path) => match Pipe::from_path(&args.path) {
-            Ok(pipe) => to_file::to_json(&pipe, &path),
+        Some(path) => match Lab::from_path(&args.path) {
+            Ok(lab) => to_file::to_json(&lab, &path),
             Err(err) => log::error!("{:?}: {}", err, &args.path),
         },
         None => match Runtime::builder(&args.path, &envs.runtime_extension_path) {
