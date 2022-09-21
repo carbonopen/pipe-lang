@@ -1,5 +1,5 @@
 [package]
-name = "bin"
+name = "pipe-runtime"
 version = "0.1.0"
 edition = "2018"
 
@@ -17,3 +17,12 @@ serde_json = "1.0.60"
 pipe-core = { path = "../core", features = ["default"] }
 chrono = "0.4.19"
 env_logger = "0.9.0"
+
+[features]
+default = ["extensions", "runtime"]
+extensions = []
+runtime = []
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "pipe_runtime"

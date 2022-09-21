@@ -89,25 +89,9 @@ impl Pipe {
 
     pub fn pos_parse(content: String) -> String {
         Self::parse_embedded(content)
+        // TODO importar pos parse extension
         //TODO:parse_module_run
     }
-
-    // pub fn parse_tags(content: String) -> String {
-    //     let re = Regex::new(r#":[a-z_]*\([a-z_0-9.!?]*\)"#).unwrap();
-
-    //     let mut result = String::default();
-    //     let mut content_last_end = 0;
-    //     let mut tags = HashMap::new();
-
-    //     for cap in re.captures_iter(&content) {
-    //         let range = cap.get(0).unwrap().range();
-    //         let target = content[range.start..range.end].to_string();
-    //     }
-
-    //     result.push_str(&content[content_last_end..]);
-
-    //     result
-    // }    
 
     pub fn parse_embedded(content: String) -> String {
         let re = Regex::new(r#"(?s)```.*?```"#).unwrap();

@@ -1,0 +1,3 @@
+[tasks.example]
+command = "cargo"
+args = ["run", "-p", "pipe-runtime", "-- demo/example.pipe"]

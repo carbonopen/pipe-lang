@@ -1,20 +1,12 @@
-use crate::pos_parse;
-use crate::pos_parse::PosParse;
+pub mod step;
+use crate::extensions::Extension;
+use crate::extensions::ExtensionType;
+use libloading::{Library, Symbol};
 use pipe_parser::value::Value;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-
-#[derive(Default, Debug, PartialEq, Clone)]
-pub struct Step {
-    pub id: usize,
-    pub position: usize,
-    pub module: String,
-    pub params: Option<JsonValue>,
-    pub reference: Option<String>,
-    pub tags: HashMap<String, JsonValue>,
-    pub attach: Option<String>,
-    pub args: HashMap<String, JsonValue>,
-}
+use std::fs;
+use step::Step;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Payload {
@@ -97,6 +89,41 @@ pub struct Pipe {
 }
 
 impl Pipe {
+    pub fn new(value: &Value, runtime_extension_path: &str) -> Self {
+        let pipe_obj = value.to_object().expect("Error trying to capture code.");
+        let modules = match pipe_obj.get("import") {
+            Some(value) => match value.to_object() {
+                Ok(obj) => Some(Self::load_modules(&obj)),
+                Err(_) => None,
+            },
+            None => None,
+        };
+        let pipeline = {
+            let args = match pipe_obj.get("args") {
+                Some(args) => Some(args.clone()),
+                None => None,
+            };
+            let pipeline = pipe_obj.get("pipeline").expect("No pipeline present.");
+            let obj = pipeline.to_array().expect("Could not load pipeline");
+
+            if cfg!(feature = "extensions") {
+                Self::pipeline_to_steps(&obj, args, runtime_extension_path)
+            } else {
+                Self::to_steps(&obj, args)
+            }
+        };
+
+        let args = Default::default();
+        let config = Default::default();
+
+        Self {
+            config,
+            modules,
+            pipeline,
+            args,
+        }
+    }
+
     fn load_modules(imports: &HashMap<String, Value>) -> Vec<Module> {
         let mut modules = Vec::new();
 
@@ -235,42 +262,46 @@ impl Pipe {
         list
     }
 
-    fn pipeline_to_steps(pipeline: &Vec<Value>, args: Option<Value>) -> Vec<Step> {
-        let list = Self::to_steps(pipeline, args);
-        let sort = pos_parse::Sort::parse(list);
+    #[cfg(feature = "extensions")]
+    fn pipeline_to_steps(
+        pipeline: &Vec<Value>,
+        args: Option<Value>,
+        runtime_extension_path: &str,
+    ) -> Vec<Step> {
+        let entries = fs::read_dir(runtime_extension_path).unwrap();
+        let mut steps = Self::to_steps(pipeline, args);
 
-        sort
-    }
-}
+        for entry in entries {
+            if let Ok(entry) = entry {
+                match entry.file_type() {
+                    Ok(file_type) if file_type.is_file() => {
+                        let path = entry.path().display().to_string();
 
-impl Pipe {
-    pub fn new(value: &Value) -> Self {
-        let pipe_obj = value.to_object().expect("Error trying to capture code.");
-        let modules = match pipe_obj.get("import") {
-            Some(value) => match value.to_object() {
-                Ok(obj) => Some(Self::load_modules(&obj)),
-                Err(_) => None,
-            },
-            None => None,
-        };
-        let pipeline = {
-            let args = match pipe_obj.get("args") {
-                Some(args) => Some(args.clone()),
-                None => None,
-            };
-            let pipeline = pipe_obj.get("pipeline").expect("No pipeline present.");
-            let obj = pipeline.to_array().expect("Could not load pipeline");
-            Self::pipeline_to_steps(&obj, args)
-        };
+                        if path.ends_with(".lrepos") {
+                            let lib = match Library::new(path.clone()) {
+                                Ok(lib) => lib,
+                                Err(err) => panic!("Error: {}; Filename: {}", err, path),
+                            };
 
-        let args = Default::default();
-        let config = Default::default();
+                            let bin = unsafe {
+                                let constructor: Symbol<
+                                    unsafe extern "C" fn() -> *mut dyn Extension,
+                                > = lib.get(b"_Extension").unwrap();
+                                let boxed_raw = constructor();
+                                Box::from_raw(boxed_raw)
+                            };
 
-        Self {
-            config,
-            modules,
-            pipeline,
-            args,
+                            if bin.extension_type().eq(&ExtensionType::PosParse) {
+                                bin.handler(&mut steps)
+                            }
+                        }
+                    }
+                    Ok(_) => continue,
+                    Err(err) => panic!("{:?}", err),
+                }
+            }
         }
+
+        steps
     }
 }

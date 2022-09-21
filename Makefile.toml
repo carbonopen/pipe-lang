@@ -1,0 +1,28 @@
+[config]
+default_to_workspace = false
+
+[tasks.example-modules]
+command = "cargo"
+args = ["run", "-p", "pipe-runtime", "--release", "demo/modules/main.pipe"]
+
+[tasks.example-order]
+command = "cargo"
+args = ["run", "-p", "pipe-runtime", "--release", "demo/order.pipe"]
+
+[tasks.build]
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.extensions-sync]
+command = "cp"
+args =  ["target/release/libextension_sort.so", "extensions/extension_sort.lrepos"]
+
+
+[tasks.extensions-build]
+command = "cargo"
+args = ["build", "--release", "-p", "pipe-extension-sort"]
+
+[tasks.extensions]
+run_task = { name = ["extensions-build", "extensions-sync"], parallel = false }
+
+

@@ -12,6 +12,10 @@ import {
 
 pipeline {
     echo {
+        text=`Concated`
+    } :last()
+
+    echo {
         text=`Result: ${ args.item1 + " " + args.item2 + " " + args.item3}`
     }
 }

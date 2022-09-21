@@ -13,6 +13,8 @@ import {
 }
 
 pipeline {
+    exit {} :last()
+
     link {} :producer()
 
     print {
@@ -27,8 +29,6 @@ pipeline {
     print {
         text="End!"
     }
-
-    exit {}
 }
 
 

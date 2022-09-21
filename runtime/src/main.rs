@@ -1,11 +1,14 @@
-pub mod step;
+mod envs;
+pub mod extensions;
 mod pipe;
 mod pipeline;
-pub mod pos_parse;
 mod runtime;
+pub mod step;
 mod to_file;
+
 use clap::Parser;
 use env_logger::{Builder, Env, Target};
+use envs::Envs;
 use pipe_core::log;
 use pipe_parser::Pipe;
 use runtime::Runtime;
@@ -27,13 +30,14 @@ fn main() {
     log::trace!("Start Pipe.");
 
     let args = Args::parse();
+    let envs = Envs::builder();
 
     match args.to_json {
         Some(path) => match Pipe::from_path(&args.path) {
             Ok(pipe) => to_file::to_json(&pipe, &path),
             Err(err) => log::error!("{:?}: {}", err, &args.path),
         },
-        None => match Runtime::builder(&args.path) {
+        None => match Runtime::builder(&args.path, &envs.runtime_extension_path) {
             Ok(run) => run.start(),
             Err(err) => log::error!("{:?}: {}", err, &args.path),
         },

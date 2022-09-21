@@ -1,8 +1,8 @@
 [workspace]
 members = [
     "parser",
-    "bin",
     "core",
+    "runtime",
     "modules/payload",
     "modules/switch",
     "modules/http_server",
@@ -11,5 +11,6 @@ members = [
     "modules/log",
     "modules/link",
     "modules/exit",
-    "modules/print"
+    "modules/print",
+    "extensions/sort",
 ]

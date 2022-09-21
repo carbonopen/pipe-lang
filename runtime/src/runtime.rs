@@ -141,7 +141,7 @@ impl PipelineTrace {
                 Some(request) => Some(request),
                 None => None,
             },
-            None => panic!("Pipeline trace not found"),
+            None => None,
         }
     }
 }
@@ -161,7 +161,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn builder(target: &str) -> Result<Self, ()> {
+    pub fn builder(target: &str, lab_lang_extension_path: &str) -> Result<Self, ()> {
         let mut targets = vec![target.to_string()];
         let mut aliases: Aliases = HashMap::new();
         let mut pipelines: Pipelines = HashMap::new();
@@ -178,7 +178,7 @@ impl Runtime {
             let target_key = target.to_str().unwrap().to_string();
 
             let pipe = match PipeParse::from_path(&target_key) {
-                Ok(value) => Pipe::new(&value),
+                Ok(value) => Pipe::new(&value, lab_lang_extension_path),
                 Err(_) => return Err(()),
             };
 
@@ -376,11 +376,19 @@ impl Runtime {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+
     use super::*;
 
     #[test]
     fn runtime_tet() {
-        match Runtime::builder("demo/modules/main.pipe") {
+        match Runtime::builder(
+            "demo/modules/main.pipe",
+            &format!(
+                "{}/extensions",
+                env::current_dir().unwrap().to_str().unwrap()
+            ),
+        ) {
             Ok(run) => run.start(),
             Err(_) => assert!(false),
         }
