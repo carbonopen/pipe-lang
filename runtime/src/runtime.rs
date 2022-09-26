@@ -10,7 +10,7 @@ use std::{
 };
 use std::{sync::mpsc, thread};
 
-use crate::lab::{ModuleType, Lab};
+use crate::lab::{Lab, ModuleType};
 use crate::pipeline::Pipeline;
 
 #[derive(Debug, Clone)]
@@ -174,7 +174,16 @@ impl Runtime {
         loop {
             let index = targets.len() - 1;
             let path = PathBuf::from_str(targets.get(index).unwrap()).unwrap();
-            let target = path.canonicalize().unwrap();
+            let target = {
+                let mut target = path.canonicalize().unwrap();
+
+                if target.is_dir() {
+                    target.push("main.lab")
+                }
+
+                target
+            };
+
             let target_key = target.to_str().unwrap().to_string();
 
             let lab = match LabParse::from_path(&target_key) {
