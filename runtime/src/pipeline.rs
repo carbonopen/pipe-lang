@@ -1,9 +1,9 @@
-use libloading::{Library, Symbol};
 use lab_core::{
     log,
     modules::{BinSender, History, Module, PreConfig, Request, Response, ID},
     params::Params,
 };
+use libloading::{Library, Symbol};
 
 use core::panic;
 use std::{
@@ -18,10 +18,10 @@ use std::{
 use std::{sync::mpsc, thread};
 
 use crate::{
-    lab::{ModuleType, Lab},
-    runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace}, step::{Step, StepConfig},
+    lab::{Lab, ModuleType},
+    runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace},
+    step::{Step, StepConfig},
 };
-
 
 #[derive(Debug, Clone)]
 struct PipelineControl {
@@ -134,12 +134,7 @@ pub struct Pipeline {
 }
 
 impl Pipeline {
-    pub fn new(
-        id: u32,
-        key: String,
-        lab: Lab,
-        pipeline_traces: Arc<Mutex<PipelineTrace>>,
-    ) -> Self {
+    pub fn new(id: u32, key: String, lab: Lab, pipeline_traces: Arc<Mutex<PipelineTrace>>) -> Self {
         Self {
             id,
             key,
@@ -368,7 +363,7 @@ impl Pipeline {
                         Some(step) => match step.send(request) {
                             Ok(_) => continue,
                             Err(err) => {
-                                panic!("{:#?}", err);
+                                panic!("{}", err);
                             }
                         },
                         None => {
@@ -382,7 +377,7 @@ impl Pipeline {
                         Some(step) => match step.send(request) {
                             Ok(_) => continue,
                             Err(err) => {
-                                panic!("{:#?}", err);
+                                panic!("{}", err);
                             }
                         },
                         None => {
@@ -416,7 +411,7 @@ impl Pipeline {
                                         Some(step) => match step.send(request) {
                                             Ok(_) => continue,
                                             Err(err) => {
-                                                panic!("{:#?}", err);
+                                                panic!("{}", err);
                                             }
                                         },
                                         None => {
