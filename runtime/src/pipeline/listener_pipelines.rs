@@ -1,4 +1,4 @@
-use super::{data::PipelineData, Pipeline};
+use super::Pipeline;
 use crate::runtime::PipelineRequest;
 use core::panic;
 use lab_core::modules::Response;
@@ -9,12 +9,12 @@ impl Pipeline {
     fn send_step(
         &self,
         step_attach: ID,
-        pipeline_data: PipelineData,
         pipeline_request: PipelineRequest,
         sender_steps: Sender<Response>,
     ) -> Result<(), std::sync::mpsc::SendError<Response>> {
         let origin = step_attach + 1;
-        let attach = pipeline_data
+        let attach = self
+            .pipeline_data
             .steps
             .get(&origin)
             .unwrap()
@@ -41,12 +41,7 @@ impl Pipeline {
         for pipeline_request in receiver_pipelines {
             let step_id = match pipeline_request.step_attach {
                 Some(step_attach) if pipeline_request.return_pipeline == true => {
-                    match self.send_step(
-                        step_attach,
-                        self.pipeline_data.clone(),
-                        pipeline_request,
-                        sender_steps.clone(),
-                    ) {
+                    match self.send_step(step_attach, pipeline_request, sender_steps.clone()) {
                         Ok(_) => continue,
                         Err(_) => panic!("Return error"),
                     }
