@@ -41,18 +41,13 @@ impl Pipeline {
         for pipeline_request in receiver_pipelines {
             let step_id = match pipeline_request.step_attach {
                 Some(step_attach) if pipeline_request.return_pipeline == true => {
-                    match self.send_step(step_attach, pipeline_request, sender_steps.clone()) {
-                        Ok(_) => continue,
-                        Err(_) => panic!("Return error"),
-                    }
+                    self.send_step(step_attach, pipeline_request, sender_steps.clone()).expect("Return error");
+                    continue;
                 }
                 Some(step_attach) => step_attach,
                 None => initial_step_id,
             };
-            let step = match self.pipeline_data.steps.get(&step_id) {
-                Some(step) => step,
-                None => panic!("Step not found"),
-            };
+            let step = self.pipeline_data.steps.get(&step_id).expect("Step not");
             let trace_id = pipeline_request.request.trace.trace_id;
 
             match step.send(pipeline_request.request.clone()) {
