@@ -7,12 +7,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{
-    lab::ModuleType,
-    runtime::PipelineRequest,
-    step::{Step, StepConfig},
-    trace::DebugTrace,
-};
+use crate::{lab::ModuleType, runtime::PipelineRequest, trace::DebugTrace};
+
+use super::step::{Step, StepConfig};
 #[derive(Debug, Clone)]
 pub struct PipelineData {
     pub steps: HashMap<u32, Step>,

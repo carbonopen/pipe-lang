@@ -1,5 +1,5 @@
-use super::{data::PipelineData, Pipeline};
-use crate::{lab::ModuleType, runtime::Modules, step::StepConfig};
+use super::{data::PipelineData, Pipeline, step::StepConfig};
+use crate::{lab::ModuleType, runtime::Modules};
 use core::panic;
 use lab_core::{
     log,

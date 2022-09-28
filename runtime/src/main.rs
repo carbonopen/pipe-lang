@@ -4,7 +4,6 @@ pub mod extensions;
 mod lab;
 mod pipeline;
 mod runtime;
-pub mod step;
 mod to_file;
 
 use clap::Parser;
