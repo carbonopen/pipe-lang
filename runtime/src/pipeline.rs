@@ -21,6 +21,7 @@ use crate::{
     lab::{Lab, ModuleType},
     runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace},
     step::{Step, StepConfig},
+    trace::DebugTrace,
 };
 
 #[derive(Debug, Clone)]
@@ -30,16 +31,18 @@ struct PipelineData {
     pub reference: HashMap<String, u32>,
     total_bins: u32,
     pipeline_sender: Sender<PipelineRequest>,
+    debug_trace: DebugTrace,
 }
 
 impl PipelineData {
-    pub fn new(pipeline_sender: Sender<PipelineRequest>) -> Self {
+    pub fn new(pipeline_sender: Sender<PipelineRequest>, debug_trace: DebugTrace) -> Self {
         Self {
             steps: HashMap::default(),
             history: Arc::new(Mutex::new(History::new())),
             total_bins: 0,
             reference: HashMap::default(),
             pipeline_sender,
+            debug_trace,
         }
     }
 
@@ -55,6 +58,7 @@ impl PipelineData {
                 params: config.params.clone(),
                 config,
                 sender_pipeline: Some(self.pipeline_sender.clone()),
+                debug_trace: self.debug_trace.clone(),
             },
         );
     }
@@ -71,6 +75,7 @@ impl PipelineData {
                 params: config.params.clone(),
                 config,
                 sender_pipeline: None,
+                debug_trace: self.debug_trace.clone(),
             },
         );
         self.total_bins += 1;
@@ -131,16 +136,24 @@ pub struct Pipeline {
     pub lab: Lab,
     pub references: HashMap<String, ID>,
     pipeline_traces: Arc<Mutex<PipelineTrace>>,
+    debug_trace: DebugTrace,
 }
 
 impl Pipeline {
-    pub fn new(id: u32, key: String, lab: Lab, pipeline_traces: Arc<Mutex<PipelineTrace>>) -> Self {
+    pub fn new(
+        id: u32,
+        key: String,
+        lab: Lab,
+        pipeline_traces: Arc<Mutex<PipelineTrace>>,
+        debug_trace: DebugTrace,
+    ) -> Self {
         Self {
             id,
             key,
             lab,
             references: HashMap::default(),
             pipeline_traces,
+            debug_trace,
         }
     }
 
@@ -172,7 +185,7 @@ impl Pipeline {
 
         drop(sender_setup_runtime);
 
-        let mut pipeline_data = PipelineData::new(sender_pipelines.clone());
+        let mut pipeline_data = PipelineData::new(sender_pipelines.clone(), self.debug_trace.clone());
         let (sender_steps, receiver_steps): (Sender<Response>, Receiver<Response>) =
             mpsc::channel();
 

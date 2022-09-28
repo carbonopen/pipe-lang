@@ -5,6 +5,7 @@ use std::fmt::Display;
 use std::sync::mpsc::{SendError, Sender};
 use std::{collections::HashMap, fmt::Debug};
 
+use crate::trace::DebugTrace;
 use crate::{lab::ModuleType, runtime::PipelineRequest};
 
 #[derive(Debug, Clone)]
@@ -28,6 +29,7 @@ pub struct Step {
     pub config: StepConfig,
     pub sender_pipeline: Option<Sender<PipelineRequest>>,
     pub params: HashMap<String, Value>,
+    pub debug_trace: DebugTrace,
 }
 
 pub enum StepError {
@@ -50,6 +52,15 @@ impl Display for StepError {
 
 impl Step {
     pub fn send(&self, mut request: Request) -> Result<(), StepError> {
+        if self.debug_trace.is_enabled() {
+            self.debug_trace.add(
+                request.trace.trace_id,
+                self.pipeline_id,
+                self.config.id,
+                request.clone(),
+            );
+        }
+
         match self.module_type {
             ModuleType::Bin => match &self.sender {
                 Some(sender) => match sender.send(request) {

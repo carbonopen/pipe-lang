@@ -13,6 +13,7 @@ use std::{sync::mpsc, thread};
 use crate::envs::Envs;
 use crate::lab::{Lab, ModuleType};
 use crate::pipeline::Pipeline;
+use crate::trace::DebugTrace;
 
 #[derive(Debug, Clone)]
 pub struct ModuleInner {
@@ -171,6 +172,7 @@ impl Runtime {
         let mut pipelines_keys = Vec::new();
         let mut pipeline_id: ID = 0;
         let pipeline_traces = Arc::new(Mutex::new(PipelineTrace::new()));
+        let debug_trace = DebugTrace::new(envs.debug_size_limit, envs.debug_enabled);
 
         loop {
             let index = targets.len() - 1;
@@ -199,6 +201,7 @@ impl Runtime {
                 target_key.clone(),
                 lab.clone(),
                 pipeline_traces.clone(),
+                debug_trace.clone()
             );
 
             pipelines_keys.push(target_key.clone());
