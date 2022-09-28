@@ -81,7 +81,7 @@ impl PipelineData {
         self.total_bins += 1;
     }
 
-    pub fn bin_sender(&mut self, id: u32, sender: Sender<Request>) {
+    pub fn bin_sender(&mut self, id: ID, sender: Sender<Request>) {
         match self.steps.get_mut(&id) {
             Some(step) => step.sender = Some(sender),
             None => (),
@@ -131,7 +131,7 @@ impl PipelineData {
 
 #[derive(Debug, Clone)]
 pub struct Pipeline {
-    pub id: u32,
+    pub id: ID,
     pub key: String,
     pub lab: Lab,
     pub references: HashMap<String, ID>,
@@ -141,7 +141,7 @@ pub struct Pipeline {
 
 impl Pipeline {
     pub fn new(
-        id: u32,
+        id: ID,
         key: String,
         lab: Lab,
         pipeline_traces: Arc<Mutex<PipelineTrace>>,
@@ -359,15 +359,17 @@ impl Pipeline {
     }
 
     fn wait_senders(pipeline_data: &mut PipelineData, receiver_bin: Receiver<BinSender>) {
-        let mut limit_senders = pipeline_data.total_bins;
+        if pipeline_data.total_bins > 0 {
+            let mut limit_senders = pipeline_data.total_bins - 1;
 
-        for sender in receiver_bin {
-            limit_senders -= 1;
+            for sender in receiver_bin {
+                pipeline_data.bin_sender(sender.id, sender.tx);
 
-            pipeline_data.bin_sender(sender.id, sender.tx);
+                if limit_senders == 0 {
+                    break;
+                }
 
-            if limit_senders == 0 {
-                break;
+                limit_senders -= 1;
             }
         }
     }

@@ -44,7 +44,7 @@ impl Modules {
 
 #[derive(Debug)]
 pub struct PipelineTarget {
-    pub id: u32,
+    pub id: ID,
     pub key: String,
 }
 
@@ -80,7 +80,7 @@ impl PipelineRequest {
 #[derive(Debug, Clone)]
 pub struct PipelineSetup {
     pub tx: Sender<PipelineRequest>,
-    pub id: u32,
+    pub id: ID,
 }
 
 #[derive(Debug)]

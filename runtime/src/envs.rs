@@ -19,10 +19,10 @@ impl Envs {
             Err(_) => false,
         };
 
-        let debug_enabled = true;
-
         let debug_size_limit = match env::var("LAB_LANG_DEBUG_SIZE_LIMIT") {
-            Ok(value) => value.parse::<usize>().expect("LAB_LANG_DEBUG_SIZE_LIMIT invalid"),
+            Ok(value) => value
+                .parse::<usize>()
+                .expect("LAB_LANG_DEBUG_SIZE_LIMIT invalid"),
             Err(_) => 30000,
         };
 
@@ -30,7 +30,7 @@ impl Envs {
             runtime_path,
             runtime_extension_path,
             debug_enabled,
-            debug_size_limit
+            debug_size_limit,
         }
     }
 }
