@@ -185,7 +185,8 @@ impl Pipeline {
 
         drop(sender_setup_runtime);
 
-        let mut pipeline_data = PipelineData::new(sender_pipelines.clone(), self.debug_trace.clone());
+        let mut pipeline_data =
+            PipelineData::new(sender_pipelines.clone(), self.debug_trace.clone());
         let (sender_steps, receiver_steps): (Sender<Response>, Receiver<Response>) =
             mpsc::channel();
 
@@ -358,20 +359,16 @@ impl Pipeline {
     }
 
     fn wait_senders(pipeline_data: &mut PipelineData, receiver_bin: Receiver<BinSender>) {
-        let mut limit_senders = if pipeline_data.total_bins > 0 {
-            pipeline_data.total_bins - 1
-        } else {
-            0
-        };
+        let mut limit_senders = pipeline_data.total_bins;
 
         for sender in receiver_bin {
+            limit_senders -= 1;
+
             pipeline_data.bin_sender(sender.id, sender.tx);
 
             if limit_senders == 0 {
                 break;
             }
-
-            limit_senders -= 1;
         }
     }
 
