@@ -273,7 +273,7 @@ impl Runtime {
     pub fn start(&self) {
         let mut pipeline_steps_ref = HashMap::new();
         let mut pipeline_senders = HashMap::new();
-        let (sender_control, receiver_control): (
+        let (sender_control, receiver_pipelines): (
             Sender<PipelineRequest>,
             Receiver<PipelineRequest>,
         ) = mpsc::channel();
@@ -284,7 +284,7 @@ impl Runtime {
             &mut pipeline_senders,
         );
 
-        Self::listener(receiver_control, pipeline_steps_ref, pipeline_senders);
+        Self::listener(receiver_pipelines, pipeline_steps_ref, pipeline_senders);
     }
 
     fn start_pipelines<'a>(
@@ -345,11 +345,11 @@ impl Runtime {
     }
 
     fn listener(
-        receiver_control: Receiver<PipelineRequest>,
+        receiver_pipelines: Receiver<PipelineRequest>,
         pipeline_steps_ref: HashMap<u32, u32>,
         pipeline_senders: HashMap<u32, Sender<PipelineRequest>>,
     ) {
-        for pipeline_request in receiver_control {
+        for pipeline_request in receiver_pipelines {
             let pipeline_id = match pipeline_request.pipeline_attach {
                 Some(id) => id,
                 None => pipeline_steps_ref

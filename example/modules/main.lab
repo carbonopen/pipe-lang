@@ -4,9 +4,7 @@ import {
         name="link"
     )
 
-    bin "../../target/release/libprint.so" (
-        name="print"
-    )
+    mod "print" ()
     bin "../../target/release/libexit.so" (
         name="exit"
     )
