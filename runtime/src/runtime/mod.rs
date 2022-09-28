@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod tests;
 use core::panic;
 use lab_core::modules::{Request, ID};
 use lab_parser::Lab as LabParse;
@@ -296,20 +298,6 @@ impl Runtime {
                 Ok(_) => continue,
                 Err(err) => panic!("{:?}", err),
             }
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn runtime_tet() {
-        let envs = Envs::builder();
-        match Runtime::builder("example/modules/main.lab", &envs) {
-            Ok(run) => run.start(),
-            Err(_) => assert!(false),
         }
     }
 }
