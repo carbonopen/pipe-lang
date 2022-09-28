@@ -19,9 +19,9 @@ use std::{sync::mpsc, thread};
 
 use crate::{
     lab::{Lab, ModuleType},
-    runtime::{Modules, PipelineRequest, PipelineSetup, PipelineTrace},
+    runtime::{Modules, PipelineRequest, PipelineSetup},
     step::{Step, StepConfig},
-    trace::DebugTrace,
+    trace::{DebugTrace, PipelineTrace},
 };
 
 #[derive(Debug, Clone)]

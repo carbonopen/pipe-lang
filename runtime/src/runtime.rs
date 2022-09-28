@@ -13,7 +13,7 @@ use std::{sync::mpsc, thread};
 use crate::envs::Envs;
 use crate::lab::{Lab, ModuleType};
 use crate::pipeline::Pipeline;
-use crate::trace::DebugTrace;
+use crate::trace::{DebugTrace, PipelineTrace};
 
 #[derive(Debug, Clone)]
 pub struct ModuleInner {
@@ -84,77 +84,6 @@ pub struct PipelineSetup {
 }
 
 #[derive(Debug)]
-pub struct TraceItem {
-    items: HashMap<u32, PipelineRequest>,
-    initial: u32,
-}
-
-#[derive(Debug)]
-pub struct PipelineTrace {
-    traces: HashMap<u32, TraceItem>,
-}
-
-impl PipelineTrace {
-    pub fn new() -> Self {
-        Self {
-            traces: HashMap::new(),
-        }
-    }
-
-    pub fn remove_trace(&mut self, pipeline_id: &ID, trace_id: &ID) {
-        match self.traces.get_mut(trace_id) {
-            Some(pipeline_trace) => {
-                if pipeline_trace.initial.eq(pipeline_id) {
-                    if self.traces.remove(trace_id).is_none() {
-                        panic!("Trace was previously removed");
-                    }
-                } else if pipeline_trace.items.remove(pipeline_id).is_none() {
-                    panic!("Trace not found on pipeline");
-                }
-            }
-            None => panic!("Pipeline trace not found"),
-        }
-    }
-
-    pub fn add_trace(&mut self, pipeline_id: &ID, trace_id: &ID, request: PipelineRequest) {
-        match self.traces.get_mut(trace_id) {
-            Some(pipeline_trace) => {
-                pipeline_trace.items.insert(*pipeline_id, request);
-            }
-            None => {
-                self.traces.insert(
-                    *trace_id,
-                    TraceItem {
-                        items: {
-                            let mut map = HashMap::new();
-                            map.insert(*pipeline_id, request);
-                            map
-                        },
-                        initial: *pipeline_id,
-                    },
-                );
-            }
-        }
-    }
-
-    pub fn get_trace(&self, pipeline_id: &ID, trace_id: &ID) -> Option<&PipelineRequest> {
-        match self.traces.get(trace_id) {
-            Some(pipeline_trace) => match pipeline_trace.items.get(pipeline_id) {
-                Some(request) => Some(request),
-                None => None,
-            },
-            None => None,
-        }
-    }
-}
-
-impl Default for PipelineTrace {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Debug)]
 pub struct Runtime {
     pipelines: Pipelines,
     pipelines_keys: Vec<String>,
@@ -201,7 +130,7 @@ impl Runtime {
                 target_key.clone(),
                 lab.clone(),
                 pipeline_traces.clone(),
-                debug_trace.clone()
+                debug_trace.clone(),
             );
 
             pipelines_keys.push(target_key.clone());
