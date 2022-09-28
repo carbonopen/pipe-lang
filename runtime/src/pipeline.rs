@@ -482,12 +482,11 @@ impl Pipeline {
             };
             let step = match pipeline_data.steps.get(&step_id) {
                 Some(step) => step,
-                None => todo!(),
+                None => panic!("Step not found"),
             };
             let trace_id = pipeline_request.request.trace.trace_id;
-            let request = pipeline_request.request.clone();
 
-            match step.send(request) {
+            match step.send(pipeline_request.request.clone()) {
                 Ok(_) if pipeline_request.return_pipeline == false => {
                     self.pipeline_traces.lock().unwrap().add_trace(
                         &self.id,
