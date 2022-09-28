@@ -1,7 +1,4 @@
-
-use lab_core::{
-    modules::{BinSender, Response, ID},
-};
+use lab_core::modules::{BinSender, Response, ID};
 
 use core::panic;
 
@@ -10,7 +7,7 @@ use std::sync::mpsc::{Receiver, Sender};
 
 use crate::runtime::{Modules, PipelineRequest, PipelineSetup};
 
-use super::{Pipeline, data::PipelineData};
+use super::Pipeline;
 
 impl Pipeline {
     pub fn start(
@@ -37,8 +34,8 @@ impl Pipeline {
 
         drop(sender_setup_runtime);
 
-        let mut pipeline_data =
-            PipelineData::new(sender_pipelines.clone(), self.debug_trace.clone());
+        self.pipeline_data
+            .set_pipeline_sender(sender_pipelines.clone());
         let (sender_steps, receiver_steps): (Sender<Response>, Receiver<Response>) =
             mpsc::channel();
 
@@ -49,29 +46,15 @@ impl Pipeline {
             self.load_and_start_steps(
                 initial_step_id,
                 &modules,
-                &mut pipeline_data,
                 sender_steps.clone(),
                 sender_bin.clone(),
+                receiver_bin,
             );
 
-            Self::wait_senders(&mut pipeline_data, receiver_bin);
-
-            let pipeline_data_thread = pipeline_data.clone();
-
-            self.listener_steps(
-                receiver_steps,
-                pipeline_data_thread,
-                sender_pipelines,
-                initial_step_id,
-            );
+            self.listener_steps(receiver_steps, sender_pipelines, initial_step_id);
         }
 
-        self.listener_pipelines(
-            receiver_pipelines,
-            pipeline_data,
-            initial_step_id,
-            sender_steps,
-        );
+        self.listener_pipelines(receiver_pipelines, initial_step_id, sender_steps);
 
         Ok(())
     }

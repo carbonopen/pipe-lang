@@ -1,20 +1,20 @@
-use lab_core::modules::{Response, ID};
+use super::pipeline::Pipeline;
+use crate::runtime::PipelineRequest;
 use core::panic;
+use lab_core::modules::{Response, ID};
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use crate::runtime::PipelineRequest;
-use super::{data::PipelineData, pipeline::Pipeline};
 
 impl Pipeline {
     pub fn listener_steps<'a>(
         &self,
         receiver_steps: Receiver<Response>,
-        pipeline_data: PipelineData,
         sender_pipelines: Sender<PipelineRequest>,
         initial_step_id: ID,
     ) {
         let pipeline_id = self.id;
         let pipeline_traces = self.pipeline_traces.clone();
+        let pipeline_data = self.pipeline_data.clone();
 
         thread::spawn(move || {
             for response in receiver_steps {

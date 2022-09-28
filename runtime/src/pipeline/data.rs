@@ -16,20 +16,24 @@ pub struct PipelineData {
     pub history: Arc<Mutex<History>>,
     pub reference: HashMap<String, u32>,
     pub total_bins: u32,
-    pub pipeline_sender: Sender<PipelineRequest>,
+    pub pipeline_sender: Option<Sender<PipelineRequest>>,
     pub debug_trace: DebugTrace,
 }
 
 impl PipelineData {
-    pub fn new(pipeline_sender: Sender<PipelineRequest>, debug_trace: DebugTrace) -> Self {
+    pub fn new(debug_trace: DebugTrace) -> Self {
         Self {
             steps: HashMap::default(),
             history: Arc::new(Mutex::new(History::new())),
             total_bins: 0,
             reference: HashMap::default(),
-            pipeline_sender,
+            pipeline_sender: None,
             debug_trace,
         }
+    }
+
+    pub fn set_pipeline_sender(&mut self, pipeline_sender: Sender<PipelineRequest>){
+        self.pipeline_sender = Some(pipeline_sender);
     }
 
     pub fn insert_pipeline(&mut self, id: ID, pipeline_id: ID, config: StepConfig) {
@@ -43,7 +47,7 @@ impl PipelineData {
                 sender: None,
                 params: config.params.clone(),
                 config,
-                sender_pipeline: Some(self.pipeline_sender.clone()),
+                sender_pipeline: self.pipeline_sender.clone(),
                 debug_trace: self.debug_trace.clone(),
             },
         );

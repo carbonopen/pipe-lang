@@ -1,4 +1,4 @@
-use super::{data::PipelineData, Pipeline, step::StepConfig};
+use super::{step::StepConfig, Pipeline};
 use crate::{lab::ModuleType, runtime::Modules};
 use core::panic;
 use lab_core::{
@@ -16,12 +16,12 @@ use std::{
 
 impl Pipeline {
     pub fn load_and_start_steps<'a>(
-        &self,
+        &mut self,
         initial_step_id: ID,
         modules: &Modules,
-        pipeline_data: &mut PipelineData,
         sender_steps: Sender<Response>,
         sender_bin: Sender<BinSender>,
+        receiver_bin: Receiver<BinSender>,
     ) {
         let module_by_name = match self.lab.modules.clone() {
             Some(modules) => {
@@ -81,7 +81,7 @@ impl Pipeline {
 
                 let pipeline_id = *self.references.get(&module_inner.key).unwrap();
 
-                pipeline_data.insert_pipeline(
+                self.pipeline_data.insert_pipeline(
                     step_id,
                     pipeline_id,
                     StepConfig {
@@ -103,7 +103,7 @@ impl Pipeline {
                     params.insert(key, value);
                 }
 
-                pipeline_data.insert_bin(
+                self.pipeline_data.insert_bin(
                     step_id,
                     self.id,
                     StepConfig {
@@ -147,14 +147,16 @@ impl Pipeline {
                 });
             }
         }
+
+        self.wait_senders(receiver_bin);
     }
 
-    pub fn wait_senders(pipeline_data: &mut PipelineData, receiver_bin: Receiver<BinSender>) {
-        if pipeline_data.total_bins > 0 {
-            let mut limit_senders = pipeline_data.total_bins - 1;
+    pub fn wait_senders(&mut self, receiver_bin: Receiver<BinSender>) {
+        if self.pipeline_data.total_bins > 0 {
+            let mut limit_senders = self.pipeline_data.total_bins - 1;
 
             for sender in receiver_bin {
-                pipeline_data.bin_sender(sender.id, sender.tx);
+                self.pipeline_data.bin_sender(sender.id, sender.tx);
 
                 if limit_senders == 0 {
                     break;

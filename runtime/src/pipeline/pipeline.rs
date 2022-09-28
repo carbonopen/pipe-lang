@@ -10,6 +10,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use super::data::PipelineData;
+
 #[derive(Debug, Clone)]
 pub struct Pipeline {
     pub id: ID,
@@ -18,6 +20,7 @@ pub struct Pipeline {
     pub references: HashMap<String, ID>,
     pub pipeline_traces: Arc<Mutex<PipelineTrace>>,
     pub debug_trace: DebugTrace,
+    pub pipeline_data: PipelineData
 }
 
 impl Pipeline {
@@ -34,6 +37,7 @@ impl Pipeline {
             lab,
             references: HashMap::default(),
             pipeline_traces,
+            pipeline_data: PipelineData::new(debug_trace.clone()),
             debug_trace,
         }
     }

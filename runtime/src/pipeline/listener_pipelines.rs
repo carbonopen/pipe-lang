@@ -6,33 +6,47 @@ use lab_core::modules::ID;
 use std::sync::mpsc::{Receiver, Sender};
 
 impl Pipeline {
+    fn send_step(
+        &self,
+        step_attach: ID,
+        pipeline_data: PipelineData,
+        pipeline_request: PipelineRequest,
+        sender_steps: Sender<Response>,
+    ) -> Result<(), std::sync::mpsc::SendError<Response>> {
+        let origin = step_attach + 1;
+        let attach = pipeline_data
+            .steps
+            .get(&origin)
+            .unwrap()
+            .config
+            .default_attach
+            .clone();
+
+        let response = Response {
+            payload: pipeline_request.request.payload,
+            attach,
+            origin,
+            trace: pipeline_request.request.trace,
+        };
+
+        sender_steps.send(response)
+    }
+
     pub fn listener_pipelines(
         &mut self,
         receiver_pipelines: Receiver<PipelineRequest>,
-        pipeline_data: PipelineData,
         initial_step_id: ID,
         sender_steps: Sender<Response>,
     ) {
         for pipeline_request in receiver_pipelines {
             let step_id = match pipeline_request.step_attach {
                 Some(step_attach) if pipeline_request.return_pipeline == true => {
-                    let origin = step_attach + 1;
-                    let attach = pipeline_data
-                        .steps
-                        .get(&origin)
-                        .unwrap()
-                        .config
-                        .default_attach
-                        .clone();
-
-                    let response = Response {
-                        payload: pipeline_request.request.payload,
-                        attach,
-                        origin,
-                        trace: pipeline_request.request.trace,
-                    };
-
-                    match sender_steps.send(response) {
+                    match self.send_step(
+                        step_attach,
+                        self.pipeline_data.clone(),
+                        pipeline_request,
+                        sender_steps.clone(),
+                    ) {
                         Ok(_) => continue,
                         Err(_) => panic!("Return error"),
                     }
@@ -40,7 +54,7 @@ impl Pipeline {
                 Some(step_attach) => step_attach,
                 None => initial_step_id,
             };
-            let step = match pipeline_data.steps.get(&step_id) {
+            let step = match self.pipeline_data.steps.get(&step_id) {
                 Some(step) => step,
                 None => panic!("Step not found"),
             };
