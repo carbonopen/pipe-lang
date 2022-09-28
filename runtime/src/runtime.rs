@@ -100,7 +100,7 @@ impl PipelineTrace {
         }
     }
 
-    pub fn remove_trace(&mut self, pipeline_id: &u32, trace_id: &u32) {
+    pub fn remove_trace(&mut self, pipeline_id: &ID, trace_id: &ID) {
         match self.traces.get_mut(trace_id) {
             Some(pipeline_trace) => {
                 if pipeline_trace.initial.eq(pipeline_id) {
@@ -115,7 +115,7 @@ impl PipelineTrace {
         }
     }
 
-    pub fn add_trace(&mut self, pipeline_id: &u32, trace_id: &u32, request: PipelineRequest) {
+    pub fn add_trace(&mut self, pipeline_id: &ID, trace_id: &ID, request: PipelineRequest) {
         match self.traces.get_mut(trace_id) {
             Some(pipeline_trace) => {
                 pipeline_trace.items.insert(*pipeline_id, request);
@@ -136,7 +136,7 @@ impl PipelineTrace {
         }
     }
 
-    pub fn get_trace(&self, pipeline_id: &u32, trace_id: &u32) -> Option<&PipelineRequest> {
+    pub fn get_trace(&self, pipeline_id: &ID, trace_id: &ID) -> Option<&PipelineRequest> {
         match self.traces.get(trace_id) {
             Some(pipeline_trace) => match pipeline_trace.items.get(pipeline_id) {
                 Some(request) => Some(request),
@@ -358,25 +358,9 @@ impl Runtime {
                     .clone(),
             };
 
-            let origin_pipeline = pipeline_steps_ref
-                .get(&pipeline_request.request.origin)
-                .unwrap();
-
-            let (new_pipeline_request, pipeline_id) = if pipeline_id.eq(origin_pipeline) {
-                (
-                    PipelineRequest {
-                        return_pipeline: true,
-                        ..pipeline_request
-                    },
-                    pipeline_id,
-                )
-            } else {
-                (pipeline_request, pipeline_id)
-            };
-
             let sender = pipeline_senders.get(&pipeline_id).unwrap();
 
-            match sender.send(new_pipeline_request) {
+            match sender.send(pipeline_request) {
                 Ok(_) => continue,
                 Err(err) => panic!("{:?}", err),
             }

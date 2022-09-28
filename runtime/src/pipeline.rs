@@ -148,13 +148,75 @@ impl Pipeline {
         self.references = references;
     }
 
+    pub fn start(
+        &mut self,
+        modules: Modules,
+        sender_setup_runtime: Sender<PipelineSetup>,
+        sender_pipelines: Sender<PipelineRequest>,
+        initial_step_id: ID,
+    ) -> Result<(), ()> {
+        let (sender_request_pipeline, receiver_pipelines): (
+            Sender<PipelineRequest>,
+            Receiver<PipelineRequest>,
+        ) = mpsc::channel();
+
+        if sender_setup_runtime
+            .send(PipelineSetup {
+                tx: sender_request_pipeline.clone(),
+                id: self.id,
+            })
+            .is_err()
+        {
+            panic!("An error occurred while starting the pipeline.");
+        }
+
+        drop(sender_setup_runtime);
+
+        let mut pipeline_data = PipelineData::new(sender_pipelines.clone());
+        let (sender_steps, receiver_steps): (Sender<Response>, Receiver<Response>) =
+            mpsc::channel();
+
+        {
+            let (sender_bin, receiver_bin): (Sender<BinSender>, Receiver<BinSender>) =
+                mpsc::channel();
+
+            self.load_and_start_steps(
+                initial_step_id,
+                &modules,
+                &mut pipeline_data,
+                sender_steps.clone(),
+                sender_bin.clone(),
+            );
+
+            Self::wait_senders(&mut pipeline_data, receiver_bin);
+
+            let pipeline_data_thread = pipeline_data.clone();
+
+            self.listener_step(
+                receiver_steps,
+                pipeline_data_thread,
+                sender_pipelines,
+                initial_step_id,
+            );
+        }
+
+        self.listener_pipeline(
+            receiver_pipelines,
+            pipeline_data,
+            initial_step_id,
+            sender_steps,
+        );
+
+        Ok(())
+    }
+
     fn load_and_start_steps<'a>(
         &self,
-        mut step_id: u32,
+        initial_step_id: ID,
         modules: &Modules,
         pipeline_data: &mut PipelineData,
         sender_steps: Sender<Response>,
-        tx_senders: Sender<BinSender>,
+        sender_bin: Sender<BinSender>,
     ) {
         let module_by_name = match self.lab.modules.clone() {
             Some(modules) => {
@@ -169,7 +231,8 @@ impl Pipeline {
             None => HashMap::default(),
         };
 
-        for step in self.lab.pipeline.iter() {
+        for (index, step) in self.lab.pipeline.iter().enumerate() {
+            let step_id = initial_step_id + index as ID;
             let step = step.clone();
 
             let current_module = match module_by_name.get(&step.module) {
@@ -251,7 +314,7 @@ impl Pipeline {
                 );
 
                 let response = sender_steps.clone();
-                let request = tx_senders.clone();
+                let request = sender_bin.clone();
                 let bin_key = modules.get_bin_key(&module_inner.key);
 
                 thread::spawn(move || {
@@ -278,70 +341,25 @@ impl Pipeline {
                     bin.start(step_id, request, response, pre_config);
                 });
             }
-
-            step_id += 1;
         }
     }
 
-    pub fn start(
-        &mut self,
-        modules: Modules,
-        sender_setup_runtime: Sender<PipelineSetup>,
-        sender_pipelines: Sender<PipelineRequest>,
-        initial_step_id: ID,
-    ) -> Result<(), ()> {
-        let (sender_request_pipeline, receiver_pipelines): (
-            Sender<PipelineRequest>,
-            Receiver<PipelineRequest>,
-        ) = mpsc::channel();
+    fn wait_senders(pipeline_data: &mut PipelineData, receiver_bin: Receiver<BinSender>) {
+        let mut limit_senders = if pipeline_data.total_bins > 0 {
+            pipeline_data.total_bins - 1
+        } else {
+            0
+        };
 
-        if sender_setup_runtime
-            .send(PipelineSetup {
-                tx: sender_request_pipeline.clone(),
-                id: self.id,
-            })
-            .is_err()
-        {
-            panic!("An error occurred while starting the pipeline.");
+        for sender in receiver_bin {
+            pipeline_data.bin_sender(sender.id, sender.tx);
+
+            if limit_senders == 0 {
+                break;
+            }
+
+            limit_senders -= 1;
         }
-
-        drop(sender_setup_runtime);
-
-        let mut pipeline_data = PipelineData::new(sender_pipelines.clone());
-        let (sender_steps, receiver_steps): (Sender<Response>, Receiver<Response>) = mpsc::channel();
-
-        {
-            let (tx_senders, rx_senders): (Sender<BinSender>, Receiver<BinSender>) =
-                mpsc::channel();
-
-            self.load_and_start_steps(
-                initial_step_id,
-                &modules,
-                &mut pipeline_data,
-                sender_steps.clone(),
-                tx_senders.clone(),
-            );
-
-            Self::wait_senders(&mut pipeline_data, rx_senders);
-
-            let pipeline_data_thread = pipeline_data.clone();
-
-            self.listener_step(
-                receiver_steps,
-                pipeline_data_thread,
-                sender_pipelines,
-                initial_step_id,
-            );
-        }
-
-        self.listener_pipeline(
-            receiver_pipelines,
-            pipeline_data,
-            initial_step_id,
-            sender_steps,
-        );
-
-        Ok(())
     }
 
     fn listener_step<'a>(
@@ -349,7 +367,7 @@ impl Pipeline {
         receiver_steps: Receiver<Response>,
         pipeline_data: PipelineData,
         sender_pipelines: Sender<PipelineRequest>,
-        initial_step_id: u32,
+        initial_step_id: ID,
     ) {
         let pipeline_id = self.id;
         let pipeline_traces = self.pipeline_traces.clone();
@@ -387,14 +405,12 @@ impl Pipeline {
                                 .get_trace(&pipeline_id, &response.trace.trace_id)
                             {
                                 Some(pipeline_request) => {
-                                    match sender_pipelines.send(
-                                        PipelineRequest::from_request(
-                                            request,
-                                            None,
-                                            Some(pipeline_request.request.origin),
-                                            true,
-                                        ),
-                                    ) {
+                                    match sender_pipelines.send(PipelineRequest::from_request(
+                                        request,
+                                        None,
+                                        Some(pipeline_request.request.origin),
+                                        true,
+                                    )) {
                                         Ok(_) => {
                                             lock_pipeline_traces.remove_trace(
                                                 &pipeline_id,
@@ -434,7 +450,7 @@ impl Pipeline {
         &mut self,
         receiver_pipelines: Receiver<PipelineRequest>,
         pipeline_data: PipelineData,
-        initial_step_id: u32,
+        initial_step_id: ID,
         sender_steps: Sender<Response>,
     ) {
         for pipeline_request in receiver_pipelines {
@@ -484,24 +500,6 @@ impl Pipeline {
                 }
                 _ => (),
             }
-        }
-    }
-
-    fn wait_senders(pipeline_data: &mut PipelineData, rx_senders: Receiver<BinSender>) {
-        let mut limit_senders = if pipeline_data.total_bins > 0 {
-            pipeline_data.total_bins - 1
-        } else {
-            0
-        };
-
-        for sender in rx_senders {
-            pipeline_data.bin_sender(sender.id, sender.tx);
-
-            if limit_senders == 0 {
-                break;
-            }
-
-            limit_senders -= 1;
         }
     }
 }

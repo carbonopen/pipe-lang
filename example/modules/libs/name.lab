@@ -1,5 +1,7 @@
 import {
-    mod "../print" ()
+    bin "../../../target/release/libprint.so" (
+        name="print"
+    )
     mod "../helpers/concat" ()
 }
 
