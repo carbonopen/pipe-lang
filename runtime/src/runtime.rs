@@ -10,6 +10,7 @@ use std::{
 };
 use std::{sync::mpsc, thread};
 
+use crate::envs::Envs;
 use crate::lab::{Lab, ModuleType};
 use crate::pipeline::Pipeline;
 
@@ -161,7 +162,7 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn builder(target: &str, lab_lang_extension_path: &str) -> Result<Self, ()> {
+    pub fn builder(target: &str, envs: &Envs) -> Result<Self, ()> {
         let mut targets = vec![target.to_string()];
         let mut aliases: Aliases = HashMap::new();
         let mut pipelines: Pipelines = HashMap::new();
@@ -187,7 +188,7 @@ impl Runtime {
             let target_key = target.to_str().unwrap().to_string();
 
             let lab = match LabParse::from_path(&target_key) {
-                Ok(value) => Lab::new(&value, lab_lang_extension_path),
+                Ok(value) => Lab::new(&value, &envs.runtime_extension_path),
                 Err(_) => return Err(()),
             };
 
@@ -385,19 +386,12 @@ impl Runtime {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
-
     use super::*;
 
     #[test]
     fn runtime_tet() {
-        match Runtime::builder(
-            "example/modules/main.lab",
-            &format!(
-                "{}/extensions",
-                env::current_dir().unwrap().to_str().unwrap()
-            ),
-        ) {
+        let envs = Envs::builder();
+        match Runtime::builder("example/modules/main.lab", &envs) {
             Ok(run) => run.start(),
             Err(_) => assert!(false),
         }

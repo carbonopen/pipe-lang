@@ -1,3 +1,4 @@
+mod trace;
 mod envs;
 pub mod extensions;
 mod lab;
@@ -37,7 +38,7 @@ fn main() {
             Ok(lab) => to_file::to_json(&lab, &path),
             Err(err) => log::error!("{:?}: {}", err, &args.path),
         },
-        None => match Runtime::builder(&args.path, &envs.runtime_extension_path) {
+        None => match Runtime::builder(&args.path, &envs) {
             Ok(run) => run.start(),
             Err(err) => log::error!("{:?}: {}", err, &args.path),
         },

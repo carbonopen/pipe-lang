@@ -1,0 +1,17 @@
+import {
+    bin "../../target/release/libprint.so" (
+        name="print"
+    )
+}
+
+args {
+    text: String
+}
+
+pipeline {
+    print {
+        text=${args.text}
+    }
+}
+
+
