@@ -1,8 +1,8 @@
-use lab_core::modules::Response;
-use crate::runtime::PipelineRequest;
 use super::{data::PipelineData, Pipeline};
-use lab_core::modules::ID;
+use crate::runtime::PipelineRequest;
 use core::panic;
+use lab_core::modules::Response;
+use lab_core::modules::ID;
 use std::sync::mpsc::{Receiver, Sender};
 
 impl Pipeline {
