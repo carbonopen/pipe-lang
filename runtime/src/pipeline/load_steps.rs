@@ -17,7 +17,6 @@ use std::{
 impl Pipeline {
     pub fn load_and_start_steps<'a>(
         &mut self,
-        initial_step_id: ID,
         modules: &Modules,
         sender_steps: Sender<Response>,
         sender_bin: Sender<BinSender>,
@@ -37,7 +36,7 @@ impl Pipeline {
         };
 
         for (index, step) in self.lab.pipeline.iter().enumerate() {
-            let step_id = initial_step_id + index as ID;
+            let step_id = self.initial_step_id + index as ID;
             let step = step.clone();
 
             let current_module = match module_by_name.get(&step.module) {

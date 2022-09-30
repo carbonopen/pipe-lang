@@ -1,7 +1,7 @@
 use super::pipeline::Pipeline;
 use crate::runtime::PipelineRequest;
 use core::panic;
-use lab_core::modules::{Response, ID};
+use lab_core::modules::Response;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
@@ -10,11 +10,11 @@ impl Pipeline {
         &self,
         receiver_steps: Receiver<Response>,
         sender_pipelines: Sender<PipelineRequest>,
-        initial_step_id: ID,
     ) {
         let pipeline_id = self.id;
         let pipeline_traces = self.pipeline_traces.clone();
         let pipeline_data = self.pipeline_data.clone();
+        let initial_step_id = self.initial_step_id.clone();
 
         thread::spawn(move || {
             for response in receiver_steps {

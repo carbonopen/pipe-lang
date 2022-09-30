@@ -17,6 +17,8 @@ impl Pipeline {
         sender_pipelines: Sender<PipelineRequest>,
         initial_step_id: ID,
     ) -> Result<(), ()> {
+        self.initial_step_id = initial_step_id;
+
         let (sender_request_pipeline, receiver_pipelines): (
             Sender<PipelineRequest>,
             Receiver<PipelineRequest>,
@@ -44,17 +46,16 @@ impl Pipeline {
                 mpsc::channel();
 
             self.load_and_start_steps(
-                initial_step_id,
                 &modules,
                 sender_steps.clone(),
                 sender_bin.clone(),
                 receiver_bin,
             );
 
-            self.listener_steps(receiver_steps, sender_pipelines, initial_step_id);
+            self.listener_steps(receiver_steps, sender_pipelines);
         }
 
-        self.listener_pipelines(receiver_pipelines, initial_step_id, sender_steps);
+        self.listener_pipelines(receiver_pipelines, sender_steps);
 
         Ok(())
     }

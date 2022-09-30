@@ -35,17 +35,17 @@ impl Pipeline {
     pub fn listener_pipelines(
         &mut self,
         receiver_pipelines: Receiver<PipelineRequest>,
-        initial_step_id: ID,
         sender_steps: Sender<Response>,
     ) {
         for pipeline_request in receiver_pipelines {
             let step_id = match pipeline_request.step_attach {
                 Some(step_attach) if pipeline_request.return_pipeline == true => {
-                    self.send_step(step_attach, pipeline_request, sender_steps.clone()).expect("Return error");
+                    self.send_step(step_attach, pipeline_request, sender_steps.clone())
+                        .expect("Return error");
                     continue;
                 }
                 Some(step_attach) => step_attach,
-                None => initial_step_id,
+                None => self.initial_step_id,
             };
             let step = self.pipeline_data.steps.get(&step_id).expect("Step not");
             let trace_id = pipeline_request.request.trace.trace_id;

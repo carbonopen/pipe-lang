@@ -20,7 +20,8 @@ pub struct Pipeline {
     pub references: HashMap<String, ID>,
     pub pipeline_traces: Arc<Mutex<PipelineTrace>>,
     pub debug_trace: DebugTrace,
-    pub pipeline_data: PipelineData
+    pub pipeline_data: PipelineData,
+    pub initial_step_id: ID
 }
 
 impl Pipeline {
@@ -39,10 +40,12 @@ impl Pipeline {
             pipeline_traces,
             pipeline_data: PipelineData::new(debug_trace.clone()),
             debug_trace,
+            initial_step_id: 0,
         }
     }
 
     pub fn add_references(&mut self, references: HashMap<String, ID>) {
         self.references = references;
     }
+
 }

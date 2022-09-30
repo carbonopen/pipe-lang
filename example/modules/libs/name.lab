@@ -2,6 +2,11 @@ import {
     mod "../print" ()
 
     mod "../helpers/concat" ()
+
+     bin "../../../target/release/liblink.so" (
+        name="link"
+    )
+
 }
 
 args {
@@ -10,6 +15,8 @@ args {
 }
 
 pipeline {
+    link {}
+
     print {
         text=`First name: ${args.first_name}`
     }
@@ -22,21 +29,6 @@ pipeline {
         text="------------"
     }
 
-    concat {
-        item1=${args.first_name}
-        item2=${args.last_name}
-        item3="!"
-
-        | final
-    }
-
-    print {
-        text="Pulou esse"
-    }
-
-    print final {
-        text="Esse OK"
-    }
 
 }
 
